@@ -20,7 +20,10 @@ export interface WhitelistWebhookPayload {
   userId: string;
   discordUserId: string | null;
   // Étape 1 — HRP
-  dob: string; // ISO datetime
+  // Candidature v2 (formVersion 2) : dob, motivation, experience et appearance
+  // n'existent plus ; ils restent des chaînes VIDES pour l'ancien bot, qui les lit
+  // sans contrôle (format inchangé).
+  dob: string; // ISO datetime, '' en v2
   motivation: string;
   experience: string;
   availability: string;
@@ -32,6 +35,24 @@ export interface WhitelistWebhookPayload {
   history: string;
   appearance: string;
   objectives: string;
+  // Candidature v2 (CANDIDATURE_ET_DOUANE.md §2.3) — ajoutés, ignorés par l'ancien
+  // bot. Codes ASCII des listes fermées (libellés : GET /v1/whitelist/options).
+  formVersion?: number;
+  playerAge?: number | null;
+  rpYears?: string | null;
+  narutoKnowledge?: string | null;
+  discoverySource?: string | null;
+  characterType?: string | null;
+  characterSex?: string | null;
+  characterAge?: number | null;
+  /** Durée de l'enregistrement vocal joint (à écouter dans le panel), null sans voix. */
+  voiceDurationSec?: number | null;
+  /**
+   * État des deux parties de l'écrit à l'envoi : après un renvoi « à revoir »,
+   * le bot ne repropose pas une partie déjà validée.
+   */
+  hrpStatus?: string;
+  rpStatus?: string;
 }
 
 export interface TicketWebhookPayload {
@@ -71,7 +92,11 @@ export interface SecurityAlertPayload {
 export interface DirectMessagePayload {
   discordUserId: string;
   context: {
-    kind: 'whitelist' | 'ticket';
+    /**
+     * `douane` : MP au CANDIDAT (rappel 1 h avant sa séance, séance annulée,
+     * retrait ou report), sans bouton vers le panel (lot H).
+     */
+    kind: 'whitelist' | 'ticket' | 'douane';
     entityId: string;
     subject?: string;
   };

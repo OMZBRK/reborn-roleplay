@@ -72,8 +72,36 @@ services:
       MODRINTH_SYNC_ENABLED: ${MODRINTH_SYNC_ENABLED:-}
       REBORN_MC_VERSION: ${REBORN_MC_VERSION:-26.2}
       REBORN_PLAY_TOKEN_SECRET: ${REBORN_PLAY_TOKEN_SECRET}
+      # Jeton de jeu et douane (docs/technique/PLUGINS_REFERENCE.md §5.4). Sans
+      # ces lignes, .env.prod n'atteint pas le conteneur : « aucun serveur » et
+      # « douane coupée » quoi qu'on y pose.
+      # Serveur visé par défaut (claim aud, = server-id de Guardian) et serveurs
+      # qu'un launcher peut demander. Vides = pas de aud (ancien comportement).
+      REBORN_SERVER_ID: ${REBORN_SERVER_ID:-}
+      REBORN_SERVER_IDS: ${REBORN_SERVER_IDS:-}
+      # Émet les jetons « douane », pour tous les serveurs : true seulement à
+      # l'étape 4 de la transition.
+      REBORN_DOUANE_ENABLED: ${REBORN_DOUANE_ENABLED:-false}
+      # Retard maximal après l'heure de convocation, en minutes (5 à 120) :
+      # bouton du launcher, passage en « manquée » et jeton de jeu. L'entrée
+      # ouvre toujours 15 min avant.
+      DOUANE_RETARD_MAX_MIN: ${DOUANE_RETARD_MAX_MIN:-30}
+      # Routes signées du serveur de jeu (/v1/game/acces, /v1/game/douane/*,
+      # /v1/game/characters/sync) : secret propre au jeu, jamais
+      # REBORN_WEBHOOK_SECRET. Reco : un secret par serveur,
+      # REBORN_GAME_SECRETS="dev:…,build:…" (passe avant REBORN_GAME_SECRET).
+      # Vides = routes coupées (503).
+      REBORN_GAME_SECRET: ${REBORN_GAME_SECRET:-}
+      REBORN_GAME_SECRETS: ${REBORN_GAME_SECRETS:-}
+      # « Mes personnages » du launcher : serveurs lus (server-id de ShinobiCore,
+      # séparés par des virgules). Vide = prod. Les personnages du dev arrivent
+      # aussi dans la même base : jamais l'identifiant du dev ici.
+      REBORN_CHARACTERS_SERVER_IDS: ${REBORN_CHARACTERS_SERVER_IDS:-}
       MANIFEST_PUBLIC_KEY_HEX: ${MANIFEST_PUBLIC_KEY_HEX}
       LAUNCHER_BETA_GATE: ${LAUNCHER_BETA_GATE:-}
+      # Comptes de test admis malgré la porte beta (UUID Minecraft séparés par
+      # des virgules) : candidature v2 et douane essayées avec de vrais PLAYER.
+      LAUNCHER_BETA_ALLOW: ${LAUNCHER_BETA_ALLOW:-}
       # Cible du ping serveur (endpoint /v1/server/status).
       REBORN_SERVER_HOST: ${REBORN_SERVER_HOST}
       REBORN_SERVER_PORT: ${REBORN_SERVER_PORT:-25565}
@@ -92,6 +120,11 @@ services:
       TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID:-}
       TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET:-}
       REBORN_STREAMERS: ${REBORN_STREAMERS:-kameto,etostark,mehditdonc,omzbrk,jltomy}
+      # Compteur Discord du panneau : code de l'invitation publique du Discord
+      # des joueurs (lu sans jeton). Code public (DECISIONS.md) mis en défaut,
+      # comme REBORN_STREAMERS, pour que le compteur marche sans toucher au
+      # .env.prod ; y poser DISCORD_INVITE_CODE seulement pour en changer.
+      DISCORD_INVITE_CODE: ${DISCORD_INVITE_CODE:-Nw7jpjJ6dg}
       # Base web des liens patch notes ouverts au clic depuis le menu ESC.
       REBORN_WEB_URL: ${REBORN_WEB_URL:-https://reborn-rp.fr}
       # Gestionnaire de fichiers panel (serveur DEV) — l'API se connecte en SFTP

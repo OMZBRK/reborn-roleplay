@@ -1,139 +1,166 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import {
-  IconAudit,
-  IconBook,
-  IconBulb,
-  IconDashboard,
-  IconInbox,
-  IconLogout,
-  IconMegaphone,
-  IconPlayers,
-  IconServer,
-  IconShield,
-  IconTechnique,
-  IconTickets,
-  IconWhitelist,
-} from '@/components/icons';
-import { StaffIdentity } from '@/components/StaffIdentity';
+import { Suspense, useEffect, useState } from 'react';
+import { MCAvatar } from '@/components/MCAvatar';
+import { CommandPalette } from '@/components/shell/CommandPalette';
+import { RaccourcisGlobaux } from '@/components/shell/Raccourcis';
+import { Sidebar } from '@/components/shell/Sidebar';
+import { Icone } from '@/components/ui/Icone';
+import { Kbd } from '@/components/ui/Kbd';
+import { ErrorState } from '@/components/ui/States';
+import { useCompteursMenu } from '@/lib/a-traiter';
 import { clearTokens, isAuthenticated } from '@/lib/auth';
+import { useDroits } from '@/lib/droits';
+import { pageArrivee, sectionsPermises } from '@/lib/navigation';
+import logo from '@/components/shell/logo.png';
 
-interface NavItem {
-  href: string;
-  label: string;
-  Icon: React.FC<{ className?: string }>;
-}
-
-const NAV: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', Icon: IconDashboard },
-  { href: '/inbox', label: 'Mes prises', Icon: IconInbox },
-  { href: '/whitelist', label: 'Whitelist', Icon: IconWhitelist },
-  { href: '/oral-slots', label: 'Créneaux oraux', Icon: IconWhitelist },
-  { href: '/tickets', label: 'Tickets', Icon: IconTickets },
-  { href: '/players', label: 'Joueurs', Icon: IconPlayers },
-  { href: '/files', label: 'Fichiers', Icon: IconServer },
-  { href: '/abilities', label: 'Techniques', Icon: IconTechnique },
-  { href: '/wiki', label: 'Wiki', Icon: IconBook },
-  { href: '/wiki/ideas', label: 'Idées', Icon: IconBulb },
-  { href: '/discord', label: 'Discord', Icon: IconMegaphone },
-  { href: '/audit', label: 'Audit', Icon: IconAudit },
-  { href: '/anomalies', label: 'Anomalies', Icon: IconShield },
-];
-
-export default function PanelLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+/**
+ * Coquille du panel v2 (PANEL_V2 §3.2, §9) : barre latérale à six sections +
+ * Réglages, palette Ctrl K, raccourcis globaux. Sous 1 024 px la barre
+ * devient un tiroir ouvert par le bouton menu de la barre du haut ; sur
+ * téléphone (moins de 768 px), une barre du bas garde À traiter · Rechercher ·
+ * Moi sous le pouce.
+ */
+export default function PanelLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const [ready, setReady] = useState(false);
+  const chemin = usePathname();
+  const qc = useQueryClient();
+  const [pret, setPret] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const [palette, setPalette] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated()) {
       router.replace('/');
       return;
     }
-    setReady(true);
+    setPret(true);
   }, [router]);
 
-  if (!ready) {
-    return null;
+  // Le tiroir se referme à chaque changement de page.
+  useEffect(() => setMenu(false), [chemin]);
+
+  function deconnecter() {
+    clearTokens();
+    qc.clear();
+    router.replace('/');
   }
 
+  if (!pret) return null;
+
   return (
-    <div className="min-h-screen flex">
-      <aside className="w-64 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-surface)] flex flex-col">
-        <div className="px-5 py-6">
-          <div className="text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">
-            Reborn
-          </div>
-          <div
-            className="mt-1 text-2xl leading-none"
-            style={{ fontFamily: 'var(--font-display)' }}
+    <div className="app-shell">
+      <a href="#contenu" className="skip-link">
+        Aller au contenu
+      </a>
+      <Sidebar
+        ouvert={menu}
+        onNaviguer={() => setMenu(false)}
+        onRechercher={() => {
+          setMenu(false);
+          setPalette(true);
+        }}
+        onDeconnecter={deconnecter}
+      />
+      {menu && <div className="veil lg:hidden" onClick={() => setMenu(false)} aria-hidden />}
+      <div className="min-w-0">
+        <div className="topbar">
+          <button
+            type="button"
+            className="btn btn-icon btn-ghost"
+            aria-label="Ouvrir le menu"
+            aria-expanded={menu}
+            onClick={() => setMenu(true)}
           >
-            Panel Staff
-          </div>
-          <div className="mt-3 h-[2px] w-12 rounded-full bg-gradient-to-r from-[var(--color-accent)] to-transparent shadow-[var(--shadow-glow-accent)]" />
+            <Icone nom="menu" />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={logo.src} alt="" width={24} height={24} className="rounded-[6px]" />
+          <span className="side-brand-t text-[18px]">Reborn</span>
+          <button
+            type="button"
+            className="side-search ml-auto mb-0 w-auto min-w-[44px]"
+            onClick={() => setPalette(true)}
+            aria-label="Rechercher"
+          >
+            <Icone nom="search" taille={16} />
+            <span className="hidden sm:inline">Rechercher…</span>
+            <span className="hidden md:inline-flex">
+              <Kbd>Ctrl K</Kbd>
+            </span>
+          </button>
         </div>
-
-        <nav className="flex-1 px-3 space-y-1">
-          {(() => {
-            // Route active = le lien dont le href est le PLUS SPÉCIFIQUE à matcher
-            // le chemin courant (sinon /wiki/ideas surlignerait aussi /wiki).
-            const activeHref = NAV.reduce<string | null>((best, item) => {
-              const matches =
-                pathname === item.href || pathname?.startsWith(`${item.href}/`);
-              if (matches && item.href.length > (best?.length ?? -1)) {
-                return item.href;
-              }
-              return best;
-            }, null);
-            return NAV.map(({ href, label, Icon }) => {
-              const active = href === activeHref;
-              return (
-              <Link
-                key={href}
-                href={href}
-                className={`group flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm transition-colors ${
-                  active
-                    ? 'bg-[var(--color-accent-soft)] text-[var(--color-foreground)] shadow-[inset_0_0_0_1px_var(--color-accent)]'
-                    : 'text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-foreground)]'
-                }`}
-              >
-                <Icon
-                  className={`shrink-0 ${
-                    active
-                      ? 'text-[var(--color-accent)]'
-                      : 'text-[var(--color-foreground-muted)] group-hover:text-[var(--color-foreground-subtle)]'
-                  }`}
-                />
-                {label}
-              </Link>
-              );
-            });
-          })()}
-        </nav>
-
-        <StaffIdentity />
-
-        <button
-          type="button"
-          onClick={() => {
-            clearTokens();
-            router.replace('/');
-          }}
-          className="mx-3 mb-4 flex items-center justify-center gap-2 rounded-[10px] border border-[var(--color-border-strong)] py-2 text-sm text-[var(--color-foreground-subtle)] hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger)] transition-colors"
-        >
-          <IconLogout />
-          Deconnexion
-        </button>
-      </aside>
-
-      <main className="flex-1 min-w-0">{children}</main>
+        <main id="contenu" className="main" tabIndex={-1}>
+          <GardeProfil>
+            <Suspense fallback={null}>{children}</Suspense>
+          </GardeProfil>
+        </main>
+      </div>
+      <BarreBas onRechercher={() => setPalette(true)} />
+      <CommandPalette ouvert={palette} onFermer={() => setPalette(false)} />
+      <RaccourcisGlobaux onPalette={() => setPalette((v) => !v)} />
     </div>
   );
+}
+
+/**
+ * Barre du bas, téléphone seulement (PANEL_V2 §9) : À traiter (ou la section
+ * d'arrivée d'un grade sans file), Rechercher (palette), Moi (Réglages ›
+ * Compte). Le reste passe par le tiroir.
+ */
+function BarreBas({ onRechercher }: { onRechercher: () => void }) {
+  const chemin = usePathname() ?? '';
+  const { moi, capacites, charge } = useDroits();
+  const compteurs = useCompteursMenu();
+  if (charge || !moi) return null;
+  const file = sectionsPermises(capacites).find((s) => s.cle === 'a-traiter');
+  const accueil = file ? '/dashboard' : pageArrivee(capacites);
+  const n = file ? (compteurs['a-traiter']?.n ?? 0) : 0;
+  const retard = file ? !!compteurs['a-traiter']?.retard : false;
+  const surAccueil = chemin === accueil || (file !== undefined && chemin.startsWith('/inbox'));
+  const surMoi = chemin === '/settings';
+  return (
+    <nav className="barre-bas" aria-label="Accès rapide">
+      <Link href={accueil} className="barre-bas-l" aria-current={surAccueil ? 'page' : undefined}>
+        <span className="relative">
+          <Icone nom={file ? 'inbox' : 'book-open'} />
+          {n > 0 && (
+            <span className={`barre-bas-n ${retard ? 'late' : ''}`} aria-hidden>
+              {n > 99 ? '99+' : n}
+            </span>
+          )}
+        </span>
+        <span>{file ? 'À traiter' : 'Accueil'}</span>
+        {n > 0 && <span className="sr-only">{`, ${n} en attente`}</span>}
+      </Link>
+      <button type="button" className="barre-bas-l" onClick={onRechercher}>
+        <Icone nom="search" />
+        <span>Rechercher</span>
+      </button>
+      <Link href="/settings" className="barre-bas-l" aria-current={surMoi ? 'page' : undefined}>
+        <MCAvatar uuid={moi.minecraftUuid} size={22} />
+        <span>Moi</span>
+      </Link>
+    </nav>
+  );
+}
+
+/**
+ * Le profil (et donc les capacités) doit être lu avant d'afficher une page :
+ * sans lui, le panel ne sait pas ce qu'il peut montrer.
+ */
+function GardeProfil({ children }: { children: React.ReactNode }) {
+  const { moi, charge, erreur } = useDroits();
+  if (charge) return null;
+  if (erreur && !moi) {
+    return (
+      <div className="page-narrow mt-10">
+        <ErrorState erreur={erreur} onReessayer={() => window.location.reload()} />
+      </div>
+    );
+  }
+  return <>{children}</>;
 }

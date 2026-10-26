@@ -1,160 +1,233 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { IconShield } from '@/components/icons';
-import { SkeletonRows } from '@/components/Skeleton';
+import { Garde } from '@/components/Garde';
+import { MCAvatar } from '@/components/MCAvatar';
+import { SectionTabs } from '@/components/shell/SectionTabs';
+import { Badge } from '@/components/ui/Badge';
+import { Button, Mot } from '@/components/ui/Button';
+import { DataTable, type Colonne } from '@/components/ui/DataTable';
+import { Icone } from '@/components/ui/Icone';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { EmptyState, messageErreur } from '@/components/ui/States';
+import { Segmented } from '@/components/ui/Tabs';
+import { useNomsJoueurs } from '@/lib/a-traiter';
 import { api } from '@/lib/api';
+import { useDroits } from '@/lib/droits';
+import { dateHeure, ilYa, pluriel } from '@/lib/format';
+import type { IpAnomalie, LoginAnomaly } from '@/lib/types';
 
-interface LoginAnomaly {
-  id: string;
-  userId: string;
-  ipAddress: string;
-  country: string | null;
-  reason: string;
-  acknowledged: boolean;
-  notifiedVia: string[];
-  createdAt: string;
+/**
+ * Modération › Sécurité (PANEL_V2 §4.4) : connexions suspectes, avec lien
+ * vers la fiche du joueur, pays, IP masquée. La liste n'apporte plus l'IP au
+ * navigateur : « Afficher » lit l'adresse de CETTE connexion par une route
+ * journalisée (`anomaly.ip.view`, cible = la connexion) ; « Vue » en mot,
+ * sélection multiple possible. Réservé aux administrateurs.
+ */
+
+type Filtre = 'avoir' | 'vues' | 'toutes';
+
+export default function SecuritePage() {
+  return (
+    <Garde capacites={['securite.voir']} message="Réservé aux administrateurs.">
+      <Securite />
+    </Garde>
+  );
 }
 
-export default function AnomaliesPage() {
+function Securite() {
   const qc = useQueryClient();
-  const [showAll, setShowAll] = useState(false);
+  const { peut } = useDroits();
+  const [filtre, setFiltre] = useState<Filtre>('avoir');
+  const [selection, setSelection] = useState<string[]>([]);
+  const [revelees, setRevelees] = useState<Record<string, IpAnomalie>>({});
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['admin', 'anomalies', showAll],
-    queryFn: () =>
-      api<LoginAnomaly[]>(
-        `/admin/anomalies${showAll ? '' : '?unack=true'}`,
-      ),
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['admin', 'anomalies', 'toutes'],
+    queryFn: () => api<LoginAnomaly[]>('/admin/anomalies'),
     refetchInterval: 30_000,
   });
+  const noms = useNomsJoueurs((data ?? []).map((a) => a.userId), peut('joueurs.voir'));
 
-  const ackMut = useMutation({
-    mutationFn: (id: string) =>
-      api(`/admin/anomalies/${id}/ack`, { method: 'POST' }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin', 'anomalies'] });
-      toast.success('Anomalie acknowledgée');
+  const lignes = useMemo(
+    () =>
+      (data ?? []).filter((a) =>
+        filtre === 'avoir' ? !a.acknowledged : filtre === 'vues' ? a.acknowledged : true,
+      ),
+    [data, filtre],
+  );
+  const aVoir = (data ?? []).filter((a) => !a.acknowledged).length;
+
+  const marquer = useMutation({
+    mutationFn: async (ids: string[]) => {
+      for (const id of ids) await api(`/admin/anomalies/${id}/ack`, { method: 'POST' });
     },
-    onError: (err) => toast.error((err as Error).message),
+    onSuccess: (_d, ids) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'anomalies'] });
+      setSelection([]);
+      toast.success(ids.length > 1 ? `${ids.length} connexions marquées vues` : 'Connexion marquée vue');
+    },
+    onError: (e) => toast.error('Échec', { description: messageErreur(e) }),
   });
 
-  return (
-    <div className="px-10 py-10 max-w-5xl mx-auto">
-      <header className="mb-8">
-        <div className="text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">
-          Securite
-        </div>
-        <h1
-          className="mt-1 text-5xl leading-none bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent"
-          style={{ fontFamily: 'var(--font-display)' }}
-        >
-          Anomalies de login
-        </h1>
-        <div className="mt-3 h-[2px] w-24 bg-gradient-to-r from-[var(--color-accent)] to-transparent shadow-[var(--shadow-glow-accent)]" />
-        <p className="mt-3 text-xs text-[var(--color-foreground-muted)] max-w-2xl">
-          Logins detectes depuis un nouveau pays par rapport au precedent
-          connu. Ack pour marquer comme verifie (utilisateur en deplacement,
-          changement d'IP legitime, etc.).
-        </p>
-      </header>
+  // « Afficher » : l'adresse de cette connexion, lue à la demande ; l'API
+  // l'inscrit au journal avant de la renvoyer.
+  const reveler = useMutation({
+    mutationFn: (a: LoginAnomaly) => api<IpAnomalie>(`/admin/anomalies/${a.id}/ip`),
+    onSuccess: (ip, a) => setRevelees((r) => ({ ...r, [a.id]: ip })),
+    onError: (e) => toast.error('Adresse non affichée', { description: messageErreur(e) }),
+  });
 
-      <div className="mb-4 flex gap-2">
-        <button
-          type="button"
-          onClick={() => setShowAll(false)}
-          className={`rounded-full px-4 py-1.5 text-sm transition-colors ${
-            !showAll
-              ? 'bg-[var(--color-accent)] text-white shadow-[var(--shadow-glow-accent)]'
-              : 'border border-[var(--color-border-strong)] text-[var(--color-foreground-subtle)]'
-          }`}
-        >
-          À traiter
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowAll(true)}
-          className={`rounded-full px-4 py-1.5 text-sm transition-colors ${
-            showAll
-              ? 'bg-[var(--color-accent)] text-white shadow-[var(--shadow-glow-accent)]'
-              : 'border border-[var(--color-border-strong)] text-[var(--color-foreground-subtle)]'
-          }`}
-        >
-          Toutes
-        </button>
+  const colonnes: Colonne<LoginAnomaly>[] = [
+    {
+      cle: 'sel',
+      titre: <span className="sr-only">Sélection</span>,
+      largeur: '44px',
+      rendu: (a) =>
+        a.acknowledged ? null : (
+          <input
+            type="checkbox"
+            className="check"
+            aria-label="Sélectionner"
+            checked={selection.includes(a.id)}
+            onChange={(e) =>
+              setSelection((s) => (e.target.checked ? [...s, a.id] : s.filter((x) => x !== a.id)))
+            }
+          />
+        ),
+    },
+    {
+      cle: 'quand',
+      titre: 'Quand',
+      serre: true,
+      rendu: (a) => <span title={dateHeure(a.createdAt)}>{ilYa(a.createdAt)}</span>,
+    },
+    {
+      cle: 'joueur',
+      titre: 'Joueur',
+      rendu: (a) => {
+        const n = noms.get(a.userId);
+        return n ? (
+          <span className="who">
+            <MCAvatar uuid={n.uuid} size={22} />
+            <Link href={`/players/${a.userId}?onglet=securite`} className="truncate text-fg lien-discret">
+              {n.pseudo}
+            </Link>
+          </span>
+        ) : (
+          <Link href={`/players/${a.userId}?onglet=securite`} className="lien">
+            Ouvrir la fiche
+          </Link>
+        );
+      },
+    },
+    { cle: 'signal', titre: 'Signal', rendu: (a) => <span className="text-fg">{a.reason}</span> },
+    { cle: 'pays', titre: 'Pays', serre: true, rendu: (a) => a.country ?? <span className="text-fg-3">inconnu</span> },
+    {
+      cle: 'ip',
+      titre: 'Adresse IP',
+      serre: true,
+      cacherEtroit: true,
+      rendu: (a) =>
+        !a.ipConnue ? (
+          <span className="text-fg-3">aucune</span>
+        ) : revelees[a.id] ? (
+          <span className="mono">{revelees[a.id]!.ip ?? 'aucune'}</span>
+        ) : (
+          <span className="inline-flex items-center gap-3">
+            <span className="mono text-fg-3" aria-label="Adresse masquée">
+              •••.•••.•••.••
+            </span>
+            {peut('joueurs.ip') && (
+              <Mot onClick={() => reveler.mutate(a)} enCours={reveler.isPending && reveler.variables?.id === a.id}>
+                <span className="inline-flex items-center gap-1">
+                  <Icone nom="eye" taille={14} /> Afficher
+                </span>
+              </Mot>
+            )}
+          </span>
+        ),
+    },
+    {
+      cle: 'statut',
+      titre: 'Statut',
+      serre: true,
+      align: 'droite',
+      rendu: (a) =>
+        a.acknowledged ? (
+          <span className="text-fg-3">Vue</span>
+        ) : (
+          <span className="inline-flex items-center gap-3">
+            <Badge ton="attention">À voir</Badge>
+            <Mot onClick={() => marquer.mutate([a.id])} disabled={marquer.isPending}>
+              Marquer vue
+            </Mot>
+          </span>
+        ),
+    },
+  ];
+
+  return (
+    <div className="page">
+      <PageHeader
+        fil={[{ label: 'Modération' }]}
+        titre="Modération"
+        sousTitre={
+          <>
+            Connexions suspectes · <b>{pluriel(aVoir, 'à voir', 'à voir')}</b> · réservé aux administrateurs
+          </>
+        }
+      />
+      <SectionTabs section="moderation" compteurs={{ securite: aVoir || null }} />
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <Segmented<Filtre>
+          label="Connexions affichées"
+          valeur={filtre}
+          onChange={(f) => {
+            setFiltre(f);
+            setSelection([]);
+          }}
+          options={[
+            { valeur: 'avoir', label: 'À voir', n: aVoir },
+            { valeur: 'vues', label: 'Vues' },
+            { valeur: 'toutes', label: 'Toutes' },
+          ]}
+        />
+        {selection.length > 0 && (
+          <div className="inline-flex items-center gap-3 rounded-[8px] border border-border bg-surface-2 px-3 py-1.5 text-[13px]">
+            <span>{pluriel(selection.length, 'sélectionnée')}</span>
+            <Button taille="sm" enCours={marquer.isPending} onClick={() => marquer.mutate(selection)}>
+              Marquer vues
+            </Button>
+            <Mot ton="neutre" onClick={() => setSelection([])}>
+              Annuler
+            </Mot>
+          </div>
+        )}
       </div>
 
-      {isLoading && !data ? (
-        <SkeletonRows count={4} />
-      ) : error ? (
-        <div className="rounded-[10px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
-          {(error as Error).message}
-        </div>
-      ) : !data || data.length === 0 ? (
-        <div className="rounded-[14px] border border-dashed border-[var(--color-border-strong)] py-16 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-success-soft)] text-[var(--color-success)]">
-            <IconShield />
-          </div>
-          <div className="text-sm text-[var(--color-foreground)]">
-            Rien à signaler.
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {data.map((a) => (
-            <div
-              key={a.id}
-              className={`rounded-[12px] border p-4 ${
-                a.acknowledged
-                  ? 'border-[var(--color-border)] bg-[var(--color-surface)]'
-                  : 'border-[var(--color-warning)]/40 bg-[var(--color-warning-soft)]/30'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] uppercase tracking-wider text-[var(--color-warning)]">
-                      ⚠️ {a.country ?? 'pays inconnu'}
-                    </span>
-                    {a.acknowledged && (
-                      <span className="text-[10px] uppercase tracking-wider text-[var(--color-foreground-muted)]">
-                        ack
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-sm text-[var(--color-foreground)]">
-                    {a.reason}
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-[var(--color-foreground-muted)]">
-                    <span>
-                      User <code className="font-mono">{a.userId.slice(0, 8)}</code>
-                    </span>
-                    <span>
-                      IP <code className="font-mono">{a.ipAddress}</code>
-                    </span>
-                    <span>{new Date(a.createdAt).toLocaleString('fr-FR')}</span>
-                    {a.notifiedVia.length > 0 && (
-                      <span>notif: {a.notifiedVia.join(', ')}</span>
-                    )}
-                  </div>
-                </div>
-                {!a.acknowledged && (
-                  <button
-                    type="button"
-                    onClick={() => ackMut.mutate(a.id)}
-                    disabled={ackMut.isPending}
-                    className="rounded-[8px] border border-[var(--color-border-strong)] px-3 py-1.5 text-xs hover:bg-[var(--color-surface-elevated)] disabled:opacity-40"
-                  >
-                    Marquer vu
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <DataTable<LoginAnomaly>
+        label="Connexions suspectes"
+        colonnes={colonnes}
+        lignes={lignes}
+        cle={(a) => a.id}
+        chargement={isLoading}
+        erreur={error as Error | null}
+        onReessayer={() => void refetch()}
+        estAttenue={(a) => a.acknowledged}
+        vide={<EmptyState icone="shield" titre="Rien à signaler." aide="Une connexion depuis un nouveau pays apparaît ici." />}
+        pied={
+          <>
+            <span className="inline-flex items-center gap-1.5">
+              <Icone nom="eye" taille={14} /> Chaque affichage d’une adresse IP est inscrit au journal.
+            </span>
+          </>
+        }
+      />
     </div>
   );
 }

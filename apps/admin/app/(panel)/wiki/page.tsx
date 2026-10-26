@@ -1,17 +1,26 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { toast } from 'sonner';
-import { FadeUp, StaggerItem } from '@/components/anim';
-import { IconArrowLeft, IconSearch, IconX } from '@/components/icons';
-import { SkeletonRows } from '@/components/Skeleton';
+import { Garde } from '@/components/Garde';
+import { SectionTabs } from '@/components/shell/SectionTabs';
+import { Badge } from '@/components/ui/Badge';
+import { Button, Mot } from '@/components/ui/Button';
+import { DataTable, type Colonne } from '@/components/ui/DataTable';
+import { Drawer, useConfirm } from '@/components/ui/Dialog';
+import { Field as Champ, Input, InputRecherche, Select, Textarea } from '@/components/ui/Field';
+import { Icone } from '@/components/ui/Icone';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Chargement, EmptyState, ErrorState, messageErreur } from '@/components/ui/States';
+import { Segmented } from '@/components/ui/Tabs';
+import { useDroits } from '@/lib/droits';
 import {
   createEntry,
-  createTag,
   deleteEntry,
   getEntry,
   listEntries,
@@ -25,6 +34,14 @@ import type {
   WikiTag,
   WikiTagKind,
 } from '@/lib/types';
+
+/**
+ * Contenu › Wiki (PANEL_V2 §4.5) : liste et lecture des articles du staff,
+ * édition dans le tiroir, un seul moteur Markdown (react-markdown, aperçu
+ * compris). Un article s'ouvre aussi par l'adresse (?entree=<id>, depuis
+ * Ctrl K). La suppression est réservée à `wiki.supprimer` et demande de
+ * retaper le titre.
+ */
 
 const KIND_ORDER: WikiTagKind[] = ['SOURCE', 'CANON', 'TYPE', 'AUDIENCE'];
 const KIND_LABEL: Record<WikiTagKind, string> = {
@@ -48,14 +65,28 @@ const STATUS_LABEL: Record<WikiEntryStatus, string> = {
 };
 
 export default function WikiPage() {
+  return (
+    <Garde capacites={['wiki.editer']}>
+      <Wiki />
+    </Garde>
+  );
+}
+
+function Wiki() {
   const qc = useQueryClient();
+  const params = useSearchParams();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<WikiEntryStatus | 'ALL'>('ALL');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  // null = drawer fermé, 'new' = création, sinon id de l'entrée éditée.
+  // null = tiroir fermé, 'new' = création, sinon id de l'entrée éditée.
   const [drawer, setDrawer] = useState<string | 'new' | null>(null);
-  // null = liste, sinon id de l'entrée lue en mode article.
-  const [reading, setReading] = useState<string | null>(null);
+  // null = liste, sinon id de l'entrée lue (?entree=<id> : ouverte depuis Ctrl K).
+  const [reading, setReading] = useState<string | null>(params.get('entree'));
+
+  useEffect(() => {
+    const e = params.get('entree');
+    if (e) setReading(e);
+  }, [params]);
 
   const tagsQuery = useQuery({
     queryKey: ['wiki', 'tags'],
@@ -89,8 +120,52 @@ export default function WikiPage() {
     );
   }
 
+  const colonnes: Colonne<WikiEntry>[] = [
+    {
+      cle: 'titre',
+      titre: 'Article',
+      rendu: (entry) => (
+        <span className="two block min-w-0">
+          <span className="block truncate font-medium text-fg">{entry.title}</span>
+          {entry.summary && <span className="sub2 truncate">{entry.summary}</span>}
+        </span>
+      ),
+    },
+    {
+      cle: 'statut',
+      titre: 'Statut',
+      serre: true,
+      rendu: (entry) => <EntryStatusBadge status={entry.status} />,
+    },
+    {
+      cle: 'tags',
+      titre: 'Étiquettes',
+      cacherEtroit: true,
+      rendu: (entry) => (
+        <span className="flex flex-wrap gap-1.5">
+          {entry.tags.slice(0, 4).map((t) => (
+            <TagPill key={t.id} tag={t} />
+          ))}
+          {entry.tags.length > 4 && (
+            <span className="text-[12px] text-fg-3">+{entry.tags.length - 4}</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      cle: 'maj',
+      titre: 'Modifié',
+      serre: true,
+      rendu: (entry) => (
+        <span title={new Date(entry.updatedAt).toLocaleString('fr-FR')}>
+          {new Date(entry.updatedAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}
+        </span>
+      ),
+    },
+  ];
+
   return (
-    <div className="px-10 py-10 max-w-6xl mx-auto">
+    <div className="page">
       {reading ? (
         <ArticleView
           id={reading}
@@ -99,146 +174,79 @@ export default function WikiPage() {
         />
       ) : (
         <>
-      <header className="mb-8 flex items-start justify-between gap-4">
-        <div>
-          <div className="text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">
-            Base de connaissances
+          <PageHeader
+            fil={[{ label: 'Contenu' }]}
+            titre="Contenu"
+            sousTitre="Wiki du staff : lore, règles, mécaniques"
+            actions={
+              <Button variante="primary" icone="plus" onClick={() => setDrawer('new')}>
+                Nouvelle entrée
+              </Button>
+            }
+          />
+          <SectionTabs section="contenu" />
+
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <Segmented<WikiEntryStatus | 'ALL'>
+              label="Statut des entrées"
+              valeur={status}
+              onChange={setStatus}
+              options={STATUS_TABS.map((t) => ({ valeur: t.value, label: t.label }))}
+            />
+            <InputRecherche
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Titres, résumés, contenus"
+              aria-label="Rechercher dans le wiki"
+              raccourci="/"
+              conteneur="w-full sm:w-80"
+            />
           </div>
-          <h1
-            className="mt-1 text-5xl leading-none bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent"
-            style={{ fontFamily: 'var(--font-display)' }}
-          >
-            Wiki
-          </h1>
-          <div className="mt-3 h-[2px] w-24 bg-gradient-to-r from-[var(--color-accent)] to-transparent shadow-[var(--shadow-glow-accent)]" />
-        </div>
-        <button
-          type="button"
-          onClick={() => setDrawer('new')}
-          className="shrink-0 rounded-[10px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] px-5 py-2.5 text-sm font-medium text-white"
-        >
-          Nouvelle entrée
-        </button>
-      </header>
 
-      {/* Statut */}
-      <div className="mb-4 flex flex-wrap gap-2">
-        {STATUS_TABS.map((tab) => {
-          const active = status === tab.value;
-          return (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => setStatus(tab.value)}
-              className={`rounded-full px-4 py-1.5 text-sm transition-colors ${
-                active
-                  ? 'bg-[var(--color-accent)] text-white shadow-[var(--shadow-glow-accent)]'
-                  : 'border border-[var(--color-border-strong)] text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-foreground)]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Recherche */}
-      <div className="mb-5 relative">
-        <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-foreground-muted)]" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Rechercher dans les titres, résumés, contenus…"
-          className="w-full rounded-[12px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] py-2.5 pl-11 pr-4 text-sm focus:border-[var(--color-accent)] focus:outline-none transition-colors"
-        />
-      </div>
-
-      {/* Filtres par tag, groupés par axe */}
-      <div className="mb-6 space-y-3 rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-        {KIND_ORDER.map((kind) => {
-          const tags = tagsByKind[kind];
-          if (tags.length === 0) return null;
-          return (
-            <div key={kind} className="flex flex-wrap items-center gap-2">
-              <span className="w-24 shrink-0 text-[11px] uppercase tracking-wider text-[var(--color-foreground-muted)]">
-                {KIND_LABEL[kind]}
-              </span>
-              {tags.map((tag) => (
-                <TagChip
-                  key={tag.id}
-                  tag={tag}
-                  active={selectedTags.includes(tag.slug)}
-                  onClick={() => toggleTag(tag.slug)}
-                />
-              ))}
+          {(tagsQuery.data?.length ?? 0) > 0 && (
+            <div className="card mb-4 flex flex-col gap-3 px-4 py-3">
+              {KIND_ORDER.map((kind) => {
+                const tags = tagsByKind[kind];
+                if (tags.length === 0) return null;
+                return (
+                  <div key={kind} className="flex flex-wrap items-center gap-2">
+                    <span className="w-24 shrink-0 text-[12px] text-fg-3">{KIND_LABEL[kind]}</span>
+                    {tags.map((tag) => (
+                      <TagChip
+                        key={tag.id}
+                        tag={tag}
+                        active={selectedTags.includes(tag.slug)}
+                        onClick={() => toggleTag(tag.slug)}
+                      />
+                    ))}
+                  </div>
+                );
+              })}
+              {selectedTags.length > 0 && (
+                <Mot ton="neutre" className="self-start" onClick={() => setSelectedTags([])}>
+                  Retirer les filtres ({selectedTags.length})
+                </Mot>
+              )}
             </div>
-          );
-        })}
-        {selectedTags.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setSelectedTags([])}
-            className="text-xs text-[var(--color-foreground-subtle)] hover:text-[var(--color-foreground)] underline"
-          >
-            Réinitialiser les filtres ({selectedTags.length})
-          </button>
-        )}
-      </div>
+          )}
 
-      {/* Liste */}
-      {entriesQuery.isLoading && !entriesQuery.data ? (
-        <SkeletonRows count={5} />
-      ) : entriesQuery.error ? (
-        <div className="rounded-[10px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
-          {(entriesQuery.error as Error).message}
-        </div>
-      ) : !entriesQuery.data || entriesQuery.data.length === 0 ? (
-        <div className="rounded-[14px] border border-dashed border-[var(--color-border-strong)] py-16 text-center text-[var(--color-foreground-muted)]">
-          Aucune entrée ne correspond. Crée-en une avec « Nouvelle entrée ».
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {entriesQuery.data.map((entry, i) => (
-            <StaggerItem key={entry.id} index={i}>
-              <button
-                type="button"
-                onClick={() => setReading(entry.id)}
-                className="block w-full text-left rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 hover:bg-[var(--color-surface-elevated)] hover:border-[var(--color-accent)]/40 transition-colors"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="mb-1 flex items-center gap-2">
-                      <EntryStatusBadge status={entry.status} />
-                      {entry.tags.slice(0, 5).map((t) => (
-                        <TagPill key={t.id} tag={t} />
-                      ))}
-                      {entry.tags.length > 5 && (
-                        <span className="text-xs text-[var(--color-foreground-muted)]">
-                          +{entry.tags.length - 5}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-sm font-medium truncate">
-                      {entry.title}
-                    </div>
-                    {entry.summary && (
-                      <div className="mt-1 text-xs text-[var(--color-foreground-subtle)] line-clamp-2">
-                        {entry.summary}
-                      </div>
-                    )}
-                  </div>
-                  <div className="shrink-0 text-right text-xs text-[var(--color-foreground-muted)]">
-                    {new Date(entry.updatedAt).toLocaleDateString('fr-FR', {
-                      dateStyle: 'short',
-                    })}
-                  </div>
-                </div>
-              </button>
-            </StaggerItem>
-          ))}
-        </div>
-      )}
+          <DataTable<WikiEntry>
+            label="Entrées du wiki"
+            colonnes={colonnes}
+            lignes={entriesQuery.data}
+            cle={(e) => e.id}
+            chargement={entriesQuery.isLoading}
+            erreur={entriesQuery.error as Error | null}
+            onReessayer={() => void entriesQuery.refetch()}
+            onOuvrir={(e) => setReading(e.id)}
+            vide={
+              <EmptyState
+                icone="book-open"
+                titre="Aucune entrée ne correspond."
+                aide="Crée-en une avec « Nouvelle entrée »."
+              />
+            }
+          />
         </>
       )}
 
@@ -253,6 +261,7 @@ export default function WikiPage() {
             qc.invalidateQueries({ queryKey: ['wiki', 'tags'] });
             qc.invalidateQueries({ queryKey: ['wiki', 'entry'] });
           }}
+          onDeleted={() => setReading(null)}
         />
       )}
     </div>
@@ -416,10 +425,7 @@ function ArticleView({
   });
 
   const entry = entryQuery.data;
-  const headings = useMemo(
-    () => (entry ? parseHeadings(entry.body) : []),
-    [entry],
-  );
+  const headings = useMemo(() => (entry ? parseHeadings(entry.body) : []), [entry]);
 
   function scrollTo(slug: string) {
     const el = document.getElementById(slug);
@@ -437,181 +443,124 @@ function ArticleView({
     return map;
   }, [entry]);
 
+  if (entryQuery.isLoading) return <Chargement lignes={6} />;
+  if (entryQuery.error || !entry) {
+    return (
+      <>
+        <Mot ton="neutre" onClick={onBack} className="mb-4">
+          <span className="inline-flex items-center gap-1.5">
+            <Icone nom="chevron-left" taille={14} /> Retour au wiki
+          </span>
+        </Mot>
+        <ErrorState erreur={entryQuery.error ?? new Error('Entrée introuvable.')} />
+      </>
+    );
+  }
+
   return (
-    <FadeUp>
-      <button
-        type="button"
-        onClick={onBack}
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-[var(--color-foreground-subtle)] hover:text-[var(--color-foreground)] transition-colors"
-      >
-        <IconArrowLeft className="h-4 w-4" /> Retour
-      </button>
-
-      {entryQuery.isLoading ? (
-        <div className="text-sm text-[var(--color-foreground-subtle)]">
-          Chargement de l’article…
-        </div>
-      ) : entryQuery.error || !entry ? (
-        <div className="rounded-[10px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
-          {entryQuery.error
-            ? (entryQuery.error as Error).message
-            : 'Entrée introuvable.'}
-        </div>
-      ) : (
-        <>
-          {/* En-tête d'article : titre + ambiance accent */}
-          <header className="relative mb-8 overflow-hidden rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] px-8 py-8">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -right-6 -top-10 select-none text-[10rem] leading-none text-[var(--color-accent)]/[0.06]"
-              style={{ fontFamily: 'var(--font-display)' }}
-            >
-              忍
-            </div>
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background:
-                  'radial-gradient(ellipse 70% 90% at 0% 0%, var(--color-accent-glow) 0%, transparent 55%)',
-                opacity: 0.5,
-              }}
-            />
-            <div className="relative">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">
-                    Base de connaissances
-                  </div>
-                  <h1
-                    className="mt-2 text-4xl md:text-5xl leading-none text-[var(--color-foreground)]"
-                    style={{ fontFamily: 'var(--font-display)' }}
-                  >
-                    {entry.title}
-                  </h1>
-                  <div className="mt-4 h-[2px] w-40 max-w-full bg-gradient-to-r from-[var(--color-accent)] to-transparent shadow-[var(--shadow-glow-accent)]" />
-                </div>
-                <button
-                  type="button"
-                  onClick={onEdit}
-                  className="shrink-0 rounded-[10px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] px-5 py-2.5 text-sm font-medium text-white shadow-[var(--shadow-glow-accent)]"
-                >
-                  Éditer
-                </button>
-              </div>
-
-              {entry.summary && (
-                <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-[var(--color-foreground-subtle)]">
-                  {entry.summary}
-                </p>
-              )}
-
-              {/* Métadonnées : badges tags + statut */}
-              <div className="mt-5 flex flex-wrap items-center gap-2">
-                <EntryStatusBadge status={entry.status} />
-                {KIND_ORDER.flatMap((kind) =>
-                  tagsByKind[kind].map((t) => <TagPill key={t.id} tag={t} />),
-                )}
-              </div>
-
-              {/* Ligne d'infos */}
-              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-[var(--color-foreground-muted)]">
-                <span>
-                  Modifié le{' '}
-                  {new Date(entry.updatedAt).toLocaleDateString('fr-FR', {
-                    dateStyle: 'long',
-                  })}
-                </span>
-                {entry._count && (
-                  <span>
-                    {entry._count.revisions} révision
-                    {entry._count.revisions > 1 ? 's' : ''}
-                  </span>
-                )}
-              </div>
-
-              {entry.sources && (
-                <div className="mt-4 rounded-[10px] border border-[var(--color-border)] bg-[var(--color-background)]/60 px-4 py-2.5 text-xs text-[var(--color-foreground-subtle)]">
-                  <span className="mr-1.5 uppercase tracking-wider text-[var(--color-foreground-muted)]">
-                    Sources
-                  </span>
-                  {entry.sources}
-                </div>
-              )}
-            </div>
-          </header>
-
-          {/* Corps + sommaire */}
-          <div className="flex gap-10">
-            <article className="min-w-0 flex-1 max-w-3xl">
-              {/* Sommaire replié sur petit écran */}
-              {headings.length > 0 && (
-                <nav className="mb-6 rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 lg:hidden">
-                  <div className="mb-2 text-[11px] uppercase tracking-wider text-[var(--color-foreground-muted)]">
-                    Sommaire
-                  </div>
-                  <ul className="space-y-1">
-                    {headings.map((h) => (
-                      <li
-                        key={h.slug}
-                        style={{ paddingLeft: h.level === 3 ? 12 : 0 }}
-                      >
-                        <a
-                          href={`#${h.slug}`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            scrollTo(h.slug);
-                          }}
-                          className="text-sm text-[var(--color-foreground-subtle)] hover:text-[var(--color-accent)] transition-colors"
-                        >
-                          {h.text}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </nav>
-              )}
-
-              <WikiMarkdown body={entry.body} headings={headings} />
-            </article>
-
-            {/* Sommaire sticky (lg+) */}
-            {headings.length > 0 && (
-              <aside className="hidden w-56 shrink-0 lg:block">
-                <div className="sticky top-8">
-                  <div className="mb-3 text-[11px] uppercase tracking-wider text-[var(--color-foreground-muted)]">
-                    Sur cette page
-                  </div>
-                  <ul className="space-y-1 border-l border-[var(--color-border-strong)]">
-                    {headings.map((h) => (
-                      <li key={h.slug}>
-                        <a
-                          href={`#${h.slug}`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            scrollTo(h.slug);
-                          }}
-                          className="block border-l-2 border-transparent py-0.5 text-sm text-[var(--color-foreground-subtle)] hover:border-[var(--color-accent)] hover:text-[var(--color-foreground)] transition-colors"
-                          style={{
-                            paddingLeft: h.level === 3 ? 24 : 12,
-                          }}
-                        >
-                          {h.text}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </aside>
+    <>
+      <PageHeader
+        fil={[{ label: 'Contenu' }, { label: 'Wiki' }]}
+        titre={entry.title}
+        apresTitre={<EntryStatusBadge status={entry.status} />}
+        sousTitre={
+          <>
+            Modifié le {new Date(entry.updatedAt).toLocaleDateString('fr-FR', { dateStyle: 'long' })}
+            {entry._count && (
+              <>
+                {' · '}
+                {entry._count.revisions} révision{entry._count.revisions > 1 ? 's' : ''}
+              </>
             )}
-          </div>
-        </>
+          </>
+        }
+        actions={
+          <>
+            <Mot ton="neutre" onClick={onBack}>
+              <span className="inline-flex items-center gap-1.5">
+                <Icone nom="chevron-left" taille={14} /> Retour au wiki
+              </span>
+            </Mot>
+            <Button icone="pencil" onClick={onEdit}>
+              Éditer
+            </Button>
+          </>
+        }
+      />
+
+      {(entry.summary || entry.tags.length > 0 || entry.sources) && (
+        <div className="mb-6 flex flex-col gap-3">
+          {entry.summary && <p className="max-w-[72ch] text-[15px] leading-relaxed text-fg-2">{entry.summary}</p>}
+          {entry.tags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {KIND_ORDER.flatMap((kind) => tagsByKind[kind].map((t) => <TagPill key={t.id} tag={t} />))}
+            </div>
+          )}
+          {entry.sources && (
+            <p className="text-[12px] text-fg-3">
+              <span className="font-semibold text-fg-2">Sources · </span>
+              {entry.sources}
+            </p>
+          )}
+        </div>
       )}
-    </FadeUp>
+
+      <div className="flex gap-10">
+        <article className="min-w-0 flex-1">
+          {headings.length > 0 && (
+            <nav className="card mb-6 px-4 py-3 lg:hidden" aria-label="Sommaire">
+              <div className="eyebrow mb-2">Sommaire</div>
+              <ul className="flex flex-col gap-1">
+                {headings.map((h) => (
+                  <li key={h.slug} style={{ paddingLeft: h.level === 3 ? 12 : 0 }}>
+                    <a
+                      href={`#${h.slug}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        scrollTo(h.slug);
+                      }}
+                      className="text-[13px] text-fg-2 lien-discret"
+                    >
+                      {h.text}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          )}
+          <WikiMarkdown body={entry.body} headings={headings} />
+        </article>
+
+        {headings.length > 0 && (
+          <aside className="hidden w-56 shrink-0 lg:block" aria-label="Sur cette page">
+            <div className="sticky top-8">
+              <div className="eyebrow mb-3">Sur cette page</div>
+              <ul className="flex flex-col gap-1 border-l border-[var(--color-border)]">
+                {headings.map((h) => (
+                  <li key={h.slug}>
+                    <a
+                      href={`#${h.slug}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        scrollTo(h.slug);
+                      }}
+                      className="-ml-px block border-l-2 border-transparent py-0.5 text-[13px] text-fg-2 hover:border-[var(--color-gold)] hover:text-fg"
+                      style={{ paddingLeft: h.level === 3 ? 24 : 12 }}
+                    >
+                      {h.text}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </aside>
+        )}
+      </div>
+    </>
   );
 }
 
-// ── Drawer view/edit ──────────────────────────────────────
+// ── Tiroir d'édition ──────────────────────────────────────
 
 function EntryDrawer({
   mode,
@@ -619,13 +568,17 @@ function EntryDrawer({
   allTags,
   onClose,
   onSaved,
+  onDeleted,
 }: {
   mode: 'new' | 'edit';
   entryId: string | null;
   allTags: WikiTag[];
   onClose: () => void;
   onSaved: () => void;
+  onDeleted: () => void;
 }) {
+  const { peut } = useDroits();
+  const { confirmer } = useConfirm();
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [body, setBody] = useState('');
@@ -666,14 +619,11 @@ function EntryDrawer({
       return updateEntry(entryId as string, payload);
     },
     onSuccess: () => {
-      toast.success(mode === 'new' ? 'Entrée créée' : 'Entrée mise à jour');
+      toast.success(mode === 'new' ? 'Entrée créée' : 'Entrée enregistrée');
       onSaved();
       onClose();
     },
-    onError: (err) =>
-      toast.error('Échec de l’enregistrement', {
-        description: (err as Error).message,
-      }),
+    onError: (e) => toast.error('Entrée non enregistrée', { description: messageErreur(e) }),
   });
 
   const deleteMut = useMutation({
@@ -681,18 +631,14 @@ function EntryDrawer({
     onSuccess: () => {
       toast.success('Entrée supprimée');
       onSaved();
+      onDeleted();
       onClose();
     },
-    onError: (err) =>
-      toast.error('Suppression impossible', {
-        description: (err as Error).message,
-      }),
+    onError: (e) => toast.error('Suppression impossible', { description: messageErreur(e) }),
   });
 
   function toggleTag(slug: string) {
-    setTagSlugs((prev) =>
-      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug],
-    );
+    setTagSlugs((prev) => (prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]));
   }
 
   const tagsByKind = useMemo(() => {
@@ -709,200 +655,144 @@ function EntryDrawer({
   const loading = mode === 'edit' && detailQuery.isLoading;
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end">
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-        aria-hidden
-      />
-      <div className="relative z-10 flex h-full w-full max-w-2xl flex-col border-l border-[var(--color-border)] bg-[var(--color-background)] shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
-          <div className="text-sm uppercase tracking-wider text-[var(--color-foreground-muted)]">
-            {mode === 'new' ? 'Nouvelle entrée' : 'Éditer l’entrée'}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[var(--color-foreground-muted)] hover:text-[var(--color-foreground)]"
-            aria-label="Fermer"
+    <Drawer
+      ouvert
+      large
+      onFermer={onClose}
+      titre={mode === 'new' ? 'Nouvelle entrée' : 'Éditer l’entrée'}
+      pied={
+        <>
+          {mode === 'edit' && peut('wiki.supprimer') && (
+            <Button
+              variante="danger"
+              enCours={deleteMut.isPending}
+              onClick={async () => {
+                const ok = await confirmer({
+                  titre: `Supprimer « ${title || 'cette entrée'} » ?`,
+                  message: 'L’entrée et ses révisions sont supprimées définitivement.',
+                  confirmer: 'Supprimer',
+                  danger: true,
+                  retaper: title.trim() || undefined,
+                });
+                if (ok) deleteMut.mutate();
+              }}
+            >
+              Supprimer
+            </Button>
+          )}
+          <span className="ml-auto" />
+          <Button variante="ghost" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button
+            variante="primary"
+            enCours={saveMut.isPending}
+            disabled={title.trim().length === 0 || body.length === 0}
+            onClick={() => saveMut.mutate()}
           >
-            <IconX />
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="p-6 text-sm text-[var(--color-foreground-subtle)]">
-            Chargement…
-          </div>
-        ) : (
-          <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
-            <Field label="Titre">
-              <input
-                type="text"
+            Enregistrer
+          </Button>
+        </>
+      }
+    >
+      {loading ? (
+        <Chargement lignes={5} />
+      ) : (
+        <>
+          <Champ label="Titre">
+            {(fid) => (
+              <Input
+                id={fid}
+                data-autofocus
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Ex : Sharingan — mécaniques et paliers"
-                className="w-full rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-2.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+                placeholder="Ex. : Sharingan, mécaniques et paliers"
               />
-            </Field>
-
-            <Field label="Résumé (optionnel)">
-              <input
-                type="text"
-                value={summary}
-                onChange={(e) => setSummary(e.target.value)}
-                placeholder="Une phrase de contexte"
-                className="w-full rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-2.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
-              />
-            </Field>
-
-            <div className="flex flex-wrap gap-4">
-              <Field label="Statut">
-                <select
-                  value={status}
-                  onChange={(e) =>
-                    setStatus(e.target.value as WikiEntryStatus)
-                  }
-                  className="rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-2.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
-                >
+            )}
+          </Champ>
+          <Champ label="Résumé (facultatif)">
+            {(fid) => (
+              <Input id={fid} value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Une phrase de contexte" />
+            )}
+          </Champ>
+          <div className="flex flex-wrap gap-4">
+            <Champ label="Statut">
+              {(fid) => (
+                <Select id={fid} value={status} onChange={(e) => setStatus(e.target.value as WikiEntryStatus)}>
                   <option value="DRAFT">Brouillon</option>
                   <option value="PUBLISHED">Publié</option>
                   <option value="ARCHIVED">Archivé</option>
-                </select>
-              </Field>
-              {mode === 'edit' && detailQuery.data?._count && (
-                <Field label="Révisions">
-                  <div className="p-2.5 text-sm text-[var(--color-foreground-subtle)]">
-                    {detailQuery.data._count.revisions}
-                  </div>
-                </Field>
+                </Select>
               )}
-            </div>
+            </Champ>
+            {mode === 'edit' && detailQuery.data?._count && (
+              <div className="field">
+                <span className="label">Révisions</span>
+                <span className="py-2 text-[14px] text-fg-2">{detailQuery.data._count.revisions}</span>
+              </div>
+            )}
+          </div>
 
-            {/* Tags par axe */}
-            <div className="space-y-2">
-              <span className="text-[11px] uppercase tracking-wider text-[var(--color-foreground-muted)]">
-                Tags
-              </span>
+          {allTags.length > 0 && (
+            <div className="field">
+              <span className="label">Étiquettes</span>
               {KIND_ORDER.map((kind) => {
                 const tags = tagsByKind[kind];
                 if (tags.length === 0) return null;
                 return (
                   <div key={kind} className="flex flex-wrap items-center gap-2">
-                    <span className="w-24 shrink-0 text-[11px] text-[var(--color-foreground-muted)]">
-                      {KIND_LABEL[kind]}
-                    </span>
+                    <span className="w-24 shrink-0 text-[12px] text-fg-3">{KIND_LABEL[kind]}</span>
                     {tags.map((tag) => (
-                      <TagChip
-                        key={tag.id}
-                        tag={tag}
-                        active={tagSlugs.includes(tag.slug)}
-                        onClick={() => toggleTag(tag.slug)}
-                      />
+                      <TagChip key={tag.id} tag={tag} active={tagSlugs.includes(tag.slug)} onClick={() => toggleTag(tag.slug)} />
                     ))}
                   </div>
                 );
               })}
             </div>
+          )}
 
-            {/* Corps markdown */}
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <span className="text-[11px] uppercase tracking-wider text-[var(--color-foreground-muted)]">
-                  Contenu (markdown)
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPreview((p) => !p)}
-                  className="text-xs text-[var(--color-accent)] hover:underline"
-                >
-                  {preview ? 'Éditer' : 'Aperçu'}
-                </button>
-              </div>
-              {preview ? (
-                <div className="min-h-[240px] rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-4 text-sm">
-                  <MarkdownPreview source={body} />
-                </div>
-              ) : (
-                <textarea
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  rows={14}
-                  placeholder="# Titre&#10;&#10;Rédige en markdown…"
-                  className="w-full resize-y rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-3 font-mono text-sm leading-relaxed focus:border-[var(--color-accent)] focus:outline-none"
-                />
-              )}
+          <div className="field">
+            <div className="label">
+              <span>Contenu (Markdown)</span>
+              <Mot onClick={() => setPreview((p) => !p)}>{preview ? 'Éditer' : 'Aperçu'}</Mot>
             </div>
+            {preview ? (
+              <div className="card min-h-[240px] px-4 py-3">
+                {body.trim() ? (
+                  <WikiMarkdown body={body} headings={parseHeadings(body)} />
+                ) : (
+                  <span className="text-fg-3">Rien à prévisualiser.</span>
+                )}
+              </div>
+            ) : (
+              <Textarea
+                aria-label="Contenu en Markdown"
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                rows={14}
+                placeholder={'# Titre\n\nRédige en Markdown…'}
+                className="font-mono text-[13px]"
+              />
+            )}
+          </div>
 
-            <Field label="Sources / références (optionnel)">
-              <input
-                type="text"
+          <Champ label="Sources et références (facultatif)">
+            {(fid) => (
+              <Input
+                id={fid}
                 value={sources}
                 onChange={(e) => setSources(e.target.value)}
-                placeholder="Ex : Manga tome 25 ch.239, Databook 3, homemade Reborn"
-                className="w-full rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-2.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+                placeholder="Ex. : manga tome 25 ch. 239, Databook 3, création Reborn"
               />
-            </Field>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between gap-3 border-t border-[var(--color-border)] px-6 py-4">
-          {mode === 'edit' ? (
-            <button
-              type="button"
-              disabled={deleteMut.isPending}
-              onClick={() => {
-                if (confirm('Supprimer définitivement cette entrée ?'))
-                  deleteMut.mutate();
-              }}
-              className="rounded-[8px] border border-[var(--color-danger)]/40 px-4 py-2 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger-soft)] disabled:opacity-40"
-            >
-              Supprimer
-            </button>
-          ) : (
-            <span />
-          )}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-[8px] border border-[var(--color-border-strong)] px-4 py-2 text-sm text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)]"
-            >
-              Annuler
-            </button>
-            <button
-              type="button"
-              disabled={saveMut.isPending || title.trim().length === 0 || body.length === 0}
-              onClick={() => saveMut.mutate()}
-              className="rounded-[8px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] px-5 py-2 text-sm font-medium text-white disabled:opacity-40"
-            >
-              {saveMut.isPending ? 'Enregistrement…' : 'Enregistrer'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+            )}
+          </Champ>
+        </>
+      )}
+    </Drawer>
   );
 }
 
 // ── Petits composants ─────────────────────────────────────
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="text-[11px] uppercase tracking-wider text-[var(--color-foreground-muted)]">
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}
 
 function TagChip({
   tag,
@@ -914,23 +804,10 @@ function TagChip({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-        active
-          ? 'text-white'
-          : 'text-[var(--color-foreground-subtle)] hover:text-[var(--color-foreground)]'
-      }`}
-      style={
-        active
-          ? {
-              backgroundColor: tag.color ?? 'var(--color-accent)',
-              borderColor: tag.color ?? 'var(--color-accent)',
-            }
-          : { borderColor: 'var(--color-border-strong)' }
-      }
-    >
+    <button type="button" className="chip" aria-pressed={active} onClick={onClick}>
+      {tag.color && (
+        <span className="h-2 w-2 rounded-full" style={{ background: tag.color }} aria-hidden />
+      )}
       {tag.label}
     </button>
   );
@@ -938,116 +815,16 @@ function TagChip({
 
 function TagPill({ tag }: { tag: WikiTag }) {
   return (
-    <span
-      className="inline-block rounded-full border px-2 py-0.5 text-[10px]"
-      style={{
-        borderColor: (tag.color ?? 'var(--color-border-strong)') as string,
-        color: tag.color ?? 'var(--color-foreground-muted)',
-      }}
-    >
+    <span className="tag" title={KIND_LABEL[tag.kind]}>
+      {tag.color && (
+        <span className="mr-1.5 h-1.5 w-1.5 rounded-full" style={{ background: tag.color }} aria-hidden />
+      )}
       {tag.label}
     </span>
   );
 }
 
 function EntryStatusBadge({ status }: { status: WikiEntryStatus }) {
-  const map: Record<WikiEntryStatus, string> = {
-    DRAFT:
-      'bg-[var(--color-warning-soft)] text-[var(--color-warning)] border-[var(--color-warning)]/40',
-    PUBLISHED:
-      'bg-[var(--color-success-soft)] text-[var(--color-success)] border-[var(--color-success)]/40',
-    ARCHIVED:
-      'border-[var(--color-border-strong)] text-[var(--color-foreground-muted)]',
-  };
-  return (
-    <span
-      className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] ${map[status]}`}
-    >
-      {STATUS_LABEL[status]}
-    </span>
-  );
-}
-
-/**
- * Rendu markdown minimaliste (pas de dépendance externe) : titres #/##/###,
- * gras **texte**, italique *texte*, listes à puces, et paragraphes. Suffisant
- * pour un aperçu staff — le stockage reste du markdown brut.
- */
-function MarkdownPreview({ source }: { source: string }) {
-  if (!source.trim()) {
-    return (
-      <span className="text-[var(--color-foreground-muted)]">
-        (Rien à prévisualiser)
-      </span>
-    );
-  }
-  const lines = source.split('\n');
-  const blocks: React.ReactNode[] = [];
-  let list: string[] = [];
-
-  const flushList = (key: string) => {
-    if (list.length === 0) return;
-    blocks.push(
-      <ul key={key} className="my-2 list-disc pl-5 space-y-1">
-        {list.map((item, i) => (
-          <li key={i}>{renderInline(item)}</li>
-        ))}
-      </ul>,
-    );
-    list = [];
-  };
-
-  lines.forEach((raw, idx) => {
-    const line = raw.trimEnd();
-    if (line.startsWith('### ')) {
-      flushList(`l-${idx}`);
-      blocks.push(
-        <h3 key={idx} className="mt-3 mb-1 text-base font-semibold">
-          {renderInline(line.slice(4))}
-        </h3>,
-      );
-    } else if (line.startsWith('## ')) {
-      flushList(`l-${idx}`);
-      blocks.push(
-        <h2 key={idx} className="mt-4 mb-1 text-lg font-semibold">
-          {renderInline(line.slice(3))}
-        </h2>,
-      );
-    } else if (line.startsWith('# ')) {
-      flushList(`l-${idx}`);
-      blocks.push(
-        <h1 key={idx} className="mt-2 mb-2 text-xl font-bold">
-          {renderInline(line.slice(2))}
-        </h1>,
-      );
-    } else if (line.startsWith('- ') || line.startsWith('* ')) {
-      list.push(line.slice(2));
-    } else if (line.trim() === '') {
-      flushList(`l-${idx}`);
-    } else {
-      flushList(`l-${idx}`);
-      blocks.push(
-        <p key={idx} className="my-1.5 leading-relaxed">
-          {renderInline(line)}
-        </p>,
-      );
-    }
-  });
-  flushList('l-final');
-
-  return <div>{blocks}</div>;
-}
-
-/** Gras **x** + italique *x* → JSX (approche simple par tokens). */
-function renderInline(text: string): React.ReactNode {
-  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith('*') && part.endsWith('*')) {
-      return <em key={i}>{part.slice(1, -1)}</em>;
-    }
-    return <span key={i}>{part}</span>;
-  });
+  const ton = status === 'PUBLISHED' ? 'succes' : status === 'DRAFT' ? 'attention' : 'neutre';
+  return <Badge ton={ton}>{STATUS_LABEL[status]}</Badge>;
 }

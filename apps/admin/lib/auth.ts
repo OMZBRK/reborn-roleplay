@@ -12,6 +12,12 @@ const REFRESH_KEY = 'reborn-admin.refresh';
 
 export function getAccessToken(): string | null {
   if (typeof window === 'undefined') return null;
+  // Mode démo (développement seulement, dev/demo) : toujours connecté, sauf
+  // `?demo=deconnecte` pour voir la page de connexion. Condition écrite en
+  // entier : `next build` la réduit à `false`.
+  if (process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_PANEL_DEMO === '1') {
+    return window.location.search.includes('demo=deconnecte') ? null : 'demo';
+  }
   return window.localStorage.getItem(ACCESS_KEY);
 }
 

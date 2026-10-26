@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { aCapacite, LIBELLES_GRADES } from '../auth/capacites';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 
@@ -20,7 +21,7 @@ export type AssignKind = 'whitelist' | 'ticket';
 export interface ActorRef {
   userId?: string;
   discordUserId?: string;
-  /** Pour les ADMIN+ qui forcent une reprise sur un cas d'un autre staff. */
+  /** Reprise forcée du cas d'un autre staff : capacité `prises.forcer` (ADMIN, OWNER). */
   force?: boolean;
 }
 
@@ -101,13 +102,15 @@ export class AssignmentService {
     });
     if (!app) throw new NotFoundException('Candidature introuvable.');
     if (app.status === 'APPROVED' || app.status === 'REJECTED') {
-      throw new BadRequestException('Candidature decidee — claim impossible.');
+      throw new BadRequestException(
+        'Candidature déjà tranchée : elle ne peut plus être prise.',
+      );
     }
     const staff = await this.resolveActor(actor);
     if (app.assignedToUserId && app.assignedToUserId !== staff.id) {
-      if (!actor.force || !roleAtLeast(staff.role, Role.ADMIN)) {
+      if (!actor.force || !aCapacite(staff.role, 'prises.forcer')) {
         throw new ConflictException(
-          `Deja prise en charge par ${app.assignedTo?.minecraftUsername ?? 'un autre staff'}.`,
+          `Déjà prise en charge par ${app.assignedTo?.minecraftUsername ?? 'un autre membre du staff'}.`,
         );
       }
     }
@@ -149,10 +152,10 @@ export class AssignmentService {
     }
     const staff = await this.resolveActor(actor);
     const isSelf = app.assignedToUserId === staff.id;
-    const isAdmin = roleAtLeast(staff.role, Role.ADMIN);
+    const isAdmin = aCapacite(staff.role, 'prises.forcer');
     if (!isSelf && !isAdmin) {
       throw new ForbiddenException(
-        `Cette candidature est prise par ${app.assignedTo?.minecraftUsername ?? 'un autre staff'} — seul un ADMIN peut forcer.`,
+        `Cette candidature est prise par ${app.assignedTo?.minecraftUsername ?? 'un autre membre du staff'} : seul un administrateur peut la reprendre.`,
       );
     }
     const updated = await this.prisma.whitelistApplication.update({
@@ -208,13 +211,15 @@ export class AssignmentService {
     });
     if (!ticket) throw new NotFoundException('Ticket introuvable.');
     if (ticket.status === 'CLOSED' || ticket.status === 'RESOLVED') {
-      throw new BadRequestException(`Ticket ${ticket.status} — claim impossible.`);
+      throw new BadRequestException(
+        'Ce ticket est déjà résolu ou fermé : il ne peut plus être pris.',
+      );
     }
     const staff = await this.resolveActor(actor);
     if (ticket.assignedToUserId && ticket.assignedToUserId !== staff.id) {
-      if (!actor.force || !roleAtLeast(staff.role, Role.ADMIN)) {
+      if (!actor.force || !aCapacite(staff.role, 'prises.forcer')) {
         throw new ConflictException(
-          `Deja pris en charge par ${ticket.assignedTo?.minecraftUsername ?? 'un autre staff'}.`,
+          `Déjà pris en charge par ${ticket.assignedTo?.minecraftUsername ?? 'un autre membre du staff'}.`,
         );
       }
     }
@@ -255,10 +260,10 @@ export class AssignmentService {
     }
     const staff = await this.resolveActor(actor);
     const isSelf = ticket.assignedToUserId === staff.id;
-    const isAdmin = roleAtLeast(staff.role, Role.ADMIN);
+    const isAdmin = aCapacite(staff.role, 'prises.forcer');
     if (!isSelf && !isAdmin) {
       throw new ForbiddenException(
-        `Ce ticket est pris par ${ticket.assignedTo?.minecraftUsername ?? 'un autre staff'} — seul un ADMIN peut forcer.`,
+        `Ce ticket est pris par ${ticket.assignedTo?.minecraftUsername ?? 'un autre membre du staff'} : seul un administrateur peut le reprendre.`,
       );
     }
     const updated = await this.prisma.ticket.update({
@@ -320,7 +325,7 @@ export class AssignmentService {
       (entity.status === 'APPROVED' || entity.status === 'REJECTED')
     ) {
       throw new BadRequestException(
-        'Candidature decidee — pas de reclamation possible.',
+        'Candidature déjà tranchée : pas de réclamation possible.',
       );
     }
     if (
@@ -328,19 +333,19 @@ export class AssignmentService {
       (entity.status === 'RESOLVED' || entity.status === 'CLOSED')
     ) {
       throw new BadRequestException(
-        `Ticket ${entity.status} — pas de reclamation possible.`,
+        'Ce ticket est déjà résolu ou fermé : pas de réclamation possible.',
       );
     }
     if (!entity.assignedAt) {
       throw new BadRequestException(
-        'Personne ne s\'en occupe encore — pas de reclamation possible.',
+        'Personne ne s’en occupe encore : pas de réclamation possible.',
       );
     }
     const elapsed = Date.now() - entity.assignedAt.getTime();
     if (elapsed < RECLAIM_AFTER_MS) {
       const remainingMin = Math.ceil((RECLAIM_AFTER_MS - elapsed) / 60_000);
       throw new BadRequestException(
-        `Reclamation possible dans ${remainingMin} min (apres 4h sans suite).`,
+        `Réclamation possible dans ${remainingMin} min (après 4 h sans suite).`,
       );
     }
     const updated =
@@ -401,17 +406,17 @@ export class AssignmentService {
       });
       if (!user) {
         throw new ForbiddenException(
-          'Aucun compte Reborn lie a ce Discord. Connecte-toi via le launcher pour lier ton compte.',
+          'Aucun compte Reborn n’est lié à ce Discord : lie-le depuis le launcher.',
         );
       }
       if (!roleAtLeast(user.role, Role.HELPER)) {
         throw new ForbiddenException(
-          `Role insuffisant (${user.role}) pour prendre un cas en charge.`,
+          `Ton grade (${LIBELLES_GRADES[user.role]}) ne permet pas de prendre un dossier.`,
         );
       }
       return user;
     }
-    throw new BadRequestException('Actor non identifie.');
+    throw new BadRequestException('Compte staff non identifié.');
   }
 
   private assigneeInclude() {

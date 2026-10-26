@@ -2,441 +2,552 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { use } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { use, useState } from 'react';
 import { toast } from 'sonner';
-import {
-  IconArrowLeft,
-  IconBan,
-  IconCheck,
-  IconClock,
-  IconShield,
-  IconWhitelist,
-} from '@/components/icons';
+import { ChangerGrade, peutChangerGrade } from '@/components/ChangerGrade';
+import { Garde } from '@/components/Garde';
 import { MCAvatar } from '@/components/MCAvatar';
-import { RoleBadge } from '@/components/RoleBadge';
+import { Badge, BadgeStatut } from '@/components/ui/Badge';
+import { BoutonIcone, Button, Mot } from '@/components/ui/Button';
+import { Card, ListeKV } from '@/components/ui/Card';
+import { DataTable, type Colonne } from '@/components/ui/DataTable';
+import { useConfirm } from '@/components/ui/Dialog';
+import { Icone, type NomIcone } from '@/components/ui/Icone';
+import { MenuPlus } from '@/components/ui/Menu';
+import { EmptyState, ErrorState, Chargement, Callout, messageErreur } from '@/components/ui/States';
+import { Tabs } from '@/components/ui/Tabs';
 import { api } from '@/lib/api';
+import { STATUT_GLOBAL } from '@/lib/candidature';
+import { useDroits } from '@/lib/droits';
+import { dateHeure, dateJour, ilYa, pluriel, uuidCourt } from '@/lib/format';
+import {
+  libelleAction,
+  libelleCategorie,
+  libelleGrade,
+  libelleSource,
+} from '@/lib/libelles';
+import { STATUT_TICKET, statutCompte } from '@/lib/statuts';
 import type {
-  AppStatus,
-  CurrentUser,
+  AuditLogItem,
+  IpJoueur,
+  LoginAnomaly,
+  Paginated,
   PlayerDetail,
-  Role,
-  TicketStatus,
 } from '@/lib/types';
 
-export default function PlayerProfilePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = use(params);
+/**
+ * Fiche joueur unique à onglets (PANEL_V2 §4.2) : carte d'identité fixe,
+ * puis Aperçu · Candidature · Tickets · Historique · Sécurité. Les onglets
+ * Personnages et Sanctions arrivent avec leurs données (synchro des
+ * personnages, casier remonté du jeu) : ils ne s'affichent pas avant.
+ * L'IP est masquée ; « Afficher » la lit à la demande et l'inscrit au journal.
+ */
 
-  const { data, isLoading, error } = useQuery({
+type Onglet = 'apercu' | 'candidature' | 'tickets' | 'historique' | 'securite';
+
+export default function FicheJoueurPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  return (
+    <Garde capacites={['joueurs.voir']}>
+      <Fiche id={id} />
+    </Garde>
+  );
+}
+
+function Fiche({ id }: { id: string }) {
+  const router = useRouter();
+  const recherche = useSearchParams();
+  const qc = useQueryClient();
+  const { confirmer } = useConfirm();
+  const { moi, peut, peutUne } = useDroits();
+  const [grade, setGrade] = useState(false);
+
+  const { data: j, isLoading, error, refetch } = useQuery({
     queryKey: ['admin', 'players', id],
     queryFn: () => api<PlayerDetail>(`/admin/players/${id}`),
+    refetchInterval: 10_000,
+  });
+
+  const onglets: Array<{ cle: Onglet; label: string; n?: number; icone?: NomIcone }> = [
+    { cle: 'apercu', label: 'Aperçu' },
+    { cle: 'candidature', label: 'Candidature' },
+    { cle: 'tickets', label: 'Tickets', n: j?.tickets.length },
+  ];
+  if (peut('audit.voir')) onglets.push({ cle: 'historique', label: 'Historique' });
+  if (peut('joueurs.ip')) onglets.push({ cle: 'securite', label: 'Sécurité', icone: 'lock' });
+
+  const demande = recherche.get('onglet') as Onglet | null;
+  const onglet: Onglet = onglets.some((o) => o.cle === demande) ? demande! : 'apercu';
+
+  const reset = useMutation({
+    mutationFn: (applicationId: string) =>
+      api<{ ok: boolean; roleDemoted: boolean }>(`/admin/whitelist/${applicationId}/reset`, {
+        method: 'POST',
+      }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'players', id] });
+      qc.invalidateQueries({ queryKey: ['admin', 'whitelist'] });
+      toast.success('Candidature remise à zéro', {
+        description: r.roleDemoted
+          ? 'Le joueur repasse joueur et peut envoyer une nouvelle candidature.'
+          : 'Grade staff conservé : le joueur peut envoyer une nouvelle candidature.',
+      });
+    },
+    onError: (e) => toast.error('Remise à zéro impossible', { description: messageErreur(e) }),
   });
 
   if (isLoading) {
     return (
-      <div className="p-10 text-[var(--color-foreground-subtle)]">
-        Chargement…
+      <div className="page">
+        <Chargement lignes={4} />
       </div>
     );
   }
-  if (error) {
+  if (error || !j) {
     return (
-      <div className="p-10">
-        <Link
-          href="/players"
-          className="inline-flex items-center gap-1 text-sm text-[var(--color-accent)] hover:underline"
-        >
-          <IconArrowLeft /> Retour
-        </Link>
-        <div className="mt-4 rounded-[10px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
-          {(error as Error).message}
-        </div>
+      <div className="page">
+        <ErrorState erreur={error ?? new Error('Joueur introuvable.')} onReessayer={() => void refetch()} />
       </div>
     );
   }
-  if (!data) return null;
+
+  const changer = peutChangerGrade(moi, { id: j.id, role: j.role }, peut('grades.changer'));
+  const entreesPlus = [];
+  if (j.whitelist && peut('candidatures.reinitialiser')) {
+    const app = j.whitelist;
+    entreesPlus.push({
+      cle: 'reset',
+      label: 'Remettre la candidature à zéro',
+      icone: 'rotate-ccw' as NomIcone,
+      danger: true,
+      onClick: async () => {
+        const ok = await confirmer({
+          titre: `Remettre à zéro la candidature de ${j.minecraftUsername} ?`,
+          message:
+            'Supprime définitivement la candidature (messages et voix compris). S’il est whitelisté, il redevient joueur ; un grade staff est conservé.',
+          confirmer: 'Remettre à zéro',
+          danger: true,
+          retaper: j.minecraftUsername,
+        });
+        if (ok) reset.mutate(app.id);
+      },
+    });
+  }
+
+  const statut = statutCompte(j);
 
   return (
-    <div className="px-10 py-10 max-w-5xl mx-auto">
-      <Link
-        href="/players"
-        className="inline-flex items-center gap-1 text-sm text-[var(--color-accent)] hover:underline"
-      >
-        <IconArrowLeft /> Tous les joueurs
-      </Link>
-
-      <header className="mt-4 mb-8 flex items-start gap-5">
-        <div className="relative shrink-0">
-          <MCAvatar
-            uuid={data.minecraftUuid}
-            username={data.minecraftUsername}
-            size={84}
-            rounded="lg"
-            className={`ring-2 shadow-[var(--shadow-md)] ${
-              data.banned
-                ? 'ring-[var(--color-danger)]/50'
-                : 'ring-[var(--color-accent)]/40'
-            }`}
-          />
-          {data.banned && (
-            <div className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-danger)] text-white shadow-[var(--shadow-md)]">
-              <IconBan className="h-4 w-4" />
+    <div className="page">
+      {/* Carte d'identité fixe */}
+      <Card corps={false} className="mb-5">
+        <div className="flex flex-wrap items-center gap-5 px-6 py-5">
+          <MCAvatar uuid={j.minecraftUuid} size={64} />
+          {/* Base de 220 px : sur téléphone, les actions passent dessous au lieu d'écraser le nom. */}
+          <div className="min-w-0 grow basis-[220px]">
+            <nav className="crumbs" aria-label="Fil d’Ariane">
+              <Link href="/players">Joueurs</Link>
+              <Icone nom="chevron-right" taille={12} />
+              <span>{j.minecraftUsername}</span>
+            </nav>
+            <div className="flex flex-wrap items-baseline gap-3">
+              <h1 className="ph-title">{j.minecraftUsername}</h1>
+              <span className="text-[15px] text-fg-2">{libelleGrade(j.role)}</span>
             </div>
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">
-            Profil joueur
-          </div>
-          <div className="mt-1 flex items-center gap-3">
-            <h1
-              className="text-4xl leading-none"
-              style={{ fontFamily: 'var(--font-display)' }}
-            >
-              {data.minecraftUsername}
-            </h1>
-            <RoleBadge role={data.role} />
-            {data.banned && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-2.5 py-0.5 text-xs text-[var(--color-danger)]">
-                <IconBan className="h-3.5 w-3.5" /> Banni
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-fg-2">
+              <BadgeStatut statut={statut} />
+              <span className="vsep" aria-hidden />
+              <span title={j.lastLoginAt ? dateHeure(j.lastLoginAt) : undefined}>
+                {j.lastLoginAt ? `Dernière connexion ${ilYa(j.lastLoginAt)}` : 'Jamais connecté'}
               </span>
-            )}
-          </div>
-          {data.discordUsername && (
-            <div className="mt-1 text-sm text-[var(--color-foreground-subtle)]">
-              @{data.discordUsername}
+              {j.discordUsername && (
+                <>
+                  <span className="vsep" aria-hidden />
+                  <span className="text-fg-3">@{j.discordUsername}</span>
+                </>
+              )}
             </div>
-          )}
+          </div>
+          <div className="flex items-center gap-2">
+            {changer && (
+              <Button variante="ghost" onClick={() => setGrade(true)}>
+                Changer de grade
+              </Button>
+            )}
+            <MenuPlus entrees={entreesPlus} />
+          </div>
         </div>
-      </header>
+      </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Card title="Candidature whitelist" Icon={IconWhitelist}>
-            {data.whitelist ? (
-              <Link
-                href={`/whitelist/${data.whitelist.id}`}
-                className="group block rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface-elevated)] p-4 hover:border-[var(--color-accent)]/40 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">
-                      {data.whitelist.firstName} {data.whitelist.lastName}
-                    </div>
-                    <div className="text-xs text-[var(--color-foreground-muted)]">
-                      Village · {data.whitelist.village}
-                    </div>
-                    <div className="mt-1 text-[10px] text-[var(--color-foreground-muted)]">
-                      Soumise le{' '}
-                      {new Date(data.whitelist.submittedAt).toLocaleString(
-                        'fr-FR',
-                        { dateStyle: 'short', timeStyle: 'short' },
-                      )}
-                    </div>
-                  </div>
-                  <AppStatusBadge status={data.whitelist.status} />
-                </div>
+      {j.banned && (
+        <div className="alertline" role="status">
+          <Icone nom="triangle-alert" taille={16} />
+          <span>
+            <b>Banni</b>
+            {j.bannedUntil ? ` jusqu’au ${dateHeure(j.bannedUntil)}` : ' sans date de fin'}
+            {j.banReason ? ` · ${j.banReason}` : ''}
+          </span>
+        </div>
+      )}
+
+      <Tabs
+        label="Onglets de la fiche"
+        onglets={onglets.map((o) => ({
+          cle: o.cle,
+          label: o.label,
+          icone: o.icone,
+          n: o.n ?? null,
+          actif: o.cle === onglet,
+          href: o.cle === 'apercu' ? `/players/${id}` : `/players/${id}?onglet=${o.cle}`,
+        }))}
+      />
+
+      {onglet === 'apercu' && <Apercu j={j} />}
+      {onglet === 'candidature' && <OngletCandidature j={j} lienFiche={peut('candidatures.relire')} />}
+      {onglet === 'tickets' && (
+        <OngletTickets
+          j={j}
+          ouvrir={(cat) => peut('tickets.traiter') || (cat === 'BUG' && peutUne('tickets.bug'))}
+          onOuvrir={(tid) => router.push(`/tickets/${tid}`)}
+        />
+      )}
+      {onglet === 'historique' && <OngletHistorique id={j.id} />}
+      {onglet === 'securite' && <OngletSecurite j={j} />}
+
+      {changer && (
+        <ChangerGrade
+          ouvert={grade}
+          onFermer={() => setGrade(false)}
+          cible={{ id: j.id, pseudo: j.minecraftUsername, role: j.role }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────── Aperçu ────────────────────────────
+
+function Apercu({ j }: { j: PlayerDetail }) {
+  const { peut } = useDroits();
+  const ouverts = j.tickets.filter((t) => t.status === 'OPEN' || t.status === 'IN_PROGRESS').length;
+  const base = `/players/${j.id}`;
+  const lignes: Array<{ cle: string; icone: NomIcone; titre: string; texte: string; href?: string }> = [
+    {
+      cle: 'candidature',
+      icone: 'scroll-text',
+      titre: 'Candidature',
+      texte: j.whitelist
+        ? `${STATUT_GLOBAL[j.whitelist.status].label} · ${j.whitelist.firstName} ${j.whitelist.lastName}, ${j.whitelist.village} · envoyée le ${dateJour(j.whitelist.submittedAt)}`
+        : 'Aucune candidature envoyée',
+      href: `${base}?onglet=candidature`,
+    },
+    {
+      cle: 'tickets',
+      icone: 'ticket',
+      titre: 'Tickets',
+      texte:
+        j.tickets.length === 0
+          ? 'Aucun ticket'
+          : `${pluriel(j.tickets.length, 'ticket')}, ${ouverts === 0 ? 'aucun ouvert' : pluriel(ouverts, 'ouvert')}`,
+      href: `${base}?onglet=tickets`,
+    },
+    {
+      cle: 'ban',
+      icone: 'gavel',
+      titre: 'Bannissement',
+      texte: j.banned
+        ? `Banni${j.bannedUntil ? ` jusqu’au ${dateJour(j.bannedUntil)}` : ''}${j.banReason ? ` · ${j.banReason}` : ''}`
+        : 'Aucun bannissement en cours',
+    },
+  ];
+  if (peut('audit.voir')) {
+    lignes.push({
+      cle: 'historique',
+      icone: 'history',
+      titre: 'Historique',
+      texte: 'Décisions, prises, changements de grade et lectures d’IP',
+      href: `${base}?onglet=historique`,
+    });
+  }
+
+  return (
+    <div className="split">
+      <Card titre="Résumé" meta="Une ligne par onglet">
+        <div className="-mt-1">
+          {lignes.map((l) => {
+            const contenu = (
+              <>
+                <span className="sum-ic">
+                  <Icone nom={l.icone} taille={16} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="sum-t">{l.titre}</span>
+                  <span className="sum-x">{l.texte}</span>
+                </span>
+                {l.href && <Icone nom="chevron-right" taille={16} className="text-fg-3" />}
+              </>
+            );
+            return l.href ? (
+              <Link key={l.cle} href={l.href} className="sumline hover:text-fg">
+                {contenu}
               </Link>
             ) : (
-              <div className="rounded-[10px] border border-dashed border-[var(--color-border-strong)] py-6 text-center text-sm text-[var(--color-foreground-muted)]">
-                Aucune candidature soumise.
+              <div key={l.cle} className="sumline">
+                {contenu}
               </div>
-            )}
-          </Card>
-
-          <Card title={`Tickets (${data.tickets.length})`} Icon={IconClock}>
-            {data.tickets.length === 0 ? (
-              <div className="rounded-[10px] border border-dashed border-[var(--color-border-strong)] py-6 text-center text-sm text-[var(--color-foreground-muted)]">
-                Aucun ticket.
-              </div>
-            ) : (
-              <div className="space-y-2 -m-2">
-                {data.tickets.map((t) => (
-                  <Link
-                    key={t.id}
-                    href={`/tickets/${t.id}`}
-                    className="block rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface-elevated)] p-3 hover:border-[var(--color-accent)]/40 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
-                          {t.category}
-                        </div>
-                        <div className="text-sm truncate">{t.subject}</div>
-                        {t.lastMessagePreview && (
-                          <div className="mt-1 text-xs text-[var(--color-foreground-subtle)] truncate">
-                            {t.lastMessagePreview}
-                          </div>
-                        )}
-                      </div>
-                      <TicketStatusBadge status={t.status} />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </Card>
+            );
+          })}
         </div>
+      </Card>
+      <Card titre="Compte">
+        <ListeKV
+          largeur={124}
+          lignes={[
+            {
+              cle: 'discord',
+              label: 'Discord',
+              valeur: j.discordUsername ? `@${j.discordUsername}` : <span className="text-fg-3">non lié</span>,
+            },
+            {
+              cle: 'uuid',
+              label: 'UUID',
+              valeur: <Copiable valeur={j.minecraftUuid} affiche={uuidCourt(j.minecraftUuid)} />,
+            },
+            j.steamUsername ? { cle: 'steam', label: 'Steam', valeur: j.steamUsername } : null,
+            { cle: 'cree', label: 'Compte créé', valeur: dateJour(j.createdAt) },
+            {
+              cle: 'connexion',
+              label: 'Dernière connexion',
+              valeur: j.lastLoginAt ? (
+                <span title={dateHeure(j.lastLoginAt)}>{ilYa(j.lastLoginAt)}</span>
+              ) : (
+                'jamais'
+              ),
+            },
+            { cle: 'grade', label: 'Grade', valeur: libelleGrade(j.role) },
+          ]}
+        />
+      </Card>
+    </div>
+  );
+}
 
-        <aside className="space-y-6">
-          <Card title="Identite" Icon={IconShield}>
-            <Field label="Pseudo MC">{data.minecraftUsername}</Field>
-            <Field label="UUID">
-              <code className="text-[10px] font-mono text-[var(--color-foreground-subtle)] break-all">
-                {data.minecraftUuid}
-              </code>
-            </Field>
-            <Field label="Discord">
-              {data.discordUsername ? `@${data.discordUsername}` : '—'}
-            </Field>
-            <Field label="Steam">{data.steamUsername ?? '—'}</Field>
-            <Field label="Role">
-              <RoleEditor playerId={id} currentRole={data.role} />
-            </Field>
-          </Card>
+function Copiable({ valeur, affiche }: { valeur: string; affiche: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="mono" title={valeur}>
+        {affiche}
+      </span>
+      <BoutonIcone
+        icone="copy"
+        taille={14}
+        className="!h-6 !w-6 !min-h-0"
+        label="Copier l’UUID"
+        onClick={() => {
+          void navigator.clipboard?.writeText(valeur).then(
+            () => toast.success('Copié'),
+            () => toast.error('Copie impossible'),
+          );
+        }}
+      />
+    </span>
+  );
+}
 
-          <Card title="Activite" Icon={IconClock}>
-            <Field label="Cree le">
-              {new Date(data.createdAt).toLocaleDateString('fr-FR', {
-                dateStyle: 'medium',
-              })}
-            </Field>
-            <Field label="Derniere connexion">
-              {data.lastLoginAt
-                ? new Date(data.lastLoginAt).toLocaleString('fr-FR', {
-                    dateStyle: 'short',
-                    timeStyle: 'short',
-                  })
-                : 'jamais'}
-            </Field>
-            {data.lastKnownIp && (
-              <Field label="Derniere IP">
-                <code className="text-xs font-mono">{data.lastKnownIp}</code>
-              </Field>
-            )}
-            {data.lastKnownCountry && (
-              <Field label="Pays">{data.lastKnownCountry}</Field>
-            )}
-          </Card>
+// ──────────────────────────── Candidature ────────────────────────────
 
-          {data.banned && (
-            <Card title="Sanction active" Icon={IconBan}>
-              <Field label="Raison" block>
-                {data.banReason ?? '*non specifiee*'}
-              </Field>
-              {data.bannedUntil && (
-                <Field label="Jusqu'au">
-                  {new Date(data.bannedUntil).toLocaleString('fr-FR', {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  })}
-                </Field>
-              )}
-            </Card>
+function OngletCandidature({ j, lienFiche }: { j: PlayerDetail; lienFiche: boolean }) {
+  if (!j.whitelist) {
+    return <EmptyState icone="scroll-text" titre="Aucune candidature." aide="Le joueur n’a pas encore envoyé de candidature depuis le launcher." />;
+  }
+  const w = j.whitelist;
+  const s = STATUT_GLOBAL[w.status];
+  return (
+    <Card
+      titre={`${w.firstName} ${w.lastName}`}
+      action={
+        lienFiche ? (
+          <Link href={`/whitelist/${w.id}`} className="mot">
+            Ouvrir la fiche
+          </Link>
+        ) : undefined
+      }
+    >
+      <ListeKV
+        lignes={[
+          {
+            cle: 'statut',
+            label: 'Statut',
+            valeur: (
+              <Badge ton={s.ton === 'success' ? 'succes' : s.ton === 'danger' ? 'danger' : s.ton === 'warning' ? 'attention' : 'info'}>
+                {s.label}
+              </Badge>
+            ),
+          },
+          { cle: 'village', label: 'Village', valeur: w.village },
+          { cle: 'envoi', label: 'Envoyée', valeur: dateHeure(w.submittedAt) },
+          w.reviewedAt ? { cle: 'relue', label: 'Relue', valeur: dateHeure(w.reviewedAt) } : null,
+        ]}
+      />
+    </Card>
+  );
+}
+
+// ──────────────────────────── Tickets ────────────────────────────
+
+type TicketJoueur = PlayerDetail['tickets'][number];
+
+function OngletTickets({
+  j,
+  ouvrir,
+  onOuvrir,
+}: {
+  j: PlayerDetail;
+  ouvrir: (categorie: string) => boolean;
+  onOuvrir: (id: string) => void;
+}) {
+  const colonnes: Colonne<TicketJoueur>[] = [
+    { cle: 'sujet', titre: 'Sujet', principal: true, rendu: (t) => <span className="ellip block">{t.subject}</span> },
+    { cle: 'cat', titre: 'Catégorie', serre: true, rendu: (t) => libelleCategorie(t.category) },
+    { cle: 'statut', titre: 'Statut', serre: true, rendu: (t) => <BadgeStatut statut={STATUT_TICKET[t.status]} /> },
+    {
+      cle: 'maj',
+      titre: 'Dernière activité',
+      serre: true,
+      rendu: (t) => <span title={dateHeure(t.updatedAt)}>{ilYa(t.updatedAt)}</span>,
+    },
+  ];
+  return (
+    <DataTable<TicketJoueur>
+      label="Tickets du joueur"
+      colonnes={colonnes}
+      lignes={j.tickets}
+      cle={(t) => t.id}
+      onOuvrir={(t) => (ouvrir(t.category) ? onOuvrir(t.id) : undefined)}
+      vide={<EmptyState icone="ticket" titre="Aucun ticket." />}
+    />
+  );
+}
+
+// ──────────────────────────── Historique ────────────────────────────
+
+function OngletHistorique({ id }: { id: string }) {
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['admin', 'audit', 'joueur', id],
+    queryFn: () => api<Paginated<AuditLogItem>>(`/admin/audit?targetUserId=${id}&take=100`),
+  });
+  const colonnes: Colonne<AuditLogItem>[] = [
+    {
+      cle: 'quand',
+      titre: 'Quand',
+      serre: true,
+      rendu: (a) => <span title={dateHeure(a.createdAt)}>{ilYa(a.createdAt)}</span>,
+    },
+    { cle: 'action', titre: 'Action', principal: true, rendu: (a) => <span title={a.action}>{libelleAction(a.action)}</span> },
+    { cle: 'qui', titre: 'Par', serre: true, rendu: (a) => a.actor.username },
+    { cle: 'source', titre: 'Source', serre: true, cacherEtroit: true, rendu: (a) => libelleSource(a.source) },
+  ];
+  return (
+    <DataTable<AuditLogItem>
+      label="Historique du joueur"
+      colonnes={colonnes}
+      lignes={data?.items}
+      cle={(a) => a.id}
+      chargement={isLoading}
+      erreur={error as Error | null}
+      onReessayer={() => void refetch()}
+      vide={<EmptyState icone="history" titre="Rien au journal pour ce joueur." />}
+      pied={data && data.total > data.items.length ? `${data.items.length} plus récents sur ${data.total}` : undefined}
+    />
+  );
+}
+
+// ──────────────────────────── Sécurité ────────────────────────────
+
+function OngletSecurite({ j }: { j: PlayerDetail }) {
+  const { peut } = useDroits();
+  const [ip, setIp] = useState<IpJoueur | null>(null);
+  const lire = useMutation({
+    mutationFn: () => api<IpJoueur>(`/admin/players/${j.id}/ip`),
+    onSuccess: setIp,
+    onError: (e) => toast.error('Adresse non affichée', { description: messageErreur(e) }),
+  });
+  // Seulement les connexions de ce joueur (sans IP : elle se lit une à une).
+  const anomalies = useQuery({
+    queryKey: ['admin', 'anomalies', 'joueur', j.id],
+    queryFn: () => api<LoginAnomaly[]>(`/admin/anomalies?userId=${encodeURIComponent(j.id)}`),
+    enabled: peut('securite.voir'),
+  });
+  const siennes = anomalies.data ?? [];
+
+  return (
+    <div className="split">
+      <Card titre="Dernière connexion" meta="Réservé aux administrateurs">
+        <ListeKV
+          largeur={124}
+          lignes={[
+            {
+              cle: 'ip',
+              label: 'Adresse IP',
+              valeur: !j.ipConnue ? (
+                <span className="text-fg-3">aucune connue</span>
+              ) : ip ? (
+                <span className="mono">{ip.ip ?? 'aucune'}</span>
+              ) : (
+                <span className="inline-flex items-center gap-3">
+                  <span className="mono text-fg-3" aria-label="Adresse masquée">
+                    •••.•••.•••.••
+                  </span>
+                  <Mot onClick={() => lire.mutate()} enCours={lire.isPending}>
+                    <span className="inline-flex items-center gap-1">
+                      <Icone nom="eye" taille={14} /> Afficher
+                    </span>
+                  </Mot>
+                </span>
+              ),
+            },
+            {
+              // Le pays suit l'IP : masqué jusqu'à « Afficher » (lecture journalisée).
+              cle: 'pays',
+              label: 'Pays',
+              valeur: ip ? (
+                (ip.pays ?? 'inconnu')
+              ) : (
+                <span className="text-fg-3">{j.ipConnue ? 'masqué' : 'inconnu'}</span>
+              ),
+            },
+          ]}
+        />
+        <p className="help mt-4 flex items-center gap-1.5">
+          <Icone nom="eye" taille={14} /> Chaque affichage d’une adresse IP et de son pays est inscrit au journal.
+        </p>
+      </Card>
+      {peut('securite.voir') && (
+        <Card titre="Connexions suspectes" meta={siennes.length > 0 ? pluriel(siennes.length, 'signal', 'signaux') : undefined}>
+          {anomalies.isLoading ? (
+            <Chargement />
+          ) : siennes.length === 0 ? (
+            <p className="text-[13px] text-fg-3">Aucune connexion suspecte pour ce joueur.</p>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {siennes.map((a) => (
+                <li key={a.id} className="text-[13px]">
+                  <div className="text-fg">{a.reason}</div>
+                  <div className="text-fg-3">
+                    {a.country ?? 'Pays inconnu'} · <span title={dateHeure(a.createdAt)}>{ilYa(a.createdAt)}</span>
+                    {a.acknowledged ? ' · vue' : ' · à voir'}
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
-        </aside>
-      </div>
+          <div className="mt-4">
+            <Callout ton="neutre">
+              Détail et « Marquer vue » dans <Link href="/anomalies" className="lien">Modération › Sécurité</Link>.
+            </Callout>
+          </div>
+        </Card>
+      )}
     </div>
-  );
-}
-
-function Card({
-  title,
-  Icon,
-  children,
-}: {
-  title: string;
-  Icon: React.FC<{ className?: string }>;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-      <div className="mb-4 flex items-center gap-2 text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
-        <Icon className="text-[var(--color-accent)]" />
-        {title}
-      </div>
-      <div className="space-y-3">{children}</div>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  block,
-  children,
-}: {
-  label: string;
-  block?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={block ? '' : 'flex items-baseline gap-3'}>
-      <div
-        className={`text-xs text-[var(--color-foreground-muted)] ${
-          block ? 'mb-1' : 'min-w-[110px]'
-        }`}
-      >
-        {label}
-      </div>
-      <div
-        className={`text-sm ${
-          block ? 'whitespace-pre-wrap text-[var(--color-foreground)]' : ''
-        }`}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-// Ordre croissant de privilège (identique à l'API).
-const ROLE_RANKS: Role[] = [
-  'PLAYER',
-  'WHITELISTED',
-  'HELPER',
-  'MODELISATEUR',
-  'DEVELOPPEUR',
-  'WHITELIST_REVIEWER',
-  'MODERATOR',
-  'ADMIN',
-  'OWNER',
-];
-const ROLE_LABELS: Record<Role, string> = {
-  PLAYER: 'Joueur',
-  WHITELISTED: 'Whitelisté',
-  HELPER: 'Helper',
-  MODELISATEUR: 'Modélisateur',
-  DEVELOPPEUR: 'Développeur',
-  WHITELIST_REVIEWER: 'Reviewer WL',
-  MODERATOR: 'Modérateur',
-  ADMIN: 'Admin',
-  OWNER: 'Owner',
-};
-
-/**
- * Éditeur de rôle inline, gardé côté client (l'API re-vérifie tout) : visible
- * uniquement si le staff connecté est ADMIN+ et strictement au-dessus de la
- * cible. Ne propose que des rôles strictement en dessous du sien (OWNER exclu).
- */
-function RoleEditor({
-  playerId,
-  currentRole,
-}: {
-  playerId: string;
-  currentRole: Role;
-}) {
-  const qc = useQueryClient();
-  const { data: me } = useQuery({
-    queryKey: ['admin', 'me'],
-    queryFn: () => api<CurrentUser>('/auth/me'),
-    staleTime: 5 * 60_000,
-  });
-
-  const mut = useMutation({
-    mutationFn: (role: Role) =>
-      api(`/admin/players/${playerId}/role`, { method: 'PATCH', body: { role } }),
-    onSuccess: (_d, role) => {
-      qc.invalidateQueries({ queryKey: ['admin', 'players', playerId] });
-      qc.invalidateQueries({ queryKey: ['admin', 'players', 'search'] });
-      toast.success(`Rôle mis à jour → ${ROLE_LABELS[role]}`);
-    },
-    onError: (err) =>
-      toast.error('Échec du changement de rôle', {
-        description: (err as Error).message,
-      }),
-  });
-
-  const myRank = me ? ROLE_RANKS.indexOf(me.role) : -1;
-  const canEdit =
-    myRank >= ROLE_RANKS.indexOf('ADMIN') &&
-    ROLE_RANKS.indexOf(currentRole) < myRank;
-
-  if (!canEdit) return <RoleBadge role={currentRole} />;
-
-  const options = ROLE_RANKS.filter(
-    (r) => ROLE_RANKS.indexOf(r) < myRank && r !== 'OWNER',
-  );
-
-  return (
-    <select
-      value={currentRole}
-      disabled={mut.isPending}
-      onChange={(e) => {
-        const r = e.target.value as Role;
-        if (r !== currentRole) mut.mutate(r);
-      }}
-      className="rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-surface-elevated)] px-2 py-1 text-sm text-[var(--color-foreground)] outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
-    >
-      {options.map((r) => (
-        <option key={r} value={r}>
-          {ROLE_LABELS[r]}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function AppStatusBadge({ status }: { status: AppStatus }) {
-  const map: Record<AppStatus, { label: string; cls: string; Icon: React.FC<{className?: string}> }> = {
-    PENDING: {
-      label: 'En attente',
-      cls: 'bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-[var(--color-accent)]/40',
-      Icon: IconClock,
-    },
-    NEEDS_REVISION: {
-      label: 'Revision',
-      cls: 'bg-[var(--color-warning-soft)] text-[var(--color-warning)] border-[var(--color-warning)]/40',
-      Icon: IconClock,
-    },
-    APPROVED: {
-      label: 'Approuvee',
-      cls: 'bg-[var(--color-success-soft)] text-[var(--color-success)] border-[var(--color-success)]/40',
-      Icon: IconCheck,
-    },
-    REJECTED: {
-      label: 'Refusee',
-      cls: 'bg-[var(--color-danger-soft)] text-[var(--color-danger)] border-[var(--color-danger)]/40',
-      Icon: IconBan,
-    },
-  };
-  const t = map[status];
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs ${t.cls}`}
-    >
-      <t.Icon /> {t.label}
-    </span>
-  );
-}
-
-function TicketStatusBadge({ status }: { status: TicketStatus }) {
-  const map: Record<TicketStatus, { label: string; cls: string }> = {
-    OPEN: {
-      label: 'Ouvert',
-      cls: 'bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-[var(--color-accent)]/40',
-    },
-    IN_PROGRESS: {
-      label: 'En cours',
-      cls: 'bg-[var(--color-warning-soft)] text-[var(--color-warning)] border-[var(--color-warning)]/40',
-    },
-    RESOLVED: {
-      label: 'Resolu',
-      cls: 'bg-[var(--color-success-soft)] text-[var(--color-success)] border-[var(--color-success)]/40',
-    },
-    CLOSED: {
-      label: 'Ferme',
-      cls: 'border-[var(--color-border-strong)] text-[var(--color-foreground-muted)]',
-    },
-  };
-  const t = map[status];
-  return (
-    <span
-      className={`inline-block shrink-0 rounded-full border px-2.5 py-0.5 text-xs ${t.cls}`}
-    >
-      {t.label}
-    </span>
   );
 }

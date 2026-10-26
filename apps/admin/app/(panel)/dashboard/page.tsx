@@ -1,386 +1,352 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { FadeUp } from '@/components/anim';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { usePrise } from '@/components/AssignmentBlock';
+import { MCAvatar } from '@/components/MCAvatar';
+import { Mot } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { DataTable, type Colonne, type GroupeLignes } from '@/components/ui/DataTable';
+import { Icone } from '@/components/ui/Icone';
+import { Kbd } from '@/components/ui/Kbd';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { EmptyState, ErrorState } from '@/components/ui/States';
+import { Chip, Segmented } from '@/components/ui/Tabs';
 import {
-  IconClock,
-  IconPlayers,
-  IconShield,
-  IconTickets,
-  IconWhitelist,
-} from '@/components/icons';
-import { Skeleton } from '@/components/Skeleton';
-import { api } from '@/lib/api';
-import type {
-  DashboardStats,
-  TicketListItem,
-  WhitelistListItem,
-} from '@/lib/types';
+  useEtatServeur,
+  useFileATraiter,
+  useSeancesDuJour,
+  type ElementFile,
+  type TypeElement,
+} from '@/lib/a-traiter';
+import { heureCourte, jourLong } from '@/lib/candidature';
+import { useDroits } from '@/lib/droits';
+import { attenteDepuis, dateHeure, nombre, pluriel } from '@/lib/format';
+import { pageArrivee } from '@/lib/navigation';
 
-export default function DashboardPage() {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['admin', 'dashboard'],
-    queryFn: () => api<DashboardStats>('/admin/dashboard'),
-    refetchInterval: 30_000,
-  });
+/**
+ * À traiter (PANEL_V2 §4.1) : une seule file de tout ce qui attend une
+ * action du staff — écrits à relire, tickets, connexions suspectes — en
+ * retard d'abord, puis du plus ancien au plus récent ; « à moi » en premier.
+ * La séance de douane du jour est dans la bande « Aujourd'hui » : c'est un
+ * rendez-vous, pas une tâche. Remplace le tableau de bord et « Mes prises ».
+ */
 
-  const { data: inbox } = useQuery({
-    queryKey: ['admin', 'me', 'inbox'],
-    queryFn: () =>
-      api<{ whitelist: WhitelistListItem[]; tickets: TicketListItem[] }>(
-        '/admin/me/inbox',
-      ),
-    refetchInterval: 30_000,
-  });
+type Filtre = 'tout' | 'moi' | 'nonpris';
 
-  return (
-    <div className="px-10 py-10 max-w-6xl mx-auto">
-      <header className="mb-10">
-        <div className="text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">
-          Vue d&apos;ensemble
-        </div>
-        <h1
-          className="mt-2 text-6xl leading-none text-[var(--color-foreground)]"
-          style={{ fontFamily: 'var(--font-display)' }}
-        >
-          Tableau de bord
-        </h1>
-        <p className="mt-3 max-w-xl text-sm text-[var(--color-foreground-subtle)]">
-          L&apos;etat en temps reel de la whitelist, des tickets et de la
-          communaute Reborn.
-        </p>
-      </header>
-
-      {isLoading && !data ? (
-        <DashboardSkeleton />
-      ) : error ? (
-        <div className="rounded-[14px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-5 py-4 text-sm text-[var(--color-danger)]">
-          {(error as Error).message}
-        </div>
-      ) : !data ? null : (
-        <div className="space-y-12">
-          {inbox && (inbox.whitelist.length > 0 || inbox.tickets.length > 0) && (
-            <FadeUp delay={0}>
-              <Link
-                href="/inbox"
-                className="group flex items-center justify-between gap-4 rounded-[14px] border border-[var(--color-accent)]/30 bg-[var(--color-accent-soft)]/40 px-6 py-5 transition-colors hover:border-[var(--color-accent)]/60"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
-                    <IconWhitelist />
-                  </div>
-                  <div>
-                    <div className="text-base font-semibold text-[var(--color-foreground)]">
-                      {inbox.whitelist.length + inbox.tickets.length} element
-                      {inbox.whitelist.length + inbox.tickets.length > 1
-                        ? 's'
-                        : ''}{' '}
-                      m&apos;attendent
-                    </div>
-                    <div className="mt-0.5 text-sm text-[var(--color-foreground-subtle)]">
-                      {inbox.whitelist.length} candidature
-                      {inbox.whitelist.length > 1 ? 's' : ''} ·{' '}
-                      {inbox.tickets.length} ticket
-                      {inbox.tickets.length > 1 ? 's' : ''} assigne
-                      {inbox.tickets.length > 1 ? 's' : ''}
-                    </div>
-                  </div>
-                </div>
-                <span className="text-sm font-medium text-[var(--color-accent)] transition-transform group-hover:translate-x-0.5">
-                  Mon espace →
-                </span>
-              </Link>
-            </FadeUp>
-          )}
-
-          <FadeUp delay={0.06}>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatCard
-                icon={<IconWhitelist />}
-                label="Whitelist en attente"
-                value={data.whitelist.pending}
-                sublabel={`+${data.whitelist.needsRevision} a reviser`}
-                tone="accent"
-              />
-              <StatCard
-                icon={<IconTickets />}
-                label="Tickets ouverts"
-                value={data.tickets.open}
-                sublabel={`${data.tickets.inProgress} en cours`}
-                tone="warning"
-              />
-              <StatCard
-                icon={<IconPlayers />}
-                label="Joueurs whitelistes"
-                value={data.users.whitelisted}
-                sublabel={`/ ${data.users.total} comptes`}
-                tone="success"
-              />
-              <StatCard
-                icon={<IconClock />}
-                label="Nouveaux (24h)"
-                value={data.users.last24h}
-                sublabel="inscriptions recentes"
-                tone="accent"
-              />
-              <PlaceholderCard
-                icon={<IconPlayers />}
-                label="Joueurs en ligne"
-              />
-              <PlaceholderCard
-                icon={<IconShield />}
-                label="Revenus boutique"
-              />
-            </div>
-          </FadeUp>
-
-          <FadeUp delay={0.12}>
-            <section>
-              <div className="mb-5 flex items-baseline gap-3">
-                <h2
-                  className="text-3xl leading-none text-[var(--color-foreground)]"
-                  style={{ fontFamily: 'var(--font-display)' }}
-                >
-                  Repartition
-                </h2>
-                <span className="text-xs text-[var(--color-foreground-muted)]">
-                  Detail par statut
-                </span>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <BreakdownPanel
-                  title="Whitelist"
-                  rows={[
-                    {
-                      label: 'A traiter',
-                      value: data.whitelist.pending,
-                      color: 'var(--color-accent)',
-                    },
-                    {
-                      label: 'A reviser',
-                      value: data.whitelist.needsRevision,
-                      color: 'var(--color-warning)',
-                    },
-                    {
-                      label: 'Approuvees',
-                      value: data.whitelist.approved,
-                      color: 'var(--color-success)',
-                    },
-                    {
-                      label: 'Refusees',
-                      value: data.whitelist.rejected,
-                      color: 'var(--color-danger)',
-                    },
-                  ]}
-                />
-                <BreakdownPanel
-                  title="Tickets"
-                  rows={[
-                    {
-                      label: 'Ouverts',
-                      value: data.tickets.open,
-                      color: 'var(--color-accent)',
-                    },
-                    {
-                      label: 'En cours',
-                      value: data.tickets.inProgress,
-                      color: 'var(--color-warning)',
-                    },
-                    {
-                      label: 'Resolus',
-                      value: data.tickets.resolved,
-                      color: 'var(--color-success)',
-                    },
-                    {
-                      label: 'Fermes',
-                      value: data.tickets.closed,
-                      color: 'var(--color-foreground-muted)',
-                    },
-                  ]}
-                />
-              </div>
-            </section>
-          </FadeUp>
-        </div>
-      )}
-    </div>
-  );
-}
-
-type Tone = 'accent' | 'warning' | 'success';
-
-const TONE_MAP: Record<Tone, { bg: string; fg: string; bar: string }> = {
-  accent: {
-    bg: 'var(--color-accent-soft)',
-    fg: 'var(--color-accent)',
-    bar: 'var(--color-accent)',
-  },
-  warning: {
-    bg: 'var(--color-warning-soft)',
-    fg: 'var(--color-warning)',
-    bar: 'var(--color-warning)',
-  },
-  success: {
-    bg: 'var(--color-success-soft)',
-    fg: 'var(--color-success)',
-    bar: 'var(--color-success)',
-  },
+const LIBELLE_TYPE: Record<TypeElement, string> = {
+  ecrit: 'Candidatures',
+  ticket: 'Tickets',
+  alerte: 'Alertes',
 };
 
-function StatCard({
-  icon,
-  label,
-  value,
-  sublabel,
-  tone,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  sublabel?: string;
-  tone: Tone;
-}) {
-  const t = TONE_MAP[tone];
+export default function ATraiterPage() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const { capacites, peut } = useDroits();
+  const f = useFileATraiter();
+  const aUneFile = f.voit.ecrits || f.voit.tickets || f.voit.alertes;
+
+  // Les grades sans file (modélisateur) arrivent sur leur section. Juste après
+  // la connexion (`?arrivee=1`), la page d'arrivée suit le grade : le
+  // développeur part sur Techniques, mais peut revenir ici par la barre.
+  const arrivee = params.get('arrivee') === '1';
+  useEffect(() => {
+    const cible = pageArrivee(capacites);
+    if (!aUneFile || (arrivee && cible !== '/dashboard')) router.replace(cible);
+    else if (arrivee) router.replace('/dashboard');
+  }, [aUneFile, arrivee, capacites, router]);
+
+  const filtreUrl = params.get('filtre');
+  const [filtre, setFiltre] = useState<Filtre>(
+    filtreUrl === 'moi' || filtreUrl === 'nonpris' ? filtreUrl : 'tout',
+  );
+  const [types, setTypes] = useState<TypeElement[]>([]);
+
+  const parType = (l: ElementFile[]) =>
+    types.length === 0 ? l : l.filter((e) => types.includes(e.type));
+
+  const aMoi = parType(f.aMoi);
+  const nonPris = parType(f.nonPris);
+  const autres = parType(f.autres);
+
+  const groupes: GroupeLignes<ElementFile>[] = [];
+  if (filtre !== 'nonpris') {
+    groupes.push({ cle: 'moi', titre: 'À moi', n: aMoi.length, lignes: aMoi });
+  }
+  if (filtre !== 'moi') {
+    groupes.push({ cle: 'nonpris', titre: 'Non pris', n: nonPris.length, lignes: nonPris });
+  }
+  if (filtre === 'tout') {
+    const noms = [...new Set(autres.map((e) => e.assignee?.minecraftUsername).filter(Boolean))];
+    groupes.push({
+      cle: 'autres',
+      titre: 'Pris par d’autres',
+      n: autres.length,
+      lignes: autres,
+      replie: true,
+      resume: noms.slice(0, 4).join(', '),
+    });
+  }
+
+  const totalVisible = aMoi.length + nonPris.length;
+  const comptesType = useMemo(() => {
+    const c: Record<TypeElement, number> = { ecrit: 0, ticket: 0, alerte: 0 };
+    for (const e of [...f.aMoi, ...f.nonPris]) c[e.type]++;
+    return c;
+  }, [f.aMoi, f.nonPris]);
+  const typesVisibles = (Object.keys(LIBELLE_TYPE) as TypeElement[]).filter(
+    (t) =>
+      (t === 'ecrit' && f.voit.ecrits) ||
+      (t === 'ticket' && f.voit.tickets) ||
+      (t === 'alerte' && f.voit.alertes),
+  );
+
+  if (!aUneFile) return null;
+
+  const colonnes: Colonne<ElementFile>[] = [
+    {
+      cle: 'type',
+      titre: 'Type',
+      serre: true,
+      rendu: (e) => (
+        <span className="inline-flex items-center gap-2.5 text-fg-2">
+          <Icone nom={e.icone} taille={16} className="text-fg-3" />
+          {e.libelleType}
+        </span>
+      ),
+    },
+    {
+      cle: 'sujet',
+      titre: 'Sujet',
+      rendu: (e) => (
+        <span className="two block min-w-0">
+          <Link href={e.href} className="block max-w-[420px] truncate font-medium text-fg lien-discret">
+            {e.sujet}
+          </Link>
+          <span className="sub2 truncate">{e.detail}</span>
+        </span>
+      ),
+    },
+    {
+      cle: 'joueur',
+      titre: 'Joueur',
+      rendu: (e) =>
+        e.joueur ? (
+          <span className="who">
+            <MCAvatar uuid={e.joueur.uuid ?? e.joueur.pseudo} size={22} />
+            {peut('joueurs.voir') && e.joueur.id ? (
+              <Link href={`/players/${e.joueur.id}`} className="truncate text-fg lien-discret">
+                {e.joueur.pseudo}
+              </Link>
+            ) : (
+              <span className="truncate text-fg">{e.joueur.pseudo}</span>
+            )}
+          </span>
+        ) : (
+          <span className="text-fg-3">—</span>
+        ),
+    },
+    {
+      cle: 'attente',
+      titre: 'Attente',
+      align: 'droite',
+      serre: true,
+      rendu: (e) => (
+        <span
+          className={`tabular ${e.retard ? 'late' : ''}`}
+          title={`Depuis le ${dateHeure(e.depuis)}${e.retard ? ' · au-delà du seuil de retard' : ''}`}
+        >
+          {attenteDepuis(e.depuis)}
+        </span>
+      ),
+    },
+    {
+      cle: 'pris',
+      titre: 'Pris par',
+      cacherEtroit: true,
+      rendu: (e) => <PrisPar element={e} />,
+    },
+    {
+      cle: 'action',
+      titre: 'Action',
+      align: 'droite',
+      serre: true,
+      rendu: (e) => <ActionLigne element={e} />,
+    },
+  ];
+
   return (
-    <div className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 transition-colors hover:border-[var(--color-border-strong)]">
-      <div
-        className="flex h-11 w-11 items-center justify-center rounded-[12px]"
-        style={{ backgroundColor: t.bg, color: t.fg }}
-      >
-        {icon}
+    <div className="page">
+      <PageHeader
+        titre="À traiter"
+        sousTitre={
+          <>
+            <span className="first-letter:uppercase inline-block">{jourLong(new Date())}</span>
+            {' · '}
+            <b>{pluriel(totalVisible, 'élément')}</b>
+            {f.aMoi.length > 0 && <>, dont {nombre(aMoi.length)} à toi</>}
+            {' · '}en retard d’abord, puis le plus ancien
+          </>
+        }
+        actions={
+          <Segmented<Filtre>
+            label="Filtrer la file"
+            valeur={filtre}
+            onChange={setFiltre}
+            options={[
+              { valeur: 'tout', label: 'Tout', n: totalVisible },
+              { valeur: 'moi', label: 'À moi', n: aMoi.length },
+              { valeur: 'nonpris', label: 'Non pris', n: nonPris.length },
+            ]}
+          />
+        }
+      />
+
+      <BandeAujourdhui />
+
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Types">
+          {typesVisibles.length > 1 &&
+            typesVisibles.map((t) => (
+              <Chip
+                key={t}
+                actif={types.includes(t)}
+                onClick={() =>
+                  setTypes((l) => (l.includes(t) ? l.filter((x) => x !== t) : [...l, t]))
+                }
+                icone={t === 'ecrit' ? 'scroll-text' : t === 'ticket' ? 'ticket' : 'shield'}
+                n={comptesType[t]}
+              >
+                {LIBELLE_TYPE[t]}
+              </Chip>
+            ))}
+        </div>
+        <div className="hints hidden md:flex">
+          <Kbd>↑</Kbd>
+          <Kbd>↓</Kbd> choisir · <Kbd>Entrée</Kbd> ouvrir · <Kbd>P</Kbd> prendre
+        </div>
       </div>
-      <div
-        className="mt-5 text-5xl font-bold leading-none text-[var(--color-foreground)]"
-        style={{ fontFamily: 'var(--font-display)' }}
-      >
-        {value}
-      </div>
-      <div className="mt-3 text-sm font-medium text-[var(--color-foreground)]">
-        {label}
-      </div>
-      {sublabel && (
-        <div className="mt-1 text-xs text-[var(--color-foreground-muted)]">
-          {sublabel}
+
+      {f.erreur && f.elements.length > 0 && (
+        <div className="mb-3">
+          <ErrorState erreur={f.erreur} onReessayer={f.recharger} />
         </div>
       )}
+
+      <DataTable<ElementFile>
+        label="File des éléments à traiter"
+        colonnes={colonnes}
+        groupes={groupes}
+        cle={(e) => e.cle}
+        chargement={f.chargement}
+        erreur={f.elements.length === 0 ? f.erreur : null}
+        onReessayer={f.recharger}
+        onOuvrir={(e) => router.push(e.href)}
+        onToucheLigne={(ev, e) => {
+          if (ev.key.toLowerCase() === 'p' && !ev.ctrlKey && !ev.metaKey && e.prise && !e.assignee) {
+            ev.preventDefault();
+            ev.currentTarget.querySelector<HTMLButtonElement>('[data-prendre]')?.click();
+          }
+        }}
+        vide={
+          <EmptyState
+            titre="Rien à traiter."
+            aide="Les nouvelles candidatures et les tickets arrivent ici."
+          />
+        }
+      />
     </div>
   );
 }
 
-function PlaceholderCard({
-  icon,
-  label,
-}: {
-  icon: React.ReactNode;
-  label: string;
-}) {
+function PrisPar({ element: e }: { element: ElementFile }) {
+  const { moi } = useDroits();
+  if (!e.assignee) return <span className="text-fg-3">—</span>;
   return (
-    <div className="rounded-[14px] border border-dashed border-[var(--color-border-strong)] bg-transparent p-6">
-      <div className="flex items-start justify-between">
-        <div className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-[var(--color-surface-elevated)] text-[var(--color-foreground-muted)]">
-          {icon}
-        </div>
-        <span className="rounded-full border border-[var(--color-border-strong)] px-2 py-0.5 text-[10px] uppercase tracking-wider text-[var(--color-foreground-muted)]">
-          a brancher
-        </span>
-      </div>
-      <div
-        className="mt-5 text-5xl font-bold leading-none text-[var(--color-foreground-muted)]"
-        style={{ fontFamily: 'var(--font-display)' }}
-      >
-        —
-      </div>
-      <div className="mt-3 text-sm font-medium text-[var(--color-foreground-subtle)]">
-        {label}
-      </div>
-      <div className="mt-1 text-xs text-[var(--color-foreground-muted)]">
-        source non connectee
-      </div>
-    </div>
+    <span className="who text-fg-2">
+      {/* Visage tiré de l'UUID Minecraft, jamais du pseudo Discord. */}
+      <MCAvatar uuid={e.assignee.minecraftUuid} size={22} />
+      {moi && e.assignee.id === moi.id ? 'Toi' : e.assignee.minecraftUsername}
+    </span>
   );
 }
 
-function BreakdownPanel({
-  title,
-  rows,
-}: {
-  title: string;
-  rows: { label: string; value: number; color: string }[];
-}) {
-  const total = rows.reduce((sum, r) => sum + r.value, 0);
+function ActionLigne({ element: e }: { element: ElementFile }) {
+  const router = useRouter();
+  if (!e.prise || e.assignee) {
+    return (
+      <Mot onClick={() => router.push(e.href)} aria-label={`Ouvrir : ${e.sujet}`}>
+        Ouvrir
+      </Mot>
+    );
+  }
+  return <MotPrendre element={e} />;
+}
+
+function MotPrendre({ element: e }: { element: ElementFile }) {
+  const { prendre } = usePrise(e.prise!.genre, e.prise!.id, {
+    statutTicket: e.prise!.statutTicket,
+  });
   return (
-    <div className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
-      <div className="mb-5 flex items-baseline justify-between">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-foreground)]">
-          {title}
-        </h3>
-        <span className="text-xs text-[var(--color-foreground-muted)]">
-          {total} total
-        </span>
-      </div>
-      <div className="space-y-4">
-        {rows.map((r) => {
-          const pct = total > 0 ? Math.round((r.value / total) * 100) : 0;
+    <Mot
+      data-prendre
+      enCours={prendre.isPending}
+      onClick={() => prendre.mutate(false)}
+      aria-label={`Prendre : ${e.sujet}`}
+      title="Prendre · P"
+    >
+      Prendre
+    </Mot>
+  );
+}
+
+/**
+ * Bande « Aujourd'hui », une ligne, seulement si elle a du contenu : la
+ * séance de douane du jour (si le grade organise la douane) et l'état du
+ * serveur de jeu.
+ */
+function BandeAujourdhui() {
+  const { moi, peut } = useDroits();
+  const seances = useSeancesDuJour(peut('douane.organiser'));
+  const serveur = useEtatServeur();
+  const liste = seances.data ?? [];
+  const etat = serveur.data;
+  if (liste.length === 0 && !etat) return null;
+
+  return (
+    <Card corps={false} className="mb-4">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 text-[13px] text-fg-2">
+        <span className="eyebrow">Aujourd’hui</span>
+        {liste.length > 0 && <span className="h-4 w-px bg-border" aria-hidden />}
+        {liste.map((s) => {
+          const examinateur = !!moi && s.examinateurs.some((x) => x.id === moi.id);
           return (
-            <div key={r.label}>
-              <div className="mb-1.5 flex items-baseline justify-between text-sm">
-                <span className="text-[var(--color-foreground-subtle)]">
-                  {r.label}
-                </span>
-                <span className="tabular-nums font-medium text-[var(--color-foreground)]">
-                  {r.value}
-                </span>
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-elevated)]">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${pct}%`,
-                    backgroundColor: r.color,
-                  }}
-                />
-              </div>
-            </div>
+            <span key={s.id} className="inline-flex flex-wrap items-center gap-2">
+              <Icone nom="landmark" taille={16} className="text-fg-3" />
+              <b className="font-medium text-fg">Séance de douane {heureCourte(s.startAt)}</b>
+              <span className="tabular">
+                · {s.placesPrises} / {s.capacite} inscrits
+              </span>
+              {examinateur && <span>· tu es examinateur</span>}
+              <Link href={`/douane/${s.id}`} className="mot">
+                Voir
+              </Link>
+            </span>
           );
         })}
+        {etat && (
+          <span className="ml-auto inline-flex items-center gap-2">
+            <span
+              className="badge-dot"
+              style={{ background: etat.online ? 'var(--color-success)' : 'var(--color-fg-3)' }}
+              aria-hidden
+            />
+            {etat.online ? `Reborn · ${nombre(etat.players.online)} en ligne` : 'Reborn · serveur hors ligne'}
+          </span>
+        )}
       </div>
-    </div>
-  );
-}
-
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-12">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div
-            key={i}
-            className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-6"
-          >
-            <Skeleton className="h-11 w-11 rounded-[12px]" />
-            <Skeleton className="mt-5 h-10 w-16" />
-            <Skeleton className="mt-3 h-3 w-28" />
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <div
-            key={i}
-            className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-6"
-          >
-            <Skeleton className="h-4 w-24" />
-            <div className="mt-6 space-y-4">
-              {Array.from({ length: 4 }).map((_, j) => (
-                <div key={j}>
-                  <Skeleton className="h-3 w-full" />
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    </Card>
   );
 }

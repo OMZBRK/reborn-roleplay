@@ -1,10 +1,13 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { PHASES_RESERVABLES, raisonPhase } from '../douane/douane.regles';
 import { PrismaService } from '../prisma/prisma.service';
+import { calculerSuivi } from '../whitelist/whitelist.rules';
 import { OpenSlotItemDto } from './dto/oral-slots.dto';
 
 // Sélection publique du "booker" affichée au staff (pas de données sensibles).
@@ -100,19 +103,52 @@ export class OralSlotsService {
   }
 
   /**
-   * Réserve un créneau. Gardes : candidature soumise, pas de réservation
-   * active, créneau OPEN. La prise se fait via updateMany conditionnel pour
-   * éviter la double-réservation concurrente (deux candidats, même créneau).
+   * Réserve un créneau. Gardes : candidature soumise, écrit accepté (phase
+   * DOUANE_A_RESERVER ou DOUANE_A_REVOIR, comme une place de douane, §3.3),
+   * pas de réservation active, créneau OPEN. La prise se fait via updateMany
+   * conditionnel pour éviter la double-réservation concurrente (deux
+   * candidats, même créneau).
    */
   async book(userId: string, slotId: string) {
-    const app = await this.prisma.whitelistApplication.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    if (!app) {
+    const [user, app, place] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true, oralPassedAt: true, whitelistRejectedAt: true },
+      }),
+      this.prisma.whitelistApplication.findUnique({
+        where: { userId },
+        select: {
+          id: true,
+          status: true,
+          hrpStatus: true,
+          rpStatus: true,
+          oralStatus: true,
+          oralDecidedAt: true,
+          reviewedAt: true,
+        },
+      }),
+      this.prisma.douaneReservation.findFirst({
+        where: { userId, statut: 'BOOKED' },
+        select: { id: true, seanceId: true, convocationAt: true },
+      }),
+    ]);
+    if (!user || !app) {
       throw new BadRequestException(
         'Aucune candidature — soumets ta whitelist avant de réserver un oral.',
       );
+    }
+    // L'oral ne se réserve qu'une fois l'écrit accepté : il ne pourrait pas
+    // être tranché avant (carte « Oral » du panel).
+    const { phase } = calculerSuivi({
+      role: user.role,
+      oralPassedAt: user.oralPassedAt,
+      whitelistRejectedAt: user.whitelistRejectedAt,
+      app,
+      reservation: place,
+      now: new Date(),
+    });
+    if (!PHASES_RESERVABLES.includes(phase)) {
+      throw new ForbiddenException(raisonPhase(phase));
     }
 
     const active = await this.prisma.whitelistOralSlot.findFirst({

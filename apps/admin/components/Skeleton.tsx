@@ -24,7 +24,7 @@ export function SkeletonRows({ count = 5 }: { count?: number }) {
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          className="rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
+          className="rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
         >
           <Skeleton className="h-4 w-32" />
           <Skeleton className="mt-2 h-3 w-1/2" />
@@ -36,7 +36,7 @@ export function SkeletonRows({ count = 5 }: { count?: number }) {
 
 export function SkeletonTable({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="overflow-hidden rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)]">
+    <div className="overflow-hidden rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)]">
       <div className="grid grid-cols-5 gap-4 border-b border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-4 py-3">
         {Array.from({ length: 5 }).map((_, i) => (
           <Skeleton key={i} className="h-3 w-16" />

@@ -5,6 +5,7 @@ import {
   ThreadChannel,
 } from "discord.js";
 import { ApiError, setTicketStatus } from "../api-client.js";
+import { champsTexte } from "../embeds.js";
 import { extractIdFromThread } from "../thread-context.js";
 
 export const data = new SlashCommandBuilder()
@@ -82,7 +83,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       inline: true,
     })
     .setTimestamp(new Date());
-  if (note) embed.addFields({ name: "Note", value: note });
+  // Note jusqu'à 2 000 caractères : un champ par tranche de 1 024 (limite d'un champ).
+  if (note) embed.addFields(champsTexte("Note", note));
   await thread.send({ embeds: [embed] });
 
   if (status === "CLOSED" || status === "RESOLVED") {

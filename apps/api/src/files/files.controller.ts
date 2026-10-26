@@ -7,11 +7,11 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { ExigeCapacite } from '../auth/capacite.decorator';
+import type { Capacite } from '../auth/capacites';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { RequestUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { MinRole } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import {
   CreateAnimatedItemDto,
@@ -25,30 +25,44 @@ import {
   WriteFileDto,
 } from './dto/files.dto';
 import { FilesService } from './files.service';
+import { ZONES_FICHIERS } from './files.scopes';
+
+/** N'importe quelle zone de fichiers : la garde laisse passer, la carte tranche. */
+const UNE_ZONE_FICHIERS: Capacite[] = ZONES_FICHIERS.map(
+  (z): Capacite => `fichiers.${z.zone}`,
+);
 
 /**
  * `/v1/files/*` — Gestionnaire de fichiers du serveur de DEV (Phase 1).
  *
- * Gaté au minimum MODELISATEUR (les grades techniques + admin/owner). L'accès
- * réel (racines autorisées, écriture) est déterminé PAR GRADE dans
- * {@link FilesService} (carte de scopes), pas par le rang linéaire — un
- * modélisateur ne voit que Nexo, un dev que MagicSpells/MythicMobs/ModelEngine.
+ * Garde : au moins une capacité `fichiers.<zone>` (modélisateur, développeur,
+ * admin, owner — inchangé pour eux). Recruteur et Modérateur passaient
+ * l'ancienne garde de rang sans rien voir ; ils sont refusés dès la garde.
+ * L'accès réel (racines autorisées, écriture) reste déterminé PAR GRADE dans
+ * la carte de files.scopes.ts — un modélisateur ne voit que Nexo, emotes et
+ * creator-assets, un dev en plus MagicSpells/MythicMobs/ModelEngine/abilities.
  * Chaque lecture/écriture/suppression est journalisée dans l'AuditLog.
  */
 @Controller('files')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@MinRole(Role.MODELISATEUR)
+@ExigeCapacite(...UNE_ZONE_FICHIERS)
 export class FilesController {
   constructor(private readonly files: FilesService) {}
 
-  /** Racines autorisées + droit d'écriture du grade appelant. */
+  /**
+   * Racines autorisées + droit d'écriture du grade appelant. Ouvert à tout le
+   * staff (réponse vide sans zone) : le panel s'en sert pour savoir quoi
+   * afficher, comme avant.
+   */
   @Get('scopes')
+  @ExigeCapacite('panel.acceder')
   scopes(@CurrentUser() user: RequestUser) {
     return this.files.scopesFor(user.role);
   }
 
-  /** Cibles de rechargement (plugins) accessibles au grade appelant. */
+  /** Cibles de rechargement (plugins) accessibles au grade appelant (vide sans zone). */
   @Get('reload-targets')
+  @ExigeCapacite('panel.acceder')
   reloadTargets(@CurrentUser() user: RequestUser) {
     return this.files.reloadTargetsFor(user.role);
   }

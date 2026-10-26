@@ -8,6 +8,7 @@ import { AppService } from './app.service';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { DiscordAuthModule } from './discord/discord.module';
+import { DouaneModule } from './douane/douane.module';
 import { FilesModule } from './files/files.module';
 import { GameModule } from './game/game.module';
 import { LoreModule } from './lore/lore.module';
@@ -44,6 +45,7 @@ import { WikiModule } from './wiki/wiki.module';
     AuditModule,
     AuthModule,
     DiscordAuthModule,
+    DouaneModule,
     FilesModule,
     GameModule,
     LoreModule,

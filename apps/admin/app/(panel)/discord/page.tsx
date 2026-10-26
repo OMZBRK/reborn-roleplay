@@ -4,6 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { DiscordMarkdown, DiscordPreview } from '@/components/DiscordPreview';
+import { Garde } from '@/components/Garde';
+import { SectionTabs } from '@/components/shell/SectionTabs';
+import { Button } from '@/components/ui/Button';
+import { Dialog, useConfirm } from '@/components/ui/Dialog';
+import { Icone } from '@/components/ui/Icone';
+import { PageHeader } from '@/components/ui/PageHeader';
 import {
   IconArrowDown,
   IconArrowUp,
@@ -110,7 +116,21 @@ const INPUT =
   'w-full rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-background)] px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none';
 
 export default function DiscordPage() {
+  return (
+    <Garde capacites={['discord.publier']} message="Réservé aux administrateurs.">
+      <Annonces />
+    </Garde>
+  );
+}
+
+/**
+ * Contenu › Annonces Discord (PANEL_V2 §4.5) : seul l'habillage change ;
+ * l'aperçu garde les couleurs de Discord. Fenêtres du panel à la place des
+ * confirmations du navigateur.
+ */
+function Annonces() {
   const qc = useQueryClient();
+  const { confirmer } = useConfirm();
 
   // ── État de l'éditeur ──
   const [editId, setEditId] = useState<string | null>(null);
@@ -153,11 +173,20 @@ export default function DiscordPage() {
     setPing('aucun');
   }
 
-  function appliquerModele(id: string) {
+  async function appliquerModele(id: string) {
     const mod = modeles().find((x) => x.id === id);
     if (!mod) return;
     const nonVide = blocsApi.some((b) => b.texte?.trim() || b.images?.length);
-    if (nonVide && !window.confirm(`Remplacer le contenu actuel par le modèle « ${mod.nom} » ?`)) return;
+    if (
+      nonVide &&
+      !(await confirmer({
+        titre: `Remplacer le contenu par le modèle « ${mod.nom} » ?`,
+        message: 'Le texte et les images en cours d’écriture sont remplacés.',
+        confirmer: 'Remplacer',
+      }))
+    ) {
+      return;
+    }
     nouveau();
     setCanal(mod.canal);
     setCouleur(mod.couleur);
@@ -258,24 +287,24 @@ export default function DiscordPage() {
   const optionPing = CANAL_PING[canal];
 
   return (
-    <div className="px-10 py-10 max-w-[1500px] mx-auto">
-      <header className="mb-8">
-        <div className="text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">Discord staff</div>
-        <h1 className="mt-1 text-4xl leading-none" style={{ fontFamily: 'var(--font-display)' }}>
-          Annonces Discord
-        </h1>
-        <p className="mt-2 text-sm text-[var(--color-foreground-subtle)]">
-          Rédige un message pour <span className="text-[var(--color-foreground)]">annonces</span>,{' '}
-          <span className="text-[var(--color-foreground)]">dev-updates</span> ou{' '}
-          <span className="text-[var(--color-foreground)]">build-updates</span>, vérifie l’aperçu, puis publie : le bot le poste
-          dans un cadre. Un message publié se modifie sur place.
-        </p>
-      </header>
+    <div className="page">
+      <PageHeader
+        fil={[{ label: 'Contenu' }]}
+        titre="Contenu"
+        sousTitre={
+          <>
+            Annonces Discord : rédige pour <b>annonces</b>, <b>dev-updates</b> ou <b>build-updates</b>, vérifie l’aperçu,
+            puis publie. Un message publié se modifie sur place.
+          </>
+        }
+      />
+      <SectionTabs section="contenu" />
+      <p className="mb-4 hidden text-[13px] text-fg-3 max-md:block">À faire depuis un ordinateur : l’éditeur demande un grand écran.</p>
 
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,600px)]">
         {/* ── Éditeur ── */}
         <section className="min-w-0 space-y-4">
-          <div className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-5">
+          <div className="rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
@@ -307,7 +336,7 @@ export default function DiscordPage() {
                     key={m.id}
                     type="button"
                     onClick={() => appliquerModele(m.id)}
-                    className="rounded-[10px] border border-[var(--color-border-strong)] bg-[var(--color-background)] px-3 py-2 text-left hover:border-[var(--color-accent)] transition-colors"
+                    className="rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-background)] px-3 py-2 text-left hover:border-[var(--color-accent)] transition-colors"
                   >
                     <div className="text-sm text-[var(--color-foreground)]">{m.nom}</div>
                     <div className="text-[11px] text-[var(--color-foreground-muted)]">{m.description}</div>
@@ -319,7 +348,7 @@ export default function DiscordPage() {
             <div className="flex flex-wrap items-end gap-6">
               <div>
                 <div className="mb-2 text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">Salon</div>
-                <div className="inline-flex rounded-[10px] border border-[var(--color-border-strong)] p-1 bg-[var(--color-background)]">
+                <div className="inline-flex rounded-[8px] border border-[var(--color-border-strong)] p-1 bg-[var(--color-background)]">
                   {CANAUX.map((c) => (
                     <button
                       key={c}
@@ -374,7 +403,7 @@ export default function DiscordPage() {
                     type="checkbox"
                     checked={ping === optionPing}
                     onChange={(e) => setPing(e.target.checked ? optionPing : 'aucun')}
-                    className="h-4 w-4 accent-[var(--color-accent)]"
+                    className="check"
                   />
                   Mentionner {optionPing === 'everyone' ? '@everyone' : '@Testeur'}
                   <span className="text-[11px] text-[var(--color-foreground-muted)]">(notifie à la publication)</span>
@@ -399,7 +428,7 @@ export default function DiscordPage() {
             />
           ))}
 
-          <div className="flex flex-wrap items-center gap-2 rounded-[14px] border border-dashed border-[var(--color-border-strong)] px-4 py-3">
+          <div className="flex flex-wrap items-center gap-2 rounded-[8px] border border-dashed border-[var(--color-border-strong)] px-4 py-3">
             <span className="mr-2 text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">Ajouter</span>
             {(
               [
@@ -421,7 +450,7 @@ export default function DiscordPage() {
           </div>
 
           {/* Barre d'actions */}
-          <div className="sticky bottom-0 z-10 -mx-1 rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface-elevated)]/95 px-5 py-4 backdrop-blur flex flex-wrap items-center justify-between gap-3 shadow-[var(--shadow-md)]">
+          <div className="sticky bottom-0 z-10 -mx-1 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface-elevated)]/95 px-5 py-4 backdrop-blur flex flex-wrap items-center justify-between gap-3 shadow-[var(--shadow-md)]">
             <div className="text-xs text-[var(--color-foreground-muted)] space-x-3">
               <span className={nbTexte > LIMITE_TEXTE ? 'text-[var(--color-danger)]' : ''}>
                 {nbTexte} / {LIMITE_TEXTE} caractères
@@ -453,7 +482,7 @@ export default function DiscordPage() {
                 type="button"
                 disabled={!peutEnvoyer}
                 onClick={() => setConfirmPublier(true)}
-                className="rounded-[8px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] px-5 py-2 text-sm font-medium text-white disabled:opacity-40"
+                className="rounded-[8px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] px-5 py-2 text-sm font-medium text-[var(--color-on-gold)] disabled:opacity-40"
               >
                 {sauver.isPending ? 'Envoi…' : publie ? 'Mettre à jour sur Discord' : 'Publier'}
               </button>
@@ -507,17 +536,17 @@ export default function DiscordPage() {
 
         {historique.isLoading && <div className="text-sm text-[var(--color-foreground-subtle)]">Chargement…</div>}
         {historique.error && (
-          <div className="rounded-[10px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
+          <div className="rounded-[8px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
             {messageErreur(historique.error).titre}
           </div>
         )}
         {historique.data && historiqueFiltre.length === 0 && (
-          <div className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-10 text-center text-sm text-[var(--color-foreground-subtle)]">
+          <div className="rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-10 text-center text-sm text-[var(--color-foreground-subtle)]">
             Aucun message pour l’instant.
           </div>
         )}
         {historiqueFiltre.length > 0 && (
-          <div className="overflow-hidden rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)]">
+          <div className="overflow-hidden rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)]">
             <table className="w-full text-sm">
               <thead className="text-left text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
                 <tr className="border-b border-[var(--color-border)]">
@@ -574,12 +603,22 @@ export default function DiscordPage() {
                           <button
                             type="button"
                             disabled={retirer.isPending}
-                            onClick={() => {
-                              const q =
+                            onClick={async () => {
+                              const ok = await confirmer(
                                 m.statut === 'publie'
-                                  ? `Retirer « ${m.titre} » de Discord ? Le message sera supprimé du salon (gardé ici dans l’historique).`
-                                  : `Supprimer le brouillon « ${m.titre} » ?`;
-                              if (window.confirm(q)) retirer.mutate(m);
+                                  ? {
+                                      titre: `Retirer « ${m.titre} » de Discord ?`,
+                                      message: 'Le message est supprimé du salon et gardé ici dans l’historique.',
+                                      confirmer: 'Retirer de Discord',
+                                      danger: true,
+                                    }
+                                  : {
+                                      titre: `Supprimer le brouillon « ${m.titre} » ?`,
+                                      confirmer: 'Supprimer le brouillon',
+                                      danger: true,
+                                    },
+                              );
+                              if (ok) retirer.mutate(m);
                             }}
                             className="rounded-[6px] border border-[var(--color-danger)]/40 px-3 py-1.5 text-xs text-[var(--color-danger)] hover:bg-[var(--color-danger-soft)] disabled:opacity-40"
                           >
@@ -596,44 +635,36 @@ export default function DiscordPage() {
         )}
       </section>
 
-      {confirmPublier && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setConfirmPublier(false)}>
-          <div
-            className="w-full max-w-md rounded-[14px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-6 shadow-[var(--shadow-md)]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="text-lg text-[var(--color-foreground)]">
-              {publie ? 'Mettre à jour le message sur Discord ?' : `Publier dans ${CANAL_SALON[canal]} ?`}
-            </div>
-            <p className="mt-2 text-sm text-[var(--color-foreground-subtle)]">
-              {publie
-                ? 'Le message publié est réécrit sur place (même lien). Une modification ne renvoie aucune notification.'
-                : ping !== 'aucun'
-                  ? `Le message mentionnera ${ping === 'everyone' ? '@everyone' : '@Testeur'} : tout le monde concerné sera notifié.`
-                  : 'Aucune mention : personne n’est notifié.'}
-            </p>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmPublier(false)}
-                className="rounded-[8px] border border-[var(--color-border-strong)] px-4 py-2 text-sm text-[var(--color-foreground-subtle)]"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setConfirmPublier(false);
-                  sauver.mutate('publier');
-                }}
-                className="rounded-[8px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] px-5 py-2 text-sm font-medium text-white"
-              >
-                {publie ? 'Mettre à jour' : 'Publier'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog
+        ouvert={confirmPublier}
+        onFermer={() => setConfirmPublier(false)}
+        titre={publie ? 'Mettre à jour le message sur Discord ?' : `Publier dans ${CANAL_SALON[canal]} ?`}
+        description={
+          publie
+            ? 'Le message publié est réécrit sur place (même lien). Une modification ne renvoie aucune notification.'
+            : ping !== 'aucun'
+              ? `Le message mentionnera ${ping === 'everyone' ? '@everyone' : '@Testeur'} : tout le monde concerné sera notifié.`
+              : 'Aucune mention : personne n’est notifié.'
+        }
+        pied={
+          <>
+            <Button variante="ghost" onClick={() => setConfirmPublier(false)}>
+              Annuler
+            </Button>
+            <Button
+              variante="primary"
+              data-autofocus
+              raccourci="Entrée"
+              onClick={() => {
+                setConfirmPublier(false);
+                sauver.mutate('publier');
+              }}
+            >
+              {publie ? 'Mettre à jour sur Discord' : `Publier dans ${CANAL_LIBELLE[canal]}`}
+            </Button>
+          </>
+        }
+      />
     </div>
   );
 }
@@ -705,7 +736,7 @@ function BlocCard({
   }
 
   return (
-    <div className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)]">
+    <div className="rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)]">
       <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-2">
         <div className="text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
           {index + 1} · {TITRE_BLOC[bloc.type]}
@@ -788,7 +819,7 @@ function BlocCard({
                 void upload(Array.from(e.dataTransfer.files));
               }}
               onClick={() => inputRef.current?.click()}
-              className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-[10px] border border-dashed px-4 py-5 text-sm transition-colors ${
+              className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-[8px] border border-dashed px-4 py-5 text-sm transition-colors ${
                 survol
                   ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-foreground)]'
                   : 'border-[var(--color-border-strong)] text-[var(--color-foreground-subtle)] hover:border-[var(--color-accent)]'
@@ -834,8 +865,14 @@ function BlocCard({
                       >
                         ←
                       </button>
-                      <button type="button" onClick={() => onChange({ images: bloc.images.filter((x) => x !== id) })} className="px-1 text-xs text-white hover:text-[var(--color-danger)]">
-                        ✕
+                      <button
+                        type="button"
+                        aria-label="Retirer l’image"
+                        title="Retirer l’image"
+                        onClick={() => onChange({ images: bloc.images.filter((x) => x !== id) })}
+                        className="px-1 text-xs text-white hover:text-[var(--color-danger-text)]"
+                      >
+                        <Icone nom="x" taille={13} />
                       </button>
                       <button
                         type="button"

@@ -1,51 +1,38 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { API_BASE } from '@/lib/api';
 import { isAuthenticated } from '@/lib/auth';
+import logo from '@/components/shell/logo.png';
 
-export default function LoginPage() {
+/**
+ * Connexion (PANEL_V2 §4.8) : logo, « Se connecter avec Discord », une
+ * phrase. Le grade minimum n'est plus écrit en anglais : l'API refuse un
+ * compte qui n'est pas du staff, avec un message en français.
+ */
+export default function ConnexionPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (isAuthenticated()) {
-      router.replace('/dashboard');
-    }
+    if (isAuthenticated()) router.replace('/dashboard?arrivee=1');
   }, [router]);
 
   return (
-    <main className="reborn-auth-bg min-h-screen flex items-center justify-center px-6">
-      <div className="w-full max-w-md rounded-[14px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-8 shadow-[var(--shadow-md)]">
-        <div className="mb-8 text-center">
-          <div className="text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">
-            Reborn Roleplay
-          </div>
-          <h1
-            className="mt-2 text-[42px] leading-none font-display"
-            style={{ fontFamily: 'var(--font-display)' }}
-          >
-            Panel Staff
-          </h1>
-          <div className="mt-3 h-[2px] w-16 mx-auto rounded-full bg-gradient-to-r from-transparent via-[var(--color-accent)] to-transparent shadow-[var(--shadow-glow-accent)]" />
-        </div>
+    <main className="reborn-auth-bg flex min-h-screen items-center justify-center px-4">
+      <div className="card w-full max-w-[400px] px-8 py-9 text-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logo.src} alt="" width={48} height={48} className="mx-auto rounded-[8px]" />
+        <h1 className="mt-4 font-display text-[32px] leading-none tracking-[0.06em] text-fg">Reborn</h1>
+        <p className="mt-1 text-[13px] text-fg-3">Panel staff</p>
 
-        <p className="mb-6 text-sm text-[var(--color-foreground-subtle)] text-center leading-relaxed">
-          Connecte-toi avec ton compte Discord lie a un utilisateur Reborn
-          de rang <strong className="text-[var(--color-foreground)]">HELPER</strong> ou plus.
-        </p>
-
-        <a
-          href={`${API_BASE}/auth/discord/staff/start`}
-          className="block w-full rounded-[10px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] active:bg-[var(--color-accent-pressed)] py-3 text-center font-medium text-white shadow-[var(--shadow-glow-accent)] transition-colors"
-        >
+        <a href={`${API_BASE}/auth/discord/staff/start`} className="btn btn-primary btn-block mt-8">
           Se connecter avec Discord
         </a>
 
-        <div className="mt-6 text-xs text-[var(--color-foreground-muted)] text-center leading-relaxed">
-          Pas de compte ? Lance le launcher, connecte-toi via Microsoft,
-          puis demande au lead staff de te promouvoir.
-        </div>
+        <p className="mt-6 text-[13px] leading-relaxed text-fg-3">
+          Réservé au staff de Reborn. Ton compte Discord doit être lié à ton compte Reborn depuis le launcher.
+        </p>
       </div>
     </main>
   );

@@ -1,168 +1,140 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
-import type { Assignee, CurrentUser, Role } from '@/lib/types';
+import { useDroits } from '@/lib/droits';
+import type { Assignee, TicketStatus } from '@/lib/types';
+import { MCAvatar } from './MCAvatar';
+import { Mot } from './ui/Button';
+import { messageErreur } from './ui/States';
 
-const ROLE_RANKS: Role[] = [
-  'PLAYER',
-  'WHITELISTED',
-  'HELPER',
-  'WHITELIST_REVIEWER',
-  'MODERATOR',
-  'ADMIN',
-  'OWNER',
-];
+/**
+ * Prise en charge d'un dossier ou d'un ticket (PANEL_V2 §4.3, §4.4) : un
+ * seul « Prendre » (pour un ticket ouvert, il le passe aussi « En cours »),
+ * « Relâcher » pour le sien, « Reprendre » pour celui d'un autre avec la
+ * capacité `prises.forcer`. L'API reste juge (409 si déjà pris).
+ */
 
-function roleAtLeast(role: Role | undefined, min: Role): boolean {
-  if (!role) return false;
-  return ROLE_RANKS.indexOf(role) >= ROLE_RANKS.indexOf(min);
+export type GenrePrise = 'whitelist' | 'tickets';
+
+/** Invalide les listes, la fiche, la file « À traiter » et les compteurs. */
+export function invaliderApresPrise(
+  qc: ReturnType<typeof useQueryClient>,
+  genre: GenrePrise,
+  id: string,
+) {
+  qc.invalidateQueries({ queryKey: ['admin', genre] });
+  qc.invalidateQueries({ queryKey: ['admin', genre, id] });
+  qc.invalidateQueries({ queryKey: ['admin', 'me', 'inbox'] });
+  qc.invalidateQueries({ queryKey: ['admin', 'a-traiter'] });
+}
+
+export function usePrise(
+  genre: GenrePrise,
+  id: string,
+  opts: { statutTicket?: TicketStatus } = {},
+) {
+  const qc = useQueryClient();
+
+  const prendre = useMutation({
+    mutationFn: async (force: boolean) => {
+      await api(`/admin/${genre}/${id}/assign`, { method: 'POST', body: { force } });
+      // Un seul « Prendre » : un ticket ouvert passe aussi « En cours ».
+      if (genre === 'tickets' && opts.statutTicket === 'OPEN') {
+        await api(`/admin/tickets/${id}`, {
+          method: 'PATCH',
+          body: { status: 'IN_PROGRESS' },
+        });
+      }
+    },
+    onSuccess: (_d, force) => {
+      invaliderApresPrise(qc, genre, id);
+      toast.success(force ? 'Repris' : 'Pris');
+    },
+    onError: (e) => toast.error('Prise impossible', { description: messageErreur(e) }),
+  });
+
+  const relacher = useMutation({
+    mutationFn: () => api(`/admin/${genre}/${id}/assign`, { method: 'DELETE' }),
+    onSuccess: () => {
+      invaliderApresPrise(qc, genre, id);
+      toast.success('Relâché');
+    },
+    onError: (e) => toast.error('Échec', { description: messageErreur(e) }),
+  });
+
+  return { prendre, relacher };
 }
 
 /**
- * Bloc UI dans les pages detail whitelist + ticket qui montre l'etat
- * d'assignation et propose les actions claim/release/force selon le
- * contexte :
- *   - personne assigne → bouton "Prendre en charge"
- *   - assigne a moi    → bouton "Liberer"
- *   - assigne a autre  → label "Pris par @X" ; bouton "Forcer reprise"
- *                        si je suis ADMIN+
+ * Ligne « Pris par » d'une fiche : qui l'a, et le mot qui convient.
  */
-export function AssignmentBlock({
-  kind,
+export function PriseEnCharge({
+  genre,
   id,
   assignee,
-  assignedAt,
-  /** Si fourni, on affiche aussi la duree depuis le claim ("depuis Xh"). */
-  showDuration = true,
+  statutTicket,
+  ferme = false,
 }: {
-  kind: 'whitelist' | 'tickets';
+  genre: GenrePrise;
+  id: string;
+  assignee: Assignee | null;
+  statutTicket?: TicketStatus;
+  /** Dossier ou ticket clos : plus de prise. */
+  ferme?: boolean;
+}) {
+  const { moi, peut } = useDroits();
+  const { prendre, relacher } = usePrise(genre, id, { statutTicket });
+  const aMoi = !!moi && assignee?.id === moi.id;
+  const occupe = prendre.isPending || relacher.isPending;
+
+  return (
+    <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
+      <span className="text-fg-2">
+        {assignee ? (aMoi ? 'Pris par toi' : `Pris par ${assignee.minecraftUsername}`) : 'Personne ne l’a pris'}
+      </span>
+      {!ferme && !assignee && (
+        <Mot onClick={() => prendre.mutate(false)} enCours={occupe} title="Prendre · P">
+          Prendre
+        </Mot>
+      )}
+      {aMoi && (
+        <Mot ton="neutre" onClick={() => relacher.mutate()} enCours={occupe}>
+          Relâcher
+        </Mot>
+      )}
+      {!ferme && assignee && !aMoi && peut('prises.forcer') && (
+        <Mot onClick={() => prendre.mutate(true)} enCours={occupe}>
+          Reprendre
+        </Mot>
+      )}
+    </span>
+  );
+}
+
+/** Variante compacte pour une liste : le nom de qui l'a pris, ou « — ». */
+export function AssigneeBadge({ assignee }: { assignee: Assignee | null }) {
+  const { moi } = useDroits();
+  if (!assignee) return <span className="text-fg-3">—</span>;
+  // Visage + pseudo Minecraft, comme dans la file À traiter. Le visage vient de
+  // l'UUID : le nom affiché peut être un pseudo Discord, qui donnerait à
+  // mc-heads la tête de Steve ou celle d'un joueur inconnu.
+  return (
+    <span className="who text-fg-2">
+      <MCAvatar uuid={assignee.minecraftUuid} size={22} />
+      <span className="truncate">{moi && assignee.id === moi.id ? 'Toi' : assignee.minecraftUsername}</span>
+    </span>
+  );
+}
+
+/** Ancien bloc (gardé pour compatibilité) : même contenu que PriseEnCharge. */
+export function AssignmentBlock(props: {
+  kind: GenrePrise;
   id: string;
   assignee: Assignee | null;
   assignedAt: string | null;
   showDuration?: boolean;
 }) {
-  const qc = useQueryClient();
-  const { data: me } = useQuery({
-    queryKey: ['admin', 'me'],
-    queryFn: () => api<CurrentUser>('/auth/me'),
-    staleTime: 5 * 60_000,
-  });
-
-  const invalidateAll = () => {
-    qc.invalidateQueries({ queryKey: ['admin', kind] });
-    qc.invalidateQueries({ queryKey: ['admin', kind, id] });
-    qc.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
-  };
-
-  const claimMut = useMutation<unknown, Error, boolean>({
-    mutationFn: (force: boolean) =>
-      api(`/admin/${kind}/${id}/assign`, {
-        method: 'POST',
-        body: { force },
-      }),
-    onSuccess: (_data, force) => {
-      invalidateAll();
-      toast.success(force ? 'Reprise forcée' : 'Pris en charge');
-    },
-    onError: (err) => toast.error((err as Error).message),
-  });
-
-  const releaseMut = useMutation({
-    mutationFn: () =>
-      api(`/admin/${kind}/${id}/assign`, { method: 'DELETE' }),
-    onSuccess: () => {
-      invalidateAll();
-      toast.success('Libéré');
-    },
-    onError: (err) => toast.error((err as Error).message),
-  });
-
-  const isMe = !!me && assignee?.id === me.id;
-  const isOther = !!assignee && !isMe;
-  const isAdmin = roleAtLeast(me?.role, 'ADMIN');
-
-  return (
-    <div className="rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface-elevated)] p-3">
-      <div className="text-xs uppercase tracking-wider text-[var(--color-foreground-muted)] mb-2">
-        Prise en charge
-      </div>
-      {assignee ? (
-        <>
-          <div className="text-sm mb-3">
-            <span
-              className={
-                isMe ? 'text-[var(--color-accent)] font-medium' : ''
-              }
-            >
-              @{assignee.username}
-            </span>
-            {isMe && <span className="text-[var(--color-foreground-muted)]"> (toi)</span>}
-            {showDuration && assignedAt && (
-              <div className="text-xs text-[var(--color-foreground-muted)] mt-0.5">
-                depuis {formatSince(assignedAt)}
-              </div>
-            )}
-          </div>
-          {isMe ? (
-            <button
-              type="button"
-              disabled={releaseMut.isPending}
-              onClick={() => releaseMut.mutate()}
-              className="w-full rounded-[8px] border border-[var(--color-border-strong)] py-2 text-sm hover:bg-[var(--color-surface)] disabled:opacity-40"
-            >
-              {releaseMut.isPending ? 'Libération…' : 'Libérer'}
-            </button>
-          ) : isOther && isAdmin ? (
-            <button
-              type="button"
-              disabled={claimMut.isPending}
-              onClick={() => claimMut.mutate(true)}
-              className="w-full rounded-[8px] border border-[var(--color-warning)]/40 bg-[var(--color-warning-soft)] py-2 text-sm text-[var(--color-warning)] hover:bg-[var(--color-warning-soft)]/80 disabled:opacity-40"
-            >
-              {claimMut.isPending ? 'Reprise…' : 'Forcer reprise (ADMIN)'}
-            </button>
-          ) : null}
-        </>
-      ) : (
-        <button
-          type="button"
-          disabled={claimMut.isPending}
-          onClick={() => claimMut.mutate(false)}
-          className="w-full rounded-[8px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] py-2 text-sm text-white disabled:opacity-40"
-        >
-          {claimMut.isPending ? 'Prise en charge…' : 'Prendre en charge'}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function formatSince(iso: string): string {
-  const elapsed = Date.now() - new Date(iso).getTime();
-  const minutes = Math.max(1, Math.floor(elapsed / 60_000));
-  const hours = Math.floor(minutes / 60);
-  if (hours < 1) return `${minutes} min`;
-  return `${hours}h${minutes % 60 > 0 ? ` ${minutes % 60}min` : ''}`;
-}
-
-/**
- * Variante badge compact pour les listes (whitelist/tickets/page.tsx).
- * Pas de bouton — juste l'indication visuelle.
- */
-export function AssigneeBadge({ assignee }: { assignee: Assignee | null }) {
-  if (!assignee) {
-    return (
-      <span className="text-[10px] text-[var(--color-foreground-muted)]">
-        non assignée
-      </span>
-    );
-  }
-  return (
-    <span className="inline-block rounded-full border border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] px-2 py-0.5 text-[10px] text-[var(--color-accent)]">
-      @{assignee.username}
-    </span>
-  );
+  return <PriseEnCharge genre={props.kind} id={props.id} assignee={props.assignee} />;
 }

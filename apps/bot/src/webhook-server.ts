@@ -10,7 +10,16 @@ import {
   type TextChannel,
 } from "discord.js";
 import { config } from "./config.js";
-import { packEmbedsForMessages, paginateLong } from "./embeds.js";
+import {
+  champsTexte,
+  decouperTexte,
+  LIMITES_EMBED,
+  packEmbedsForMessages,
+  paginateLong,
+  remplacerSegmentPied,
+  SEGMENTS_PRISE_EN_CHARGE,
+  truncate,
+} from "./embeds.js";
 import {
   ErreurRequete,
   modifierStaffMessage,
@@ -85,10 +94,13 @@ interface SecurityAlertPayload {
 // Push d'un nouveau message du joueur vers le DM du staff assigne.
 // Envoye par l'API quand le joueur poste dans le launcher et que la
 // candidature/ticket a un staff assigne avec discordUserId lie.
+// `kind: "douane"` : MP au CANDIDAT (rappel 1 h avant sa séance de douane,
+// séance annulée ou retrait par le staff, CANDIDATURE_ET_DOUANE.md lot H) ;
+// ni bouton ni renvoi vers le panel, qu'il n'ouvre pas.
 interface DirectMessagePayload {
   discordUserId: string;
   context: {
-    kind: "whitelist" | "ticket";
+    kind: "whitelist" | "ticket" | "douane";
     entityId: string;
     subject?: string;
   };
@@ -430,15 +442,9 @@ async function postRelayMessage(client: Client, p: MessageRelayPayload): Promise
   if (!thread || !thread.isThread()) {
     throw new Error(`thread ${p.threadId} introuvable ou pas un thread`);
   }
-  const content = p.content || "*(piece jointe seule)*";
-  const PAGE_SIZE = 4000;
-  const pages: string[] =
-    content.length <= PAGE_SIZE
-      ? [content]
-      : Array.from(
-          { length: Math.ceil(content.length / PAGE_SIZE) },
-          (_, i) => content.slice(i * PAGE_SIZE, (i + 1) * PAGE_SIZE),
-        );
+  // Découpage aux limites d'une description (4 096), sans couper un mot si possible.
+  const decoupe = decouperTexte(p.content ?? "", LIMITES_EMBED.description);
+  const pages: string[] = decoupe.length > 0 ? decoupe : ["*(pièce jointe seule)*"];
 
   // On envoie une suite d'embeds : un par page. Le footer `from-launcher`
   // sert au listener messageCreate du bot pour eviter une boucle de
@@ -463,11 +469,15 @@ async function postRelayMessage(client: Client, p: MessageRelayPayload): Promise
       ? p.attachmentUrls.map((u, i) => `[Pièce jointe ${i + 1}](${u})`).join("\n")
       : null;
   if (attachments) {
-    // On accroche les pieces jointes au dernier embed pour qu'elles
-    // soient visuellement contigues au texte de fin. `embeds` est
-    // toujours non-vide ici (pages.length >= 1 garanti).
-    const last = embeds[embeds.length - 1];
-    if (last) last.addFields({ name: "Fichiers", value: attachments });
+    // Pieces jointes dans des embeds A PART, apres le texte : accrochees au
+    // dernier embed de page (deja jusqu'a 4 096 caracteres), elles feraient
+    // depasser les 6 000 caracteres d'un embed et Discord refuserait le
+    // message. Le nombre de liens n'est pas borne cote API : on pagine comme
+    // le texte, packEmbedsForMessages repartit ensuite par message. Le footer
+    // `from-launcher` reste sur chaque embed (anti-boucle).
+    for (const e of paginateLong("Fichiers", 0x3b5bdb, attachments)) {
+      embeds.push(e.setFooter({ text: `from-launcher ${p.authorPseudo}` }));
+    }
   }
 
   // L'id du PREMIER message est celui qu'on persiste cote API comme
@@ -489,8 +499,19 @@ interface StatusDescriptor {
   terminal: boolean; // si true → thread locked + archived apres post
 }
 
+// Candidature v2 : une décision par partie de l'écrit laisse souvent le statut
+// global à PENDING (l'autre partie reste à relire) ; ECRIT_ACCEPTE = HRP et RP
+// validés, l'oral reste à passer (douane) ; APPROVED n'arrive qu'après l'oral.
+// Jamais de « · » dans un libellé : c'est le séparateur des segments du pied.
+// « En attente » est relu au pied (libération : bouton remis ou non).
+const LIBELLE_WL_EN_ATTENTE = "En attente";
 const WHITELIST_STATUS: Record<string, StatusDescriptor> = {
-  PENDING: { label: "En attente", color: 0x6b7280, terminal: false },
+  PENDING: { label: LIBELLE_WL_EN_ATTENTE, color: 0x6b7280, terminal: false },
+  ECRIT_ACCEPTE: {
+    label: "Écrit accepté, douane à passer",
+    color: 0x0ea5e9,
+    terminal: false,
+  },
   APPROVED: { label: "Acceptée", color: 0x16a34a, terminal: true },
   REJECTED: { label: "Refusée", color: 0xef4444, terminal: true },
   NEEDS_REVISION: {
@@ -526,26 +547,37 @@ async function postStatusUpdate(
     .setDescription(`Mis à jour par **${p.actorName}**.`)
     .setTimestamp(new Date());
   if (p.reason) {
-    recap.addFields({ name: "Notes", value: p.reason.slice(0, 1024) });
+    // Commentaire visible du joueur (2 000 caractères au plus côté API) : un
+    // champ par tranche de 1 024, borné pour tenir dans un message.
+    recap.addFields(champsTexte("Commentaire", truncate(p.reason, 3000)));
   }
 
   // Nouveau flow C3 : messageId set → on edite le message public dans
-  // le salon staff (badge statut + footer + retire les boutons). On
-  // n'archive plus rien parce que ce n'est plus un thread.
+  // le salon staff (badge statut + pied). On n'archive plus rien parce
+  // que ce n'est plus un thread.
   if (p.messageId) {
     try {
       const fetched = await fetchChannelMessage(client, p.messageId);
       if (fetched) {
         const original = fetched.embeds[0]?.toJSON() ?? {};
+        // Un seul segment « Statut : … » dans le pied, remplacé à chaque
+        // décision (HRP, RP, oral) au lieu de s'accumuler.
         const updatedHeader = new EmbedBuilder(original)
           .setColor(desc.color)
           .setFooter({
-            text: `${original.footer?.text ?? ""} · Statut : ${desc.label} (${p.actorName})`,
+            text: remplacerSegmentPied(
+              original.footer?.text ?? "",
+              ["Statut :"],
+              `Statut : ${desc.label} (${p.actorName})`,
+            ),
           });
-        await fetched.edit({
-          embeds: [updatedHeader, recap],
-          components: [], // retire le bouton "Prendre en charge" s'il restait
-        });
+        // « Prendre en charge » reste tant qu'une partie de l'écrit attend
+        // sa relecture (statut PENDING) ; sinon il est retiré.
+        await fetched.edit(
+          p.kind === "whitelist" && p.status === "PENDING"
+            ? { embeds: [updatedHeader, recap] }
+            : { embeds: [updatedHeader, recap], components: [] },
+        );
         return;
       }
       console.warn(`[status-update] message ${p.messageId} introuvable, skip.`);
@@ -737,14 +769,27 @@ async function postDirectMessage(
 ): Promise<void> {
   const user = await client.users.fetch(p.discordUserId);
   const dm = await user.createDM();
+
+  if (p.context.kind === "douane") {
+    const embed = new EmbedBuilder()
+      .setColor(0x0ea5e9)
+      .setTitle(truncate(p.context.subject ?? "Séance de douane", LIMITES_EMBED.titre))
+      .setDescription(truncate(p.content || "*(vide)*", LIMITES_EMBED.description))
+      .setFooter({ text: "Message automatique : ta séance se gère dans le launcher." })
+      .setTimestamp(new Date());
+    await dm.send({ embeds: [embed] });
+    return;
+  }
+
   const panelPath = p.context.kind === "whitelist" ? "whitelist" : "tickets";
   const panelUrl = `${config.adminBaseUrl}/${panelPath}/${p.context.entityId}`;
 
   const embed = new EmbedBuilder()
     .setColor(0x3b5bdb)
     .setAuthor({ name: `${p.fromPseudo} · ${p.context.kind === "whitelist" ? "candidature" : "ticket"}` })
-    .setTitle(p.context.subject ?? "Nouveau message")
-    .setDescription(p.content.length > 4000 ? p.content.slice(0, 4000) + "…" : p.content)
+    .setTitle(truncate(p.context.subject ?? "Nouveau message", LIMITES_EMBED.titre))
+    // Notification : le message complet se lit dans le panel.
+    .setDescription(truncate(p.content || "*(vide)*", LIMITES_EMBED.description))
     .setTimestamp(new Date())
     .setFooter({ text: "Répondre depuis le panel" });
 
@@ -773,18 +818,36 @@ async function postAssignmentUpdate(
     return;
   }
   const original = msg.embeds[0]?.toJSON() ?? {};
-  // On nettoie un eventuel suffixe " · Pris par ..." ou " · Disponible
-  // ..." accumule des cycles precedents pour eviter la concat infinie.
-  const baseFooter = (original.footer?.text ?? "")
-    .replace(/\s·\s(?:Pris par|Disponible).*$/u, "")
-    .trim();
+  // On remplace le segment « Pris par … » / « Disponible … » des cycles
+  // precedents (pas de concat infinie), sans toucher au « Statut : … ».
+  const pied = (segment: string) =>
+    remplacerSegmentPied(original.footer?.text ?? "", SEGMENTS_PRISE_EN_CHARGE, segment);
+  // Le recapitulatif de statut (2e embed) reste en place.
+  const autres = msg.embeds.slice(1).map((e) => new EmbedBuilder(e.toJSON()));
 
   if (p.action === "claimed") {
     const updated = new EmbedBuilder(original).setFooter({
-      text: `${baseFooter} · Pris par ${p.actorName}`,
+      text: pied(`Pris par ${p.actorName}`),
     });
-    await msg.edit({ embeds: [updated], components: [] });
+    await msg.edit({ embeds: [updated, ...autres], components: [] });
     return;
+  }
+
+  // released, candidature dont l'écrit n'attend plus de relecture (écrit
+  // accepté, à revoir, refusée, retirée : segment « Statut : … » autre que
+  // « En attente ») : pas de nouvelle prise en charge depuis l'annonce, on
+  // met seulement le pied à jour.
+  if (p.kind === "whitelist") {
+    const statut = (original.footer?.text ?? "")
+      .split(" · ")
+      .find((s) => s.startsWith("Statut :"));
+    if (statut && !statut.startsWith(`Statut : ${LIBELLE_WL_EN_ATTENTE}`)) {
+      const updated = new EmbedBuilder(original).setFooter({
+        text: pied(`Libéré par ${p.actorName}`),
+      });
+      await msg.edit({ embeds: [updated, ...autres], components: [] });
+      return;
+    }
   }
 
   // released : re-attache le bouton de claim et indique "Disponible".
@@ -796,9 +859,9 @@ async function postAssignmentUpdate(
     .setEmoji("📥");
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(claimButton);
   const updated = new EmbedBuilder(original).setFooter({
-    text: `${baseFooter} · Disponible (libéré par ${p.actorName})`,
+    text: pied(`Disponible (libéré par ${p.actorName})`),
   });
-  await msg.edit({ embeds: [updated], components: [row] });
+  await msg.edit({ embeds: [updated, ...autres], components: [row] });
 }
 
 const TICKET_CATEGORY_LABEL: Record<string, string> = {

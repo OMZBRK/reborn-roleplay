@@ -14,6 +14,7 @@ import { DevLoginDto, LoginDto, RefreshDto } from './dto/login.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 import type { RequestUser } from './current-user.decorator';
+import { capacitesDe } from './capacites';
 
 @Controller('auth')
 export class AuthController {
@@ -60,9 +61,16 @@ export class AuthController {
     await this.auth.logout(user.sub);
   }
 
+  /**
+   * Profil du compte connecté (launcher et panel staff). `capacites` : ce que
+   * le grade permet au panel (auth/capacites.ts, PANEL_V2 §3.3) ; vide pour un
+   * joueur. Le grade est relu en base à chaque requête (JwtStrategy), donc un
+   * changement de grade se voit au prochain appel.
+   */
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async me(@CurrentUser() user: RequestUser) {
-    return this.auth.getCurrentUser(user.sub);
+    const profil = await this.auth.getCurrentUser(user.sub);
+    return { ...profil, capacites: capacitesDe(profil.role) };
   }
 }

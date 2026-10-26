@@ -16,6 +16,7 @@ import {
   StaffRoleDto,
   TicketStatusDto,
   WhitelistDecisionDto,
+  WhitelistPartDecisionBotDto,
 } from './dto/staff.dto';
 import { HmacSignatureGuard } from './hmac-signature.guard';
 import { StaffService } from './staff.service';
@@ -51,12 +52,31 @@ export class StaffController {
     );
   }
 
+  /**
+   * Décision du bot (boutons, `/whitelist`). Elle tranche l'écrit en entier
+   * (HRP + RP) : APPROVED = « écrit accepté », la whitelist attend l'oral.
+   * `actorDiscordId` (facultatif) trace la décision au nom du staff.
+   */
   @Patch('whitelist/:id')
   decideWhitelist(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: WhitelistDecisionDto,
   ) {
-    return this.service.decideWhitelist(id, dto);
+    return this.service.decideWhitelist(id, dto, { source: 'discord' });
+  }
+
+  /**
+   * Décision sur UNE partie de l'écrit (HRP ou RP), au nom du staff Discord
+   * `actorDiscordId` : boutons du MP de prise en charge et `/whitelist hrp|rp`
+   * (CANDIDATURE_ET_DOUANE.md lot H). Compte Reborn lié de rôle
+   * WHITELIST_REVIEWER ou plus exigé ; même service que le panel.
+   */
+  @Patch('whitelist/:id/decision')
+  decideWhitelistPart(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: WhitelistPartDecisionBotDto,
+  ) {
+    return this.service.decideWhitelistPartFromDiscord(id, dto);
   }
 
   @Patch('tickets/:id')

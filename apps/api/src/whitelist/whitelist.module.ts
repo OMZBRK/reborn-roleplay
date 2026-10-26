@@ -5,13 +5,14 @@ import { OralSlotsModule } from '../oral-slots/oral-slots.module';
 import { WhitelistController } from './whitelist.controller';
 import { WhitelistService } from './whitelist.service';
 import { WhitelistMessagesService } from './whitelist-messages.service';
+import { WhitelistVoixService } from './whitelist-voix.service';
 
 @Module({
   imports: [AuthModule, AssignmentModule, OralSlotsModule],
   controllers: [WhitelistController],
-  providers: [WhitelistService, WhitelistMessagesService],
-  // Exporté pour que StaffModule puisse appeler postStaffMessage quand le
-  // bot relaie un message staff via /staff/whitelist/:id/messages.
-  exports: [WhitelistMessagesService],
+  providers: [WhitelistService, WhitelistMessagesService, WhitelistVoixService],
+  // Exportés : StaffModule relaie les messages staff (postStaffMessage) ;
+  // AdminModule sert l'écoute staff de la voix (GET /admin/whitelist/:id/voix).
+  exports: [WhitelistMessagesService, WhitelistVoixService],
 })
 export class WhitelistModule {}

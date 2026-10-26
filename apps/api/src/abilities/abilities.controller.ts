@@ -12,11 +12,10 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { ExigeCapacite } from '../auth/capacite.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { RequestUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { MinRole } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { AbilitiesService } from './abilities.service';
 import {
@@ -29,12 +28,16 @@ import type { GraphStatus } from './dto/abilities.dto';
 
 /**
  * `/v1/abilities/*` — Technique Creator. Édition des graphes de techniques et
- * déploiement (compile → SFTP → reload). Réservé DEVELOPPEUR+ (qui a déjà le
- * scope d'écriture SFTP sur MagicSpells/MythicMobs/ShinobiAbilities).
+ * déploiement (compile → SFTP → reload).
+ *
+ * Capacités `techniques.*` (auth/capacites.ts) : Développeur, Administrateur,
+ * Propriétaire — ceux qui ont le droit d'écriture SFTP sur MagicSpells et
+ * ShinobiAbilities. Recruteur et Modérateur passaient l'ancienne garde de rang
+ * (DEVELOPPEUR+) sans rien avoir à y faire : ils ne la passent plus.
  */
 @Controller('abilities')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@MinRole(Role.DEVELOPPEUR)
+@ExigeCapacite('techniques.editer')
 export class AbilitiesController {
   constructor(private readonly service: AbilitiesService) {}
 
@@ -64,7 +67,7 @@ export class AbilitiesController {
   }
 
   @Delete(':id')
-  @MinRole(Role.ADMIN)
+  @ExigeCapacite('techniques.supprimer')
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.remove(id);
   }
@@ -100,8 +103,20 @@ export class AbilitiesController {
     return this.service.preview(user.sub, id);
   }
 
+  /**
+   * Récapitulatif affiché dans la fenêtre de confirmation du panel avant
+   * « Déployer » : serveur visé, techniques publiées, celles modifiées depuis
+   * le dernier déploiement.
+   */
+  @Get('deploy/recapitulatif')
+  @ExigeCapacite('techniques.deployer')
+  recapitulatifDeploiement(@CurrentUser() user: RequestUser) {
+    return this.service.recapitulatifDeploiement(user.role);
+  }
+
   /** Compile toutes les techniques PUBLISHED + pousse par SFTP + reload. */
   @Post('deploy')
+  @ExigeCapacite('techniques.deployer')
   @HttpCode(HttpStatus.OK)
   deploy(@CurrentUser() user: RequestUser) {
     return this.service.deploy(user.role, user.sub);

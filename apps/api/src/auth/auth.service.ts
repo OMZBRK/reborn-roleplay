@@ -11,6 +11,7 @@ import { randomUUID, randomBytes, createHash } from 'crypto';
 import { Role, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginAnomalyService } from '../security/login-anomaly.service';
+import { LIBELLES_GRADES } from './capacites';
 import { MojangService } from './mojang.service';
 
 export interface JwtPayload {
@@ -80,7 +81,14 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly mojang: MojangService,
     private readonly loginAnomaly: LoginAnomalyService,
-  ) {}
+  ) {
+    const { ignorees } = lireListeBeta();
+    if (ignorees > 0) {
+      this.logger.warn(
+        `LAUNCHER_BETA_ALLOW : ${ignorees} entrée(s) ignorée(s) — seuls les UUID Minecraft (32 chiffres hexadécimaux, tirets permis) sont admis.`,
+      );
+    }
+  }
 
   /**
    * Etape principale : valide le token MC contre Mojang, cree/maj le User,
@@ -121,30 +129,7 @@ export class AuthService {
       );
     }
 
-    // Gate beta fermee : si LAUNCHER_BETA_GATE est set (typiquement
-    // 'helper'), on refuse les comptes en-dessous du role specifie.
-    // A l'ouverture publique on supprime/comente la var d'env.
-    const gate = (process.env.LAUNCHER_BETA_GATE ?? '').trim().toUpperCase();
-    if (gate) {
-      const ranks: Role[] = [
-        Role.PLAYER,
-        Role.WHITELISTED,
-        Role.HELPER,
-        Role.MODELISATEUR,
-        Role.DEVELOPPEUR,
-        Role.WHITELIST_REVIEWER,
-        Role.MODERATOR,
-        Role.ADMIN,
-        Role.OWNER,
-      ];
-      const minRoleIdx = ranks.indexOf(gate as Role);
-      if (minRoleIdx >= 0 && ranks.indexOf(user.role) < minRoleIdx) {
-        throw new HttpException(
-          `Le launcher est en beta fermee. Acces reserve aux comptes ${gate}+. Patiente l'ouverture publique ou contacte un admin.`,
-          HttpStatus.FORBIDDEN,
-        );
-      }
-    }
+    this.verifierPorteBeta(user);
 
     const tokens = await this.issueTokens(user, meta);
     void this.loginAnomaly.check(user.id, meta.ip, meta.userAgent);
@@ -190,6 +175,10 @@ export class AuthService {
     if (session.user.banned) {
       throw new HttpException('Compte banni.', HttpStatus.FORBIDDEN);
     }
+    // Même porte qu'à la connexion : retirer un compte de LAUNCHER_BETA_ALLOW
+    // (ou relever LAUNCHER_BETA_GATE) coupe aussi ses sessions au prochain
+    // rafraîchissement, au lieu de les prolonger de 30 jours.
+    this.verifierPorteBeta(session.user);
 
     if (opts.nouvelleFamille) {
       if (session.user.role !== Role.ADMIN && session.user.role !== Role.OWNER) {
@@ -256,8 +245,11 @@ export class AuthService {
         Role.OWNER,
       ];
       if (ranks.indexOf(user.role) < ranks.indexOf(opts.requireMinRole)) {
+        // Seul appelant : la connexion au panel staff (Discord, 2FA). Message
+        // affiché tel quel sur la page « Connexion refusée » : libellé du
+        // grade, jamais son code.
         throw new HttpException(
-          `Rôle insuffisant : ${user.role} < ${opts.requireMinRole}.`,
+          `Ton grade (${LIBELLES_GRADES[user.role]}) ne donne pas accès au panel staff.`,
           HttpStatus.FORBIDDEN,
         );
       }
@@ -330,6 +322,37 @@ export class AuthService {
 
   // ──────────────────────────────────────────────────────
 
+  /**
+   * Gate beta fermee : si LAUNCHER_BETA_GATE est set (typiquement 'helper'), on
+   * refuse les comptes en-dessous du role specifie. A l'ouverture publique on
+   * supprime/commente la var d'env. LAUNCHER_BETA_ALLOW : comptes de test admis
+   * malgre la porte, pour tester la candidature v2 et la douane avec de vrais
+   * comptes PLAYER (une seule API sert prod, dev et build : la porte ne se coupe
+   * pas « sur le dev »). Appliquee a la connexion ET au rafraichissement.
+   */
+  private verifierPorteBeta(user: User): void {
+    const gate = (process.env.LAUNCHER_BETA_GATE ?? '').trim().toUpperCase();
+    if (!gate || estAdmisMalgreLaPorte(user)) return;
+    const ranks: Role[] = [
+      Role.PLAYER,
+      Role.WHITELISTED,
+      Role.HELPER,
+      Role.MODELISATEUR,
+      Role.DEVELOPPEUR,
+      Role.WHITELIST_REVIEWER,
+      Role.MODERATOR,
+      Role.ADMIN,
+      Role.OWNER,
+    ];
+    const minRoleIdx = ranks.indexOf(gate as Role);
+    if (minRoleIdx >= 0 && ranks.indexOf(user.role) < minRoleIdx) {
+      throw new HttpException(
+        `Le launcher est en beta fermee. Acces reserve aux comptes ${gate}+. Patiente l'ouverture publique ou contacte un admin.`,
+        HttpStatus.FORBIDDEN,
+      );
+    }
+  }
+
   private async issueTokens(
     user: User,
     meta: { userAgent?: string; ip?: string },
@@ -385,4 +408,39 @@ export class AuthService {
           : null,
     };
   }
+}
+
+const norm = (s: string) => s.trim().toLowerCase().replace(/-/g, '');
+const UUID_COMPACT = /^[0-9a-f]{32}$/;
+
+/**
+ * `LAUNCHER_BETA_ALLOW` lue : UUID Minecraft normalisés (sans tirets, en
+ * minuscules), et nombre d'entrées ignorées. Seuls les UUID comptent : un
+ * pseudo Minecraft change et se reprend, il pourrait admettre un autre compte.
+ */
+export function lireListeBeta(env: NodeJS.ProcessEnv = process.env): {
+  uuids: Set<string>;
+  ignorees: number;
+} {
+  const entrees = (env.LAUNCHER_BETA_ALLOW ?? '')
+    .split(',')
+    .map(norm)
+    .filter((s) => s.length > 0);
+  const uuids = new Set(entrees.filter((e) => UUID_COMPACT.test(e)));
+  return { uuids, ignorees: entrees.length - uuids.size };
+}
+
+/**
+ * `LAUNCHER_BETA_ALLOW` : liste séparée par des virgules d'UUID Minecraft
+ * (avec ou sans tirets, sans casse). Un compte listé se connecte au launcher
+ * malgré `LAUNCHER_BETA_GATE` ; son rôle ne change pas (la candidature et la
+ * douane restent à passer). Vide = personne. Toute autre entrée (pseudo…) est
+ * ignorée, avec une alerte au démarrage.
+ */
+export function estAdmisMalgreLaPorte(
+  user: { minecraftUuid: string },
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const { uuids } = lireListeBeta(env);
+  return uuids.size > 0 && uuids.has(norm(user.minecraftUuid));
 }

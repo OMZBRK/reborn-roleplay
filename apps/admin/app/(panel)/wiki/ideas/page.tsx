@@ -3,6 +3,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { Garde } from '@/components/Garde';
+import { SectionTabs } from '@/components/shell/SectionTabs';
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { createIdea, listIdeas, updateIdea } from '@/lib/wiki';
 import type { WikiIdea, WikiIdeaStatus } from '@/lib/types';
 
@@ -24,13 +28,25 @@ const STATUS_LABEL: Record<WikiIdeaStatus, string> = {
 
 const STATUS_ACCENT: Record<WikiIdeaStatus, string> = {
   PROPOSED: 'var(--color-foreground-muted)',
-  ACCEPTED: 'var(--color-accent)',
+  ACCEPTED: 'var(--color-info)',
   IN_PROGRESS: 'var(--color-warning)',
   DONE: 'var(--color-success)',
   REJECTED: 'var(--color-danger)',
 };
 
 export default function WikiIdeasPage() {
+  return (
+    <Garde capacites={['wiki.editer']}>
+      <Idees />
+    </Garde>
+  );
+}
+
+/**
+ * Contenu › Idées (PANEL_V2 §4.5, Q5) : la banque d'idées du staff, onglet
+ * du wiki, kanban gardé tel quel.
+ */
+function Idees() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState('');
@@ -85,31 +101,21 @@ export default function WikiIdeasPage() {
   }, [ideasQuery.data]);
 
   return (
-    <div className="px-10 py-10 max-w-[1400px] mx-auto">
-      <header className="mb-8 flex items-start justify-between gap-4">
-        <div>
-          <div className="text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">
-            Banque d’idées
-          </div>
-          <h1
-            className="mt-1 text-5xl leading-none bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent"
-            style={{ fontFamily: 'var(--font-display)' }}
-          >
-            Idées
-          </h1>
-          <div className="mt-3 h-[2px] w-24 bg-gradient-to-r from-[var(--color-accent)] to-transparent shadow-[var(--shadow-glow-accent)]" />
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowForm((s) => !s)}
-          className="shrink-0 rounded-[10px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] px-5 py-2.5 text-sm font-medium text-white"
-        >
-          {showForm ? 'Fermer' : 'Nouvelle idée'}
-        </button>
-      </header>
+    <div className="page">
+      <PageHeader
+        fil={[{ label: 'Contenu' }]}
+        titre="Contenu"
+        sousTitre="Banque d’idées du staff : propose, trie, suis l’avancement"
+        actions={
+          <Button variante={showForm ? 'secondary' : 'primary'} icone={showForm ? 'x' : 'plus'} onClick={() => setShowForm((v) => !v)}>
+            {showForm ? 'Fermer' : 'Nouvelle idée'}
+          </Button>
+        }
+      />
+      <SectionTabs section="contenu" />
 
       {showForm && (
-        <div className="mb-8 rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+        <div className="mb-8 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <div className="mb-4 text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
             Proposer une idée
           </div>
@@ -144,7 +150,7 @@ export default function WikiIdeasPage() {
                   body.trim().length === 0
                 }
                 onClick={() => createMut.mutate()}
-                className="rounded-[8px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-40"
+                className="rounded-[8px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] px-5 py-2.5 text-sm font-medium text-[var(--color-on-gold)] disabled:opacity-40"
               >
                 {createMut.isPending ? 'Ajout…' : 'Ajouter'}
               </button>
@@ -158,7 +164,7 @@ export default function WikiIdeasPage() {
           Chargement…
         </div>
       ) : ideasQuery.error ? (
-        <div className="rounded-[10px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
+        <div className="rounded-[8px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
           {(ideasQuery.error as Error).message}
         </div>
       ) : (
@@ -175,7 +181,7 @@ export default function WikiIdeasPage() {
                   {columns[st].length}
                 </span>
               </div>
-              <div className="flex-1 space-y-3 rounded-[14px] border border-dashed border-[var(--color-border)] bg-[var(--color-surface)]/40 p-3 min-h-[120px]">
+              <div className="flex-1 space-y-3 rounded-[8px] border border-dashed border-[var(--color-border)] bg-[var(--color-surface)]/40 p-3 min-h-[120px]">
                 {columns[st].length === 0 ? (
                   <div className="py-6 text-center text-xs text-[var(--color-foreground-muted)]">
                     Vide
@@ -208,7 +214,7 @@ function IdeaCard({
   onMove: (status: WikiIdeaStatus) => void;
 }) {
   return (
-    <div className="rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+    <div className="rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
       <div className="mb-1 flex items-center gap-2">
         {idea.category && (
           <span className="rounded-full border border-[var(--color-border-strong)] px-2 py-0.5 text-[10px] text-[var(--color-foreground-muted)]">
@@ -229,7 +235,7 @@ function IdeaCard({
         <select
           value={idea.status}
           onChange={(e) => onMove(e.target.value as WikiIdeaStatus)}
-          className="w-full rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-background)] px-2 py-1.5 text-xs focus:border-[var(--color-accent)] focus:outline-none"
+          className="select h-8 rounded-[6px] text-xs"
         >
           {STATUS_ORDER.map((st) => (
             <option key={st} value={st}>

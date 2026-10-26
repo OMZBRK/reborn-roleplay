@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import yaml from 'js-yaml';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { FilesService } from '../files/files.service';
 import { compile } from './compiler/compile';
@@ -46,6 +47,7 @@ export class AbilitiesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly files: FilesService,
+    private readonly audit: AuditService,
   ) {}
 
   /** Parse + valide un graphe brut ; renvoie le graphe normalisé ou lève 400. */
@@ -220,6 +222,106 @@ export class AbilitiesService {
   }
 
   /**
+   * Ce que « Déployer » va pousser, pour la fenêtre de confirmation du panel :
+   * le serveur visé (celui de la carte des droits fichiers), les techniques
+   * publiées et, pour chacune, si elle a changé depuis le dernier déploiement
+   * (entrée `abilities.deploy` du journal). Lecture seule.
+   *
+   * `retirees` : le déploiement RÉÉCRIT les fichiers générés avec les seules
+   * techniques publiées. Une technique déployée la dernière fois et qui ne
+   * l'est plus (passée en brouillon, archivée ou supprimée) disparaît donc du
+   * serveur : c'est le seul effet destructif, la fenêtre doit le dire.
+   */
+  async recapitulatifDeploiement(role: Role) {
+    const [rows, dernier] = await Promise.all([
+      this.prisma.techniqueGraph.findMany({
+        where: { status: 'PUBLISHED' },
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          category: true,
+          updatedAt: true,
+        },
+      }),
+      this.prisma.auditLog.findFirst({
+        where: { action: 'abilities.deploy' },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true, metadata: true },
+      }),
+    ]);
+    const depuis = dernier?.createdAt ?? null;
+    const techniques = rows.map((r) => ({
+      id: r.id,
+      slug: r.slug,
+      name: r.name,
+      category: r.category,
+      updatedAt: r.updatedAt.toISOString(),
+      // Sans déploiement journalisé, tout compte comme modifié.
+      modifiee: depuis === null || r.updatedAt > depuis,
+    }));
+    return {
+      serveur: this.files.scopesFor(role).server,
+      dernierDeploiement: depuis?.toISOString() ?? null,
+      total: techniques.length,
+      modifiees: techniques.filter((t) => t.modifiee).length,
+      techniques,
+      retirees: await this.techniquesRetirees(
+        dernier,
+        new Set(rows.map((r) => r.slug)),
+      ),
+    };
+  }
+
+  /**
+   * Techniques du dernier déploiement absentes du prochain. Les slugs
+   * déployés sont dans le journal (`metadata.slugs`) ; une entrée plus
+   * ancienne sans eux se rabat sur les techniques non publiées modifiées
+   * depuis ce déploiement. Sans déploiement journalisé : rien à retirer de
+   * connu.
+   */
+  private async techniquesRetirees(
+    dernier: { createdAt: Date; metadata: unknown } | null,
+    publiees: Set<string>,
+  ): Promise<
+    Array<{
+      slug: string;
+      name: string;
+      /** null : la technique n'existe plus (supprimée). */
+      status: string | null;
+    }>
+  > {
+    if (!dernier) return [];
+    const meta = dernier.metadata as { slugs?: unknown } | null;
+    const slugs = Array.isArray(meta?.slugs)
+      ? meta.slugs.filter((s): s is string => typeof s === 'string')
+      : null;
+    if (slugs) {
+      const absents = [...new Set(slugs)].filter((s) => !publiees.has(s));
+      if (absents.length === 0) return [];
+      const connues = await this.prisma.techniqueGraph.findMany({
+        where: { slug: { in: absents } },
+        select: { slug: true, name: true, status: true },
+      });
+      const parSlug = new Map(connues.map((t) => [t.slug, t]));
+      return absents.map((slug) => {
+        const t = parSlug.get(slug);
+        return { slug, name: t?.name ?? slug, status: t?.status ?? null };
+      });
+    }
+    const repli = await this.prisma.techniqueGraph.findMany({
+      where: {
+        status: { not: 'PUBLISHED' },
+        updatedAt: { gt: dernier.createdAt },
+      },
+      orderBy: { updatedAt: 'desc' },
+      select: { slug: true, name: true, status: true },
+    });
+    return repli.map((t) => ({ slug: t.slug, name: t.name, status: t.status }));
+  }
+
+  /**
    * Compile toutes les techniques PUBLISHED, écrit les 3 artefacts par SFTP,
    * puis enfile les reloads. Fail-fast : une seule technique invalide annule
    * tout le déploiement (aucune écriture partielle).
@@ -286,6 +388,22 @@ export class AbilitiesService {
         // reload best-effort : l'écriture est faite, le reload peut être relancé.
       }
     }
+
+    // Geste à risque : journalisé en une entrée (les écritures de fichiers le
+    // sont déjà une par une). Sert aussi de repère au récapitulatif.
+    await this.audit.log({
+      actorId,
+      action: 'abilities.deploy',
+      targetEntity: 'abilities:deploy',
+      metadata: {
+        server: this.files.scopesFor(role).server,
+        deployed: graphs.length,
+        slugs: graphs.map((g) => g.id),
+        written,
+        reloaded,
+      },
+      source: 'panel',
+    });
 
     return {
       deployed: graphs.length,

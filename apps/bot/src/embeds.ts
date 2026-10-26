@@ -1,42 +1,97 @@
 import { EmbedBuilder } from "discord.js";
 
 /**
- * Split un champ texte en autant d'embeds que necessaires pour respecter
- * la limite Discord embed.description (4096 chars). Le suffixe "(i/total)"
- * n'apparait que quand on a plusieurs pages.
+ * Limites Discord d'un embed, en caractères. `String.length` compte en UTF-16 :
+ * il ne compte jamais moins que Discord, une longueur JS sous la limite passe donc.
+ */
+export const LIMITES_EMBED = {
+  titre: 256,
+  description: 4096,
+  champNom: 256,
+  champValeur: 1024,
+} as const;
+
+/** Champ d'embed (forme attendue par `EmbedBuilder.addFields`). */
+export interface ChampEmbed {
+  name: string;
+  value: string;
+  inline?: boolean;
+}
+
+/** Vrai si `code` est la première moitié d'une paire de substitution UTF-16 (émoji, etc.). */
+function debutDePaire(code: number): boolean {
+  return code >= 0xd800 && code <= 0xdbff;
+}
+
+/**
+ * Découpe un texte en morceaux d'au plus `max` caractères, sans rien perdre :
+ * coupe de préférence à un saut de paragraphe, sinon à un saut de ligne, sinon
+ * à une espace, et jamais au milieu d'un caractère (paire de substitution).
+ * Seuls les blancs autour des coupes disparaissent. Texte vide : aucun morceau.
+ */
+export function decouperTexte(texte: string, max: number): string[] {
+  const morceaux: string[] = [];
+  let reste = texte.trim();
+  while (reste.length > max) {
+    // +1 : un séparateur placé pile à la limite reste utilisable.
+    const fenetre = reste.slice(0, max + 1);
+    let coupe = -1;
+    for (const sep of ["\n\n", "\n", " "]) {
+      const i = fenetre.lastIndexOf(sep);
+      // Pas de coupe trop tôt : on ne veut pas de morceaux minuscules.
+      if (i >= max / 2) {
+        coupe = i;
+        break;
+      }
+    }
+    if (coupe < 0) {
+      coupe = debutDePaire(reste.charCodeAt(max - 1)) ? max - 1 : max;
+    }
+    const morceau = reste.slice(0, coupe).trimEnd();
+    if (morceau.length > 0) morceaux.push(morceau);
+    reste = reste.slice(coupe).trimStart();
+  }
+  if (reste.length > 0) morceaux.push(reste);
+  return morceaux;
+}
+
+/**
+ * Champs d'embed pour un texte qui peut dépasser 1 024 caractères : un champ
+ * par tranche, « (suite) » à partir du deuxième. Texte vide : aucun champ.
+ */
+export function champsTexte(nom: string, texte: string): ChampEmbed[] {
+  return decouperTexte(texte, LIMITES_EMBED.champValeur).map((value, i) => ({
+    name: truncate(i === 0 ? nom : `${nom} (suite)`, LIMITES_EMBED.champNom),
+    value,
+  }));
+}
+
+/**
+ * Découpe un texte long en autant d'embeds que nécessaire pour respecter la
+ * limite d'une description (4 096 caractères), sans couper un mot quand c'est
+ * possible. Le suffixe « (i/total) » n'apparaît que s'il y a plusieurs pages.
  */
 export function paginateLong(
   title: string,
   color: number,
   content: string,
 ): EmbedBuilder[] {
-  const trimmed = content.trim();
-  if (trimmed.length === 0) {
+  const pages = decouperTexte(content, LIMITES_EMBED.description);
+  if (pages.length === 0) {
     return [
       new EmbedBuilder()
-        .setTitle(title)
+        .setTitle(truncate(title, LIMITES_EMBED.titre))
         .setColor(color)
         .setDescription("*(vide)*"),
     ];
   }
-  const PAGE_SIZE = 4000;
-  if (trimmed.length <= PAGE_SIZE) {
-    return [
-      new EmbedBuilder().setTitle(title).setColor(color).setDescription(trimmed),
-    ];
-  }
-  const total = Math.ceil(trimmed.length / PAGE_SIZE);
-  const out: EmbedBuilder[] = [];
-  for (let i = 0; i < total; i++) {
-    const slice = trimmed.slice(i * PAGE_SIZE, (i + 1) * PAGE_SIZE);
-    out.push(
-      new EmbedBuilder()
-        .setTitle(`${title} (${i + 1}/${total})`)
-        .setColor(color)
-        .setDescription(slice),
-    );
-  }
-  return out;
+  return pages.map((page, i) => {
+    const suffixe = pages.length > 1 ? ` (${i + 1}/${pages.length})` : "";
+    return new EmbedBuilder()
+      .setTitle(truncate(title, LIMITES_EMBED.titre - suffixe.length) + suffixe)
+      .setColor(color)
+      .setDescription(page);
+  });
 }
 
 /**
@@ -99,6 +154,34 @@ export function formatDateFr(iso: string): string {
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/**
+ * Pied d'une annonce du salon staff : « application <id> · Pris par X · Statut : Y ».
+ * Remplace le segment qui commence par l'un des `debuts` (ou l'ajoute à la fin),
+ * sans toucher aux autres. Le premier segment (« application <id> ») reste en
+ * tête : le bot le relit pour retrouver la candidature.
+ */
+export function remplacerSegmentPied(
+  pied: string,
+  debuts: readonly string[],
+  segment: string | null,
+): string {
+  const morceaux = pied
+    .split(" · ")
+    .filter((m, i) => m.length > 0 && (i === 0 || !debuts.some((d) => m.startsWith(d))));
+  if (segment) morceaux.push(segment);
+  return morceaux.join(" · ");
+}
+
+/**
+ * Débuts du segment de prise en charge du pied d'annonce (« Pris par X »,
+ * « Disponible (libéré par X) », « Libéré par X ») : un seul à la fois.
+ */
+export const SEGMENTS_PRISE_EN_CHARGE: readonly string[] = ["Pris par", "Disponible", "Libéré par"];
+
+/** Coupe à `max` caractères avec « … », sans jamais couper un caractère en deux. */
 export function truncate(s: string, max: number): string {
-  return s.length <= max ? s : s.slice(0, max - 1) + "…";
+  if (s.length <= max) return s;
+  let fin = max - 1;
+  if (fin > 0 && debutDePaire(s.charCodeAt(fin - 1))) fin--;
+  return s.slice(0, fin) + "…";
 }

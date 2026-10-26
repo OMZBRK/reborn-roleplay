@@ -1,9 +1,28 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  DISCORD_FRESH_MS,
+  DISCORD_STALE_MAX_MS,
+  discordInviteApiUrl,
+  discordInviteCode,
+  discordInviteUrl,
+  discordRetryDelayMs,
+  parseDiscordInvite,
+} from './menu.config';
 
+/**
+ * Compteur du serveur Discord des joueurs, lu sur son invitation publique.
+ * `discord: null` dans le panneau = compteur indisponible (variable absente,
+ * invitation expirée, Discord muet sans valeur récente) : les clients
+ * gardent alors leur lien de repli constant.
+ */
 export interface MenuDiscord {
   members: number;
   online: number;
+  /** Lien public d'invitation (https://discord.gg/<code>). */
+  inviteUrl: string;
+  /** Nom du serveur tel que Discord le renvoie. */
+  name: string | null;
 }
 
 export interface MenuPatchNote {
@@ -28,9 +47,10 @@ export interface MenuPanelDto {
   streams: MenuStream[];
 }
 
-// Le menu ESC in-game (mod Fabric) poll ce panneau à l'ouverture. On cache
-// 60s : Discord rate-limit l'endpoint guild, les patch notes bougent peu, et
-// N joueurs ouvrant ESC ne doivent pas marteler l'API.
+// Le menu ESC in-game (mod Fabric) et l'accueil du launcher pollent ce
+// panneau. On cache 60s : les patch notes bougent peu, et N joueurs ouvrant
+// ESC ne doivent pas marteler l'API. Le compteur Discord a en plus son propre
+// cache, plus long (menu.config.ts).
 const CACHE_TTL_MS = 60_000;
 const HTTP_TIMEOUT_MS = 4000;
 
@@ -47,6 +67,12 @@ export class MenuService {
   // Token d'app Twitch (client_credentials) mis en cache jusqu'à ~1min avant
   // expiration ; évite un aller-retour OAuth à chaque refresh du panneau.
   private twitchToken: { value: string; expiresAt: number } | null = null;
+  // Compteur Discord : dernière valeur obtenue, date du prochain appel permis
+  // après un échec, et dernier problème journalisé (un avertissement par
+  // changement d'état, pas un par minute).
+  private discordLast: { data: MenuDiscord; fetchedAt: number } | null = null;
+  private discordRetryAt = 0;
+  private discordProblem: string | null = null;
 
   async getPanel(): Promise<MenuPanelDto> {
     const now = Date.now();
@@ -78,32 +104,89 @@ export class MenuService {
     return { discord, patchNotes, streams };
   }
 
-  // ── Discord : compteur membres + présence via le bot token ──
+  // ── Discord : membres + présence, lus sur l'invitation publique (sans
+  // jeton). Frais 5 min ; si Discord ne répond pas, dernière valeur connue
+  // jusqu'à 30 min, puis null (« compteur indisponible »). ──
   private async fetchDiscord(): Promise<MenuDiscord | null> {
-    const guildId = process.env.DISCORD_GUILD_ID?.trim();
-    const botToken = process.env.DISCORD_BOT_TOKEN?.trim();
-    if (!guildId || !botToken) return null;
-    try {
-      const res = await this.fetchWithTimeout(
-        `https://discord.com/api/v10/guilds/${guildId}?with_counts=true`,
-        { headers: { Authorization: `Bot ${botToken}` } },
+    const code = discordInviteCode();
+    if (!code) {
+      this.noteDiscordProblem(
+        process.env.DISCORD_INVITE_CODE?.trim()
+          ? 'DISCORD_INVITE_CODE mal formé (attendu : le code seul, ex. celui de .env.example) : compteur Discord désactivé.'
+          : 'DISCORD_INVITE_CODE absent : compteur Discord désactivé.',
       );
-      if (!res.ok) {
-        this.logger.warn(`Discord guild counts HTTP ${res.status}`);
-        return null;
-      }
-      const json = (await res.json()) as {
-        approximate_member_count?: number;
-        approximate_presence_count?: number;
-      };
-      return {
-        members: json.approximate_member_count ?? 0,
-        online: json.approximate_presence_count ?? 0,
-      };
-    } catch (err) {
-      this.logger.warn(`Discord guild counts échec: ${String(err)}`);
       return null;
     }
+
+    const now = Date.now();
+    const last = this.discordLast;
+    if (last && now - last.fetchedAt < DISCORD_FRESH_MS) return last.data;
+    if (now < this.discordRetryAt) return this.discordFallback(now);
+
+    let status: number | null = null;
+    let retryAfter: string | null = null;
+    try {
+      const res = await this.fetchWithTimeout(discordInviteApiUrl(code), {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'RebornRoleplay-API (compteur Discord)',
+        },
+      });
+      status = res.status;
+      retryAfter = res.headers.get('retry-after');
+      if (!res.ok) {
+        throw new Error(
+          res.status === 404
+            ? 'invitation inconnue ou expirée : vérifier DISCORD_INVITE_CODE et régler l’invitation sur « n’expire jamais »'
+            : res.status === 429
+              ? 'Discord limite les appels (HTTP 429)'
+              : `HTTP ${res.status}`,
+        );
+      }
+      const counts = parseDiscordInvite(await res.json());
+      if (!counts) throw new Error('réponse sans compteurs');
+      const data: MenuDiscord = {
+        ...counts,
+        inviteUrl: discordInviteUrl(code),
+      };
+      this.discordLast = { data, fetchedAt: now };
+      this.discordRetryAt = 0;
+      if (this.discordProblem) {
+        this.logger.log('Compteur Discord rétabli.');
+        this.discordProblem = null;
+      }
+      return data;
+    } catch (err) {
+      const base =
+        err instanceof Error && err.name === 'AbortError'
+          ? 'délai dépassé'
+          : err instanceof Error
+            ? err.message
+            : String(err);
+      // fetch échoue en « fetch failed » : la vraie cause (DNS, refus…) est
+      // dans err.cause.code.
+      const sysCode = (err as { cause?: { code?: unknown } } | null)?.cause
+        ?.code;
+      const cause = typeof sysCode === 'string' ? `${base} (${sysCode})` : base;
+      this.discordRetryAt = now + discordRetryDelayMs(status, retryAfter);
+      this.noteDiscordProblem(`Compteur Discord indisponible : ${cause}.`);
+      return this.discordFallback(now);
+    }
+  }
+
+  /** Dernière valeur connue si elle a moins de 30 min, sinon null. */
+  private discordFallback(now: number): MenuDiscord | null {
+    const last = this.discordLast;
+    return last && now - last.fetchedAt < DISCORD_STALE_MAX_MS
+      ? last.data
+      : null;
+  }
+
+  /** Journalise un problème du compteur une fois, tant qu'il ne change pas. */
+  private noteDiscordProblem(message: string): void {
+    if (this.discordProblem === message) return;
+    this.discordProblem = message;
+    this.logger.warn(message);
   }
 
   // ── Patch notes : les 5 plus récentes (épinglées d'abord) ──

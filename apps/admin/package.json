@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3002",
-    "build": "next build",
+    "garde-fou": "node scripts/garde-fou.mjs",
+    "build": "node scripts/garde-fou.mjs && next build",
     "start": "next start -p 3002",
     "lint": "next lint"
   },

@@ -22,6 +22,12 @@ import {
   IconX,
 } from '@/components/icons';
 import { SkeletonRows } from '@/components/Skeleton';
+import { Garde } from '@/components/Garde';
+import { SectionTabs } from '@/components/shell/SectionTabs';
+import { useConfirm } from '@/components/ui/Dialog';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { UNE_ZONE_FICHIERS } from '@/lib/droits';
+import { libelleServeur } from '@/lib/libelles';
 import {
   createAnimatedItem,
   deleteFile,
@@ -143,6 +149,20 @@ function usePins() {
 // ── Page ───────────────────────────────────────────────────
 
 export default function FilesPage() {
+  return (
+    <Garde capacites={[UNE_ZONE_FICHIERS]}>
+      <Fichiers />
+    </Garde>
+  );
+}
+
+/**
+ * Contenu › Fichiers (PANEL_V2 §4.5) : gestionnaire des fichiers du serveur,
+ * périmètre donné par la carte des droits (files.scopes.ts). Le serveur
+ * cible est affiché dans l'en-tête ; fenêtres du panel à la place des
+ * boîtes du navigateur ; une suppression définitive demande de retaper le nom.
+ */
+function Fichiers() {
   const qc = useQueryClient();
   const [path, setPath] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
@@ -205,37 +225,35 @@ export default function FilesPage() {
   }
 
   return (
-    <div className="px-8 py-8 max-w-[1400px] mx-auto">
-      <header className="mb-6">
-        <div className="text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">
-          Administration serveur
-        </div>
-        <h1
-          className="mt-1 text-4xl leading-none bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent"
-          style={{ fontFamily: 'var(--font-display)' }}
-        >
-          Fichiers serveur
-        </h1>
-        <div className="mt-3 h-[2px] w-24 bg-gradient-to-r from-[var(--color-accent)] to-transparent shadow-[var(--shadow-glow-accent)]" />
-        <div className="mt-3 text-sm text-[var(--color-foreground-subtle)]">
-          Parcourez, éditez et gérez les fichiers de votre serveur
-          {scopes?.server ? (
-            <span className="text-[var(--color-foreground-muted)]">
-              {' '}
-              · {scopes.server}
-            </span>
-          ) : null}
-        </div>
-      </header>
+    <div className="page">
+      <PageHeader
+        fil={[{ label: 'Contenu' }]}
+        titre="Contenu"
+        sousTitre={
+          <>
+            Fichiers du serveur
+            {scopes?.server ? (
+              <>
+                {' · '}serveur cible : <b>{libelleServeur(scopes.server)}</b>
+              </>
+            ) : null}
+            {scopes && !scopes.canWrite ? ' · lecture seule' : ''}
+          </>
+        }
+      />
+      <SectionTabs section="contenu" />
+      <p className="mb-4 hidden text-[13px] text-fg-3 max-md:block">
+        À faire depuis un ordinateur : le gestionnaire demande un grand écran.
+      </p>
 
       {scopesQuery.isLoading && !scopes ? (
         <SkeletonRows count={4} />
       ) : scopesQuery.error ? (
-        <div className="rounded-[10px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
+        <div className="rounded-[8px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
           {errMessage(scopesQuery.error)}
         </div>
       ) : roots.length === 0 ? (
-        <div className="rounded-[14px] border border-dashed border-[var(--color-border-strong)] py-16 text-center text-[var(--color-foreground-muted)]">
+        <div className="rounded-[8px] border border-dashed border-[var(--color-border-strong)] py-16 text-center text-[var(--color-foreground-muted)]">
           Aucun accès fichier pour ton grade.
         </div>
       ) : (
@@ -250,11 +268,8 @@ export default function FilesPage() {
                     key={r.path}
                     type="button"
                     onClick={() => openRoot(r.path)}
-                    className={`rounded-full px-4 py-1.5 text-sm transition-colors ${
-                      active
-                        ? 'bg-[var(--color-accent)] text-white shadow-[var(--shadow-glow-accent)]'
-                        : 'border border-[var(--color-border-strong)] text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-foreground)]'
-                    }`}
+                    aria-pressed={active}
+                    className="chip"
                   >
                     {r.label}
                   </button>
@@ -269,8 +284,8 @@ export default function FilesPage() {
                     type="button"
                     disabled={reloadMutation.isPending}
                     onClick={() => reloadMutation.mutate(t.key)}
-                    title={`Recharge ${t.label} sur le serveur`}
-                    className="inline-flex items-center gap-1.5 rounded-[10px] border border-[var(--color-border-strong)] px-3.5 py-2 text-sm text-[var(--color-foreground-subtle)] transition-colors hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-foreground)] disabled:opacity-50"
+                    title={`Recharger ${t.label} sur le serveur ${libelleServeur(scopes?.server)}`}
+                    className="inline-flex items-center gap-1.5 rounded-[8px] border border-[var(--color-border-strong)] px-3.5 py-2 text-sm text-[var(--color-foreground-subtle)] transition-colors hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-foreground)] disabled:opacity-50"
                   >
                     <IconRefresh className="h-4 w-4" />
                     {t.label}
@@ -365,6 +380,7 @@ function FileManager({
   onInvalidate: () => void;
 }) {
   const qc = useQueryClient();
+  const { confirmer, demander } = useConfirm();
   const uploadRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('name');
@@ -447,12 +463,25 @@ function FileManager({
   });
 
   // ── Actions ──
-  function doNewFolder() {
-    const name = prompt('Nom du nouveau dossier :')?.trim();
+  async function doNewFolder() {
+    const name = await demander({
+      titre: 'Nouveau dossier',
+      label: 'Nom du dossier',
+      confirmer: 'Créer le dossier',
+      aide: `Dans ${path || 'la racine du périmètre'}.`,
+      valider: (v) => (/[\\/]/.test(v) ? 'Un nom ne contient ni « / » ni « \\ ».' : null),
+    });
     if (name) mkdirMut.mutate(joinPath(path, name));
   }
-  function doNewFile() {
-    const name = prompt('Nom du nouveau fichier (ex: fight1.png.mcmeta) :')?.trim();
+  async function doNewFile() {
+    const name = await demander({
+      titre: 'Nouveau fichier',
+      label: 'Nom du fichier',
+      placeholder: 'Ex. : fight1.png.mcmeta',
+      confirmer: 'Créer le fichier',
+      aide: `Dans ${path || 'la racine du périmètre'}.`,
+      valider: (v) => (/[\\/]/.test(v) ? 'Un nom ne contient ni « / » ni « \\ ».' : null),
+    });
     if (name) newFileMut.mutate(joinPath(path, name));
   }
   function doRefresh() {
@@ -460,25 +489,41 @@ function FileManager({
     qc.invalidateQueries({ queryKey: ['files', 'read'] });
     toast.success('Actualisé');
   }
-  function doRename(entry: FileEntry) {
-    const next = prompt('Nouveau nom :', entry.name)?.trim();
+  async function doRename(entry: FileEntry) {
+    const next = await demander({
+      titre: `Renommer « ${entry.name} »`,
+      label: 'Nouveau nom',
+      valeurInitiale: entry.name,
+      confirmer: 'Renommer',
+      valider: (v) => (/[\\/]/.test(v) ? 'Un nom ne contient ni « / » ni « \\ ».' : null),
+    });
     if (!next || next === entry.name) return;
     moveMut.mutate({ from: entry.path, to: joinPath(parentDir(entry.path), next) });
   }
-  function doMoveOne(entry: FileEntry) {
-    const dest = prompt(
-      'Déplacer vers le dossier (chemin relatif au périmètre) :',
-      parentDir(entry.path),
-    )?.trim();
+  async function doMoveOne(entry: FileEntry) {
+    const dest = await demander({
+      titre: `Déplacer « ${entry.name} »`,
+      label: 'Dossier de destination',
+      aide: 'Chemin relatif au périmètre.',
+      valeurInitiale: parentDir(entry.path),
+      confirmer: 'Déplacer',
+    });
     if (dest == null) return;
     moveMut.mutate({ from: entry.path, to: joinPath(dest, entry.name) });
   }
-  function doDeleteOne(entry: FileEntry) {
+  async function doDeleteOne(entry: FileEntry) {
     if (entry.type === 'dir') {
       toast.error('Suppression de dossier non autorisée');
       return;
     }
-    if (confirm(`Supprimer définitivement « ${entry.name} » ?`)) {
+    const ok = await confirmer({
+      titre: `Supprimer « ${entry.name} » ?`,
+      message: 'Fichier du serveur, supprimé définitivement.',
+      confirmer: 'Supprimer',
+      danger: true,
+      retaper: entry.name,
+    });
+    if (ok) {
       deleteMut.mutate(entry.path, {
         onSuccess: () => {
           toast.success('Supprimé');
@@ -528,20 +573,24 @@ function FileManager({
   }
   const selectedEntries = filtered.filter((e) => checked.has(e.path));
 
-  function bulkDelete() {
+  async function bulkDelete() {
     const files = selectedEntries.filter((e) => e.type === 'file');
     const dirs = selectedEntries.length - files.length;
     if (files.length === 0) {
       toast.error('Seuls les fichiers peuvent être supprimés');
       return;
     }
-    if (
-      !confirm(
-        `Supprimer définitivement ${files.length} fichier(s) ?` +
-          (dirs > 0 ? `\n(${dirs} dossier(s) ignoré(s))` : ''),
-      )
-    )
-      return;
+    const phrase = `${files.length} fichier${files.length > 1 ? 's' : ''}`;
+    const ok = await confirmer({
+      titre: `Supprimer ${phrase} ?`,
+      message:
+        'Fichiers du serveur, supprimés définitivement.' +
+        (dirs > 0 ? ` ${dirs} dossier${dirs > 1 ? 's' : ''} ignoré${dirs > 1 ? 's' : ''}.` : ''),
+      confirmer: 'Supprimer',
+      danger: true,
+      retaper: phrase,
+    });
+    if (!ok) return;
     Promise.allSettled(files.map((e) => deleteFile(e.path))).then(() => {
       toast.success(`${files.length} fichier(s) supprimé(s)`);
       setChecked(new Set());
@@ -549,11 +598,14 @@ function FileManager({
       onInvalidate();
     });
   }
-  function bulkMove() {
-    const dest = prompt(
-      'Déplacer la sélection vers (chemin relatif au périmètre) :',
-      path,
-    )?.trim();
+  async function bulkMove() {
+    const dest = await demander({
+      titre: `Déplacer ${selectedEntries.length} élément${selectedEntries.length > 1 ? 's' : ''}`,
+      label: 'Dossier de destination',
+      aide: 'Chemin relatif au périmètre.',
+      valeurInitiale: path,
+      confirmer: 'Déplacer',
+    });
     if (dest == null) return;
     Promise.allSettled(
       selectedEntries.map((e) => moveFile(e.path, joinPath(dest, e.name))),
@@ -569,7 +621,7 @@ function FileManager({
   const openHeaderName = selected ? basename(selected) : null;
 
   return (
-    <div className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)]">
+    <div className="rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)]">
       {/* Toolbar : fil d'Ariane + recherche + actions */}
       <div className="flex flex-col gap-3 border-b border-[var(--color-border)] px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
         {/* Fil d'Ariane */}
@@ -647,7 +699,7 @@ function FileManager({
                   type="button"
                   onClick={() => setShowAnim(true)}
                   title="Créer un item animé Nexo à partir d'une spritesheet"
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-[8px] border border-[var(--color-accent)]/50 bg-[var(--color-accent-soft)] px-3 py-1.5 text-sm text-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-white"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-[8px] border border-[var(--color-accent)]/50 bg-[var(--color-accent-soft)] px-3 py-1.5 text-sm text-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-[var(--color-on-gold)]"
                 >
                   <IconStar className="h-4 w-4" />
                   Item animé
@@ -693,7 +745,7 @@ function FileManager({
                 type="checkbox"
                 checked={allChecked}
                 onChange={toggleAll}
-                className="h-4 w-4 accent-[var(--color-accent)]"
+                className="check"
               />
             </label>
             <SortHeader
@@ -774,7 +826,7 @@ function FileManager({
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => toggleCheck(entry.path)}
-                        className="h-4 w-4 accent-[var(--color-accent)]"
+                        className="check"
                       />
                     </label>
                     <button
@@ -1244,7 +1296,7 @@ function AnimatedItemModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-[8px] bg-[var(--color-accent)] px-5 py-2 text-sm font-medium text-white hover:bg-[var(--color-accent-hover)]"
+                className="rounded-[8px] bg-[var(--color-accent)] px-5 py-2 text-sm font-medium text-[var(--color-on-gold)] hover:bg-[var(--color-accent-hover)]"
               >
                 Terminé
               </button>
@@ -1329,7 +1381,7 @@ function AnimatedItemModal({
                   type="checkbox"
                   checked={animated}
                   onChange={(e) => setAnimated(e.target.checked)}
-                  className="h-4 w-4 accent-[var(--color-accent)]"
+                  className="check"
                 />
                 Animé
               </label>
@@ -1377,7 +1429,7 @@ function AnimatedItemModal({
                 type="button"
                 disabled={!canSubmit}
                 onClick={() => createMut.mutate()}
-                className="rounded-[8px] bg-[var(--color-accent)] px-5 py-2 text-sm font-medium text-white hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
+                className="rounded-[8px] bg-[var(--color-accent)] px-5 py-2 text-sm font-medium text-[var(--color-on-gold)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
               >
                 {createMut.isPending ? 'Création…' : 'Créer l’item'}
               </button>
@@ -1414,6 +1466,7 @@ function FileEditorInner({
   onClose: () => void;
   onDeleted: () => void;
 }) {
+  const { confirmer } = useConfirm();
   const [draft, setDraft] = useState<string | null>(null);
 
   const fileQuery = useQuery({
@@ -1473,7 +1526,7 @@ function FileEditorInner({
               type="button"
               disabled={saveMut.isPending || !file.editable || !dirty}
               onClick={() => saveMut.mutate()}
-              className="inline-flex items-center gap-1.5 rounded-[8px] bg-[var(--color-accent)] px-4 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-[8px] bg-[var(--color-accent)] px-4 py-1.5 text-sm font-medium text-[var(--color-on-gold)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
             >
               {saveMut.isPending ? 'Enregistrement…' : 'Sauvegarder'}
             </button>
@@ -1482,9 +1535,16 @@ function FileEditorInner({
             <button
               type="button"
               disabled={deleteMut.isPending}
-              onClick={() => {
-                if (confirm('Supprimer définitivement ce fichier ?'))
-                  deleteMut.mutate();
+              onClick={async () => {
+                const nom = basename(filePath);
+                const ok = await confirmer({
+                  titre: `Supprimer « ${nom} » ?`,
+                  message: 'Fichier du serveur, supprimé définitivement.',
+                  confirmer: 'Supprimer',
+                  danger: true,
+                  retaper: nom,
+                });
+                if (ok) deleteMut.mutate();
               }}
               aria-label="Supprimer"
               className="inline-flex items-center gap-1.5 rounded-[8px] border border-[var(--color-danger)]/40 px-3 py-1.5 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger-soft)] disabled:opacity-40"
@@ -1538,7 +1598,7 @@ function FileEditorInner({
                   type="button"
                   disabled={saveMut.isPending || !file.editable}
                   onClick={() => saveMut.mutate()}
-                  className="rounded-[8px] bg-[var(--color-accent)] px-5 py-2 text-sm font-medium text-white hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
+                  className="rounded-[8px] bg-[var(--color-accent)] px-5 py-2 text-sm font-medium text-[var(--color-on-gold)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
                 >
                   {saveMut.isPending ? 'Enregistrement…' : 'Sauvegarder'}
                 </button>

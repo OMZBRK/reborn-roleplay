@@ -1,233 +1,287 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useState } from 'react';
-import { IconAudit, IconSearch } from '@/components/icons';
-import { SkeletonTable } from '@/components/Skeleton';
+import { Garde } from '@/components/Garde';
+import { SectionTabs } from '@/components/shell/SectionTabs';
+import { Mot } from '@/components/ui/Button';
+import { ListeKV } from '@/components/ui/Card';
+import { DataTable, Pagination, type Colonne } from '@/components/ui/DataTable';
+import { Drawer } from '@/components/ui/Dialog';
+import { Select } from '@/components/ui/Field';
+import { Icone } from '@/components/ui/Icone';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { EmptyState } from '@/components/ui/States';
+import { Chip, Segmented } from '@/components/ui/Tabs';
 import { api } from '@/lib/api';
+import { dateHeure, ilYa, nombre } from '@/lib/format';
+import { FAMILLES_AUDIT, LIBELLE_SOURCE, libelleAction, libelleSource } from '@/lib/libelles';
 import type { AuditLogItem, Paginated } from '@/lib/types';
 
 /**
- * Visualisation du log d'audit. Read-only, accessible ADMIN+ uniquement
- * (le RolesGuard côté API rejette si rôle < ADMIN, donc une route non-admin
- * verra juste un 403 dans le toast erreur).
- *
- * Le filtre client-side reste minimal — pour scaler on poussera les
- * filtres serveur quand le log depassera ~10000 entrees.
+ * Modération › Journal (PANEL_V2 §4.4) : toutes les actions du staff,
+ * inscrites avec une chaîne d'empreintes (modifier une entrée casse la chaîne
+ * en aval). Libellés français, liens vers les entités, détail mis en forme
+ * dans un tiroir. Filtres : personne (clic sur un nom), famille d'action,
+ * source. Réservé aux administrateurs.
  */
-const PAGE_SIZE = 50;
 
-export default function AuditPage() {
-  const [actionFilter, setActionFilter] = useState('');
-  const [sourceFilter, setSourceFilter] = useState<'all' | 'panel' | 'discord' | 'launcher' | 'system'>('all');
+const PAR_PAGE = 50;
+type Source = 'toutes' | 'panel' | 'discord' | 'launcher' | 'game' | 'system';
+
+export default function JournalPage() {
+  return (
+    <Garde capacites={['audit.voir']} message="Réservé aux administrateurs.">
+      <Journal />
+    </Garde>
+  );
+}
+
+/** Lien vers l'entité visée (« whitelist:<id> », « ticket:<id> »…). */
+function LienEntite({ entite }: { entite: string | null }) {
+  if (!entite) return null;
+  const i = entite.indexOf(':');
+  const genre = i > 0 ? entite.slice(0, i) : '';
+  const id = i > 0 ? entite.slice(i + 1) : entite;
+  const lien =
+    genre === 'whitelist'
+      ? { href: `/whitelist/${id}`, label: 'Candidature' }
+      : genre === 'ticket'
+        ? { href: `/tickets/${id}`, label: 'Ticket' }
+        : genre === 'douane-seance'
+          ? { href: `/douane/${id}`, label: 'Séance de douane' }
+          : null;
+  if (lien) {
+    return (
+      <Link href={lien.href} className="lien">
+        {lien.label}
+      </Link>
+    );
+  }
+  if (genre === 'file') return <span className="mono text-fg-3">{id}</span>;
+  return <span className="text-fg-3">{genre || 'Élément'}</span>;
+}
+
+function Journal() {
+  const [famille, setFamille] = useState('');
+  const [source, setSource] = useState<Source>('toutes');
+  const [acteur, setActeur] = useState<{ id: string; nom: string } | null>(null);
   const [page, setPage] = useState(0);
+  const [detail, setDetail] = useState<AuditLogItem | null>(null);
 
-  // Changer un filtre remet à la première page (sinon on peut se retrouver
-  // sur une page vide au-delà du nouveau total).
-  function setSource(s: typeof sourceFilter) {
-    setSourceFilter(s);
-    setPage(0);
-  }
-  function setAction(v: string) {
-    setActionFilter(v);
-    setPage(0);
-  }
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['admin', 'audit', actionFilter, sourceFilter, page],
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ['admin', 'audit', famille, source, acteur?.id ?? '', page],
     queryFn: () => {
       const qs = new URLSearchParams();
-      if (actionFilter.trim()) qs.set('action', actionFilter.trim());
-      if (sourceFilter !== 'all') qs.set('source', sourceFilter);
-      qs.set('skip', String(page * PAGE_SIZE));
-      qs.set('take', String(PAGE_SIZE));
+      if (famille) qs.set('action', `${famille}.`);
+      if (source !== 'toutes') qs.set('source', source);
+      if (acteur) qs.set('actor', acteur.id);
+      qs.set('skip', String(page * PAR_PAGE));
+      qs.set('take', String(PAR_PAGE));
       return api<Paginated<AuditLogItem>>(`/admin/audit?${qs}`);
     },
+    placeholderData: keepPreviousData,
     refetchInterval: 30_000,
   });
 
-  const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+  const colonnes: Colonne<AuditLogItem>[] = [
+    {
+      cle: 'quand',
+      titre: 'Quand',
+      serre: true,
+      rendu: (a) => <span title={dateHeure(a.createdAt)}>{ilYa(a.createdAt)}</span>,
+    },
+    {
+      cle: 'qui',
+      titre: 'Qui',
+      serre: true,
+      rendu: (a) => (
+        <Mot
+          ton="neutre"
+          onClick={() => {
+            setActeur({ id: a.actor.id, nom: a.actor.username });
+            setPage(0);
+          }}
+          title="Voir seulement ses actions"
+        >
+          {a.actor.username}
+        </Mot>
+      ),
+    },
+    { cle: 'action', titre: 'Action', principal: true, rendu: (a) => <span title={a.action}>{libelleAction(a.action)}</span> },
+    {
+      cle: 'cible',
+      titre: 'Cible',
+      rendu: (a) => (
+        <span className="inline-flex flex-wrap items-center gap-x-2">
+          {a.targetUser && (
+            <Link href={`/players/${a.targetUser.id}`} className="text-fg lien-discret">
+              {a.targetUser.username}
+            </Link>
+          )}
+          <LienEntite entite={a.targetEntity} />
+        </span>
+      ),
+    },
+    { cle: 'source', titre: 'Source', serre: true, cacherEtroit: true, rendu: (a) => libelleSource(a.source) },
+    {
+      cle: 'detail',
+      titre: <span className="sr-only">Détail</span>,
+      align: 'droite',
+      serre: true,
+      rendu: () => <Icone nom="chevron-right" taille={16} className="text-fg-3" />,
+    },
+  ];
 
   return (
-    <div className="px-10 py-10 max-w-6xl mx-auto">
-      <header className="mb-8">
-        <div className="text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">
-          Securite
-        </div>
-        <h1
-          className="mt-1 text-5xl leading-none bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent"
-          style={{ fontFamily: 'var(--font-display)' }}
-        >
-          Audit log
-        </h1>
-        <div className="mt-3 h-[2px] w-24 bg-gradient-to-r from-[var(--color-accent)] to-transparent shadow-[var(--shadow-glow-accent)]" />
-        <p className="mt-3 text-xs text-[var(--color-foreground-muted)] max-w-2xl">
-          Toutes les actions staff (decisions whitelist, status tickets,
-          claim/release, publication release) sont loggees avec une chaine
-          de hash SHA-256. Casser une entree casse toute la chaine en aval.
-        </p>
-      </header>
+    <div className="page">
+      <PageHeader
+        fil={[{ label: 'Modération' }]}
+        titre="Modération"
+        sousTitre={
+          data ? (
+            <>
+              Journal · <b>{nombre(data.total)} entrées</b> · chaque action du staff, chaînée par empreintes
+            </>
+          ) : (
+            'Journal'
+          )
+        }
+      />
+      <SectionTabs section="moderation" />
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {(['all', 'panel', 'discord', 'launcher', 'system'] as const).map(
-          (s) => {
-            const active = sourceFilter === s;
-            return (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setSource(s)}
-                className={`rounded-full px-4 py-1.5 text-sm transition-colors ${
-                  active
-                    ? 'bg-[var(--color-accent)] text-white shadow-[var(--shadow-glow-accent)]'
-                    : 'border border-[var(--color-border-strong)] text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-foreground)]'
-                }`}
-              >
-                {s === 'all' ? 'Tous' : s}
-              </button>
-            );
-          },
-        )}
-      </div>
-
-      <div className="mb-6 relative">
-        <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-foreground-muted)]" />
-        <input
-          type="text"
-          value={actionFilter}
-          onChange={(e) => setAction(e.target.value)}
-          placeholder="Filtrer par action (ex: whitelist.approve, ticket.close, release)…"
-          className="w-full rounded-[12px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] py-2.5 pl-11 pr-4 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Segmented<Source>
+          label="Source"
+          valeur={source}
+          onChange={(s) => {
+            setSource(s);
+            setPage(0);
+          }}
+          options={[
+            { valeur: 'toutes', label: 'Toutes' },
+            ...(['panel', 'discord', 'launcher', 'game', 'system'] as const).map((s) => ({
+              valeur: s,
+              label: LIBELLE_SOURCE[s]!,
+            })),
+          ]}
         />
+        <Select
+          aria-label="Famille d’action"
+          value={famille}
+          onChange={(e) => {
+            setFamille(e.target.value);
+            setPage(0);
+          }}
+          className="w-auto min-w-[200px]"
+        >
+          <option value="">Toutes les actions</option>
+          {FAMILLES_AUDIT.map((f) => (
+            <option key={f.prefixe} value={f.prefixe}>
+              {f.label}
+            </option>
+          ))}
+        </Select>
+        {acteur && (
+          <Chip
+            actif
+            onClick={() => {
+              setActeur(null);
+              setPage(0);
+            }}
+          >
+            Par {acteur.nom} <Icone nom="x" taille={13} label="Retirer le filtre" />
+          </Chip>
+        )}
+        {isFetching && data && <span className="spin text-fg-3" aria-label="Mise à jour" />}
       </div>
 
-      {isLoading && !data ? (
-        <SkeletonTable rows={8} />
-      ) : error ? (
-        <div className="rounded-[10px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
-          {(error as Error).message}
-        </div>
-      ) : !data || data.items.length === 0 ? (
-        <div className="rounded-[14px] border border-dashed border-[var(--color-border-strong)] py-16 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
-            <IconAudit />
-          </div>
-          <div className="text-sm text-[var(--color-foreground)]">
-            Aucun evenement audite pour ce filtre.
-          </div>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)]">
-          <table className="w-full text-sm">
-            <thead className="bg-[var(--color-surface-elevated)] text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
-              <tr>
-                <th className="px-4 py-3 text-left">Quand</th>
-                <th className="px-4 py-3 text-left">Acteur</th>
-                <th className="px-4 py-3 text-left">Action</th>
-                <th className="px-4 py-3 text-left">Cible</th>
-                <th className="px-4 py-3 text-left">Source</th>
-                <th className="px-4 py-3 text-left">Meta</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.items.map((row) => (
-                <tr
-                  key={row.id}
-                  className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface-elevated)] transition-colors"
-                >
-                  <td className="px-4 py-2.5 text-xs text-[var(--color-foreground-muted)] whitespace-nowrap">
-                    {formatTimestamp(row.createdAt)}
-                  </td>
-                  <td className="px-4 py-2.5 text-[var(--color-foreground)] whitespace-nowrap">
-                    @{row.actor.username}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <code className="rounded bg-[var(--color-background)] px-1.5 py-0.5 text-[11px] text-[var(--color-accent)]">
-                      {row.action}
-                    </code>
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-[var(--color-foreground-subtle)]">
-                    {row.targetUser ? `@${row.targetUser.username}` : ''}
-                    {row.targetEntity && (
-                      <div className="text-[10px] text-[var(--color-foreground-muted)] font-mono break-all">
-                        {row.targetEntity}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <SourceBadge source={row.source} />
-                  </td>
-                  <td className="px-4 py-2.5 text-[11px] text-[var(--color-foreground-muted)] font-mono max-w-[280px] truncate">
-                    {row.metadata
-                      ? JSON.stringify(row.metadata).slice(0, 80)
-                      : ''}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="flex items-center justify-between gap-4 border-t border-[var(--color-border)] px-4 py-2.5">
-            <div className="text-xs text-[var(--color-foreground-muted)]">
-              {data.total} entrée{data.total > 1 ? 's' : ''} · page {page + 1} /{' '}
-              {totalPages}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={page === 0}
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                className="rounded-[8px] border border-[var(--color-border-strong)] px-3 py-1.5 text-xs text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-foreground)] disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                ← Précédent
-              </button>
-              <button
-                type="button"
-                disabled={page + 1 >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                className="rounded-[8px] border border-[var(--color-border-strong)] px-3 py-1.5 text-xs text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-foreground)] disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Suivant →
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DataTable<AuditLogItem>
+        label="Journal des actions du staff"
+        colonnes={colonnes}
+        lignes={data?.items}
+        cle={(a) => a.id}
+        chargement={isLoading}
+        erreur={error as Error | null}
+        onReessayer={() => void refetch()}
+        onOuvrir={setDetail}
+        vide={<EmptyState icone="history" titre="Rien au journal pour ces filtres." />}
+        pied={
+          data && data.total > 0 ? (
+            <Pagination page={page} total={data.total} parPage={PAR_PAGE} onPage={setPage} occupe={isFetching} />
+          ) : undefined
+        }
+      />
+
+      <Drawer
+        ouvert={!!detail}
+        onFermer={() => setDetail(null)}
+        titre={detail ? libelleAction(detail.action) : ''}
+        description={detail ? `${dateHeure(detail.createdAt)} · ${libelleSource(detail.source)}` : undefined}
+      >
+        {detail && (
+          <>
+            <ListeKV
+              largeur={100}
+              lignes={[
+                { cle: 'qui', label: 'Par', valeur: detail.actor.username },
+                detail.targetUser
+                  ? {
+                      cle: 'cible',
+                      label: 'Joueur',
+                      valeur: (
+                        <Link href={`/players/${detail.targetUser.id}`} className="lien">
+                          {detail.targetUser.username}
+                        </Link>
+                      ),
+                    }
+                  : null,
+                detail.targetEntity
+                  ? { cle: 'entite', label: 'Élément', valeur: <LienEntite entite={detail.targetEntity} /> }
+                  : null,
+                { cle: 'code', label: 'Code', valeur: <span className="mono text-fg-3">{detail.action}</span> },
+              ]}
+            />
+            <Details valeur={detail.metadata} />
+          </>
+        )}
+      </Drawer>
     </div>
   );
 }
 
-function SourceBadge({ source }: { source: string }) {
-  const map: Record<string, { cls: string; label: string }> = {
-    panel: {
-      cls: 'bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-[var(--color-accent)]/40',
-      label: 'panel',
-    },
-    discord: {
-      cls: 'bg-[#8b5cf6]/15 text-[#a78bfa] border-[#8b5cf6]/40',
-      label: 'discord',
-    },
-    launcher: {
-      cls: 'bg-[var(--color-success-soft)] text-[var(--color-success)] border-[var(--color-success)]/40',
-      label: 'launcher',
-    },
-    system: {
-      cls: 'border-[var(--color-border-strong)] text-[var(--color-foreground-muted)]',
-      label: 'system',
-    },
-  };
-  const t = map[source] ?? map.system!;
+/** Détail de l'entrée, mis en forme (clé · valeur), au lieu du JSON coupé. */
+function Details({ valeur }: { valeur: unknown }) {
+  if (valeur === null || valeur === undefined) {
+    return <p className="text-[13px] text-fg-3">Pas de détail.</p>;
+  }
+  if (typeof valeur !== 'object' || Array.isArray(valeur)) {
+    return <pre className="mono whitespace-pre-wrap text-fg-2">{JSON.stringify(valeur, null, 2)}</pre>;
+  }
+  const entrees = Object.entries(valeur as Record<string, unknown>);
+  if (entrees.length === 0) return <p className="text-[13px] text-fg-3">Pas de détail.</p>;
   return (
-    <span
-      className={`inline-block rounded-full border px-2 py-0.5 text-[10px] ${t.cls}`}
-    >
-      {t.label}
-    </span>
+    <div>
+      <div className="eyebrow mb-2">Détail</div>
+      <dl className="kv" style={{ gridTemplateColumns: '140px minmax(0, 1fr)' }}>
+        {entrees.map(([k, v]) => (
+          <div key={k} className="contents">
+            <dt className="mono">{k}</dt>
+            <dd>
+              {v === null || v === undefined ? (
+                <span className="text-fg-3">—</span>
+              ) : typeof v === 'object' ? (
+                <pre className="mono m-0 whitespace-pre-wrap text-fg-2">{JSON.stringify(v, null, 2)}</pre>
+              ) : typeof v === 'boolean' ? (
+                v ? 'oui' : 'non'
+              ) : (
+                String(v)
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
-}
-
-function formatTimestamp(iso: string): string {
-  return new Date(iso).toLocaleString('fr-FR', {
-    dateStyle: 'short',
-    timeStyle: 'medium',
-  });
 }

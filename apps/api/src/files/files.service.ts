@@ -12,93 +12,10 @@ import * as posix from 'node:path/posix';
 import SftpClient from 'ssh2-sftp-client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RELOAD_TARGETS, SCOPES, type FileScopes } from './files.scopes';
 
-/**
- * Cibles de rechargement autorisées : clé logique → commande console résolue +
- * racine de fichiers requise (le grade doit avoir accès à cette racine pour
- * pouvoir recharger le plugin). Le pont côté jeu ne reçoit JAMAIS de texte
- * libre — seulement une de ces commandes fixes.
- */
-const RELOAD_TARGETS: Record<
-  string,
-  { command: string; root: string; label: string }
-> = {
-  nexo: { command: 'nexo reload', root: 'plugins/Nexo', label: 'Nexo' },
-  creator: {
-    command: 'creator reload',
-    root: 'plugins/ShinobiCore/creator-assets',
-    label: 'Character creator (assets live)',
-  },
-  magicspells: { command: 'ms reload', root: 'plugins/MagicSpells', label: 'MagicSpells' },
-  mythicmobs: { command: 'mm reload', root: 'plugins/MythicMobs', label: 'MythicMobs' },
-  modelengine: { command: 'meg reload', root: 'plugins/ModelEngine', label: 'ModelEngine' },
-  emotes: { command: 'playemote reload', root: 'plugins/ShinobiCore/emotes', label: 'Emotes' },
-  abilities: {
-    command: 'sa reload',
-    root: 'plugins/ShinobiAbilities',
-    label: 'Techniques (ShinobiAbilities)',
-  },
-};
-
-/** Une racine autorisée pour un grade (chemin relatif à la base SFTP + libellé UI). */
-export interface ScopeRoot {
-  path: string;
-  label: string;
-}
-interface Scope {
-  roots: ScopeRoot[];
-  write: boolean;
-}
-/** Réponse de `GET /v1/files/scopes`. */
-export interface FileScopes {
-  server: string;
-  canWrite: boolean;
-  roots: ScopeRoot[];
-}
-
-/**
- * Carte de scopes fichiers PAR GRADE — source de vérité de « qui peut toucher
- * quoi ». Volontairement explicite et NON hiérarchique (un modélisateur n'est
- * pas « au-dessus » d'un dev, ils ont des périmètres différents). Les grades
- * absents de cette carte n'ont AUCUN accès fichier, même s'ils passent la garde
- * de rôle du contrôleur.
- */
-const SCOPES: Partial<Record<Role, Scope>> = {
-  [Role.MODELISATEUR]: {
-    write: true,
-    roots: [
-      { path: 'plugins/Nexo', label: 'Nexo — modèles & items' },
-      { path: 'plugins/ShinobiCore/emotes', label: 'Emotes RP' },
-      {
-        path: 'plugins/ShinobiCore/creator-assets',
-        label: 'Character creator — tenues/cheveux/yeux (diffusion live)',
-      },
-    ],
-  },
-  [Role.DEVELOPPEUR]: {
-    write: true,
-    roots: [
-      { path: 'plugins/Nexo', label: 'Nexo — modèles & items' },
-      {
-        path: 'plugins/ShinobiCore/creator-assets',
-        label: 'Character creator — tenues/cheveux/yeux (diffusion live)',
-      },
-      { path: 'plugins/MagicSpells', label: 'MagicSpells' },
-      { path: 'plugins/MythicMobs', label: 'MythicMobs' },
-      { path: 'plugins/ModelEngine', label: 'ModelEngine' },
-      { path: 'plugins/ShinobiAbilities', label: 'Techniques — abilities.yml généré' },
-      { path: 'plugins/ShinobiCore/emotes', label: 'Emotes RP' },
-    ],
-  },
-  [Role.ADMIN]: {
-    write: true,
-    roots: [{ path: 'plugins', label: 'plugins/' }],
-  },
-  [Role.OWNER]: {
-    write: true,
-    roots: [{ path: '', label: 'Serveur (racine)' }],
-  },
-};
+// Types de la carte des droits, réexportés pour les imports existants.
+export type { FileScopes, ScopeRoot } from './files.scopes';
 
 /** Extensions éditables comme texte. */
 const TEXT_EXT = new Set([

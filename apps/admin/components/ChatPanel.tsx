@@ -1,43 +1,43 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
-import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
-import type { AdminMessage, CurrentUser } from '@/lib/types';
+import { dateHeure, ilYa } from '@/lib/format';
+import { REPONSES_TYPES, type ReponseType } from '@/lib/modeles';
+import { useDroits } from '@/lib/droits';
+import type { AdminMessage } from '@/lib/types';
 import { MCAvatar } from './MCAvatar';
-import { IconBell, IconBellOff, IconChat, IconSend } from './icons';
+import { Button, BoutonIcone } from './ui/Button';
+import { Kbd } from './ui/Kbd';
+import { messageErreur } from './ui/States';
 
-const SOUND_PREF_KEY = 'reborn-admin.chat.sound';
+const CLE_SON = 'reborn-admin.chat.sound';
 
-function readSoundPref(): boolean {
-  if (typeof window === 'undefined') return true;
-  const v = window.localStorage.getItem(SOUND_PREF_KEY);
-  // Default ON.
-  return v !== 'off';
+function lireSon(): boolean {
+  try {
+    return window.localStorage.getItem(CLE_SON) !== 'off';
+  } catch {
+    return true;
+  }
 }
 
-/**
- * Beep court genere via Web Audio API — pas de fichier asset a embarquer.
- * Sin onde a 880Hz / 0.15s avec decay exponentiel. Volume ~10% pour ne
- * pas surprendre.
- */
-function playBeep() {
+/** Bip court (Web Audio), sans fichier à embarquer. */
+function bip() {
   try {
     const w = window as unknown as {
       AudioContext?: typeof AudioContext;
       webkitAudioContext?: typeof AudioContext;
     };
-    const AudioCtor = w.AudioContext ?? w.webkitAudioContext;
-    if (!AudioCtor) return;
-    const ctx = new AudioCtor();
+    const Ctor = w.AudioContext ?? w.webkitAudioContext;
+    if (!Ctor) return;
+    const ctx = new Ctor();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.frequency.value = 880;
-    osc.type = 'sine';
     gain.gain.setValueAtTime(0.0001, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.1, ctx.currentTime + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
@@ -45,305 +45,337 @@ function playBeep() {
     osc.stop(ctx.currentTime + 0.2);
     osc.onended = () => ctx.close().catch(() => {});
   } catch {
-    /* ignore */
+    /* sans son */
   }
 }
 
+export interface ChatPanelRef {
+  /** Met le curseur dans la zone de réponse (touche R). */
+  repondre: () => void;
+}
+
 /**
- * ChatPanel : composant unifie pour la conversation staff↔candidat
- * sur whitelist ET ticket.
- *
- * Layout flex column avec :
- *   - header compact (titre + count)
- *   - zone messages scrollable (flex-1)
- *   - input docke en bas (shrink-0)
- *
- * Bubbles modernes : avatar staff a gauche / avatar joueur a droite,
- * timestamp en metadata discret, padding genereux. Le MCAvatar prend
- * l'UUID si fourni, sinon fallback initiale.
+ * Conversation staff ↔ joueur, commune à la candidature (tiroir
+ * « Échanges ») et au ticket (PANEL_V2 §4.3, §4.4) : messages en fil,
+ * réponse en bas. Ctrl + Entrée envoie ; avec les réponses types, « / » en
+ * début de réponse ouvre la liste ; avec `onEnvoyerEtResoudre`,
+ * Ctrl + Maj + Entrée envoie et résout.
  */
-export function ChatPanel({
-  endpoint,
-  queryKey,
-  messages,
-  canSend,
-  playerUuid,
-  playerName,
-  emptyLabel = 'Aucun message pour l\'instant.',
-  closedLabel = 'Conversation cloturée.',
-}: {
-  /** Path POST pour envoyer un message, ex: /admin/whitelist/<id>/messages */
-  endpoint: string;
-  /** Query key TanStack à invalider apres send. */
-  queryKey: readonly unknown[];
-  messages: AdminMessage[];
-  canSend: boolean;
-  playerUuid: string;
-  playerName: string;
-  emptyLabel?: string;
-  closedLabel?: string;
-}) {
+export const ChatPanel = forwardRef<
+  ChatPanelRef,
+  {
+    endpoint: string;
+    queryKey: readonly unknown[];
+    messages: AdminMessage[];
+    canSend: boolean;
+    playerUuid: string;
+    playerName: string;
+    emptyLabel?: string;
+    closedLabel?: string;
+    /** Mot affiché à côté du nom du joueur (« Candidat », « Joueur »). */
+    roleJoueur?: string;
+    reponsesTypes?: boolean;
+    /** Juste avant l'envoi (prendre le ticket à la première réponse). */
+    avantEnvoi?: () => Promise<void>;
+    /** Après un envoi réussi, pour « Envoyer et résoudre ». */
+    resoudre?: () => Promise<void>;
+    /** La zone de défilement occupe toute la hauteur disponible. */
+    pleineHauteur?: boolean;
+  }
+>(function ChatPanel(
+  {
+    endpoint,
+    queryKey,
+    messages,
+    canSend,
+    playerUuid,
+    playerName,
+    emptyLabel = 'Aucun message pour l’instant.',
+    closedLabel = 'Conversation close.',
+    roleJoueur = 'Joueur',
+    reponsesTypes = false,
+    avantEnvoi,
+    resoudre,
+    pleineHauteur = true,
+  },
+  ref,
+) {
   const qc = useQueryClient();
-  const [draft, setDraft] = useState('');
-  const [soundOn, setSoundOn] = useState(true);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const lastCountRef = useRef(0);
+  const { moi } = useDroits();
+  const [brouillon, setBrouillon] = useState('');
+  const [son, setSon] = useState(true);
+  const [indexSlash, setIndexSlash] = useState(0);
+  const fil = useRef<HTMLDivElement>(null);
+  const zone = useRef<HTMLTextAreaElement>(null);
+  const dernierNombre = useRef(0);
 
-  // Hydrate la pref son depuis localStorage au mount.
+  useImperativeHandle(ref, () => ({ repondre: () => zone.current?.focus() }));
+  useEffect(() => setSon(lireSon()), []);
+
+  // Défile et sonne à l'arrivée d'un message d'un autre (pas au chargement).
   useEffect(() => {
-    setSoundOn(readSoundPref());
-  }, []);
-
-  const { data: me } = useQuery({
-    queryKey: ['admin', 'me'],
-    queryFn: () => api<CurrentUser>('/auth/me'),
-    staleTime: 5 * 60_000,
-  });
-
-  // Auto-scroll + son sur nouveau message (autre que moi). Skip le tout
-  // premier render (hydratation messages au mount) pour eviter un beep
-  // au load de la page.
-  useEffect(() => {
-    if (messages.length > lastCountRef.current) {
-      const isFirstRender = lastCountRef.current === 0;
-      scrollRef.current?.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: isFirstRender ? 'auto' : 'smooth',
-      });
-      if (!isFirstRender && soundOn) {
-        const last = messages[messages.length - 1];
-        const fromOther = !me || last?.authorId !== me.id;
-        if (fromOther) playBeep();
+    if (messages.length > dernierNombre.current) {
+      const premier = dernierNombre.current === 0;
+      fil.current?.scrollTo({ top: fil.current.scrollHeight, behavior: premier ? 'auto' : 'smooth' });
+      if (!premier && son) {
+        const dernier = messages[messages.length - 1];
+        if (!moi || dernier?.authorId !== moi.id) bip();
       }
-      lastCountRef.current = messages.length;
+      dernierNombre.current = messages.length;
     }
-  }, [messages, me, soundOn]);
+  }, [messages, moi, son]);
 
-  function toggleSound() {
-    const next = !soundOn;
-    setSoundOn(next);
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(SOUND_PREF_KEY, next ? 'on' : 'off');
+  function basculerSon() {
+    const v = !son;
+    setSon(v);
+    try {
+      window.localStorage.setItem(CLE_SON, v ? 'on' : 'off');
+    } catch {
+      /* préférence pour la session seulement */
     }
   }
 
-  const sendMut = useMutation({
-    mutationFn: (content: string) =>
-      api(endpoint, { method: 'POST', body: { content } }),
-    onSuccess: () => {
-      setDraft('');
+  const envoi = useMutation({
+    mutationFn: async ({ contenu, etResoudre }: { contenu: string; etResoudre: boolean }) => {
+      if (avantEnvoi) await avantEnvoi();
+      await api(endpoint, { method: 'POST', body: { content: contenu } });
+      if (etResoudre && resoudre) await resoudre();
+    },
+    onSuccess: (_d, v) => {
+      setBrouillon('');
       qc.invalidateQueries({ queryKey });
+      if (v.etResoudre) toast.success('Réponse envoyée, ticket résolu');
     },
-    onError: (err) => {
-      toast.error('Message non envoyé', {
-        description: (err as Error).message,
-      });
-    },
+    onError: (e) => toast.error('Message non envoyé', { description: messageErreur(e) }),
   });
 
-  return (
-    <div className="flex h-full min-h-[420px] flex-col overflow-hidden rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)]">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] px-4 py-3">
-        <div className="flex items-center gap-2">
-          <IconChat className="text-[var(--color-accent)]" />
-          <span className="text-sm font-medium">Conversation</span>
-          {messages.length > 0 && (
-            <span className="rounded-full bg-[var(--color-surface-elevated)] px-2 py-0.5 text-[10px] text-[var(--color-foreground-muted)]">
-              {messages.length}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={toggleSound}
-            title={soundOn ? 'Désactiver les notifications sonores' : 'Activer les notifications sonores'}
-            className="text-[var(--color-foreground-muted)] hover:text-[var(--color-foreground)] transition-colors"
-          >
-            {soundOn ? <IconBell /> : <IconBellOff />}
-          </button>
-          <div className="text-[10px] uppercase tracking-wider text-[var(--color-foreground-muted)] flex items-center">
-            live
-            <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
-          </div>
-        </div>
-      </div>
+  // « / » en début de réponse : réponses types filtrées par ce qui suit.
+  const slash = reponsesTypes && brouillon.startsWith('/') && !brouillon.includes('\n');
+  const filtre = slash ? brouillon.slice(1).toLowerCase() : '';
+  const choix: ReponseType[] = slash
+    ? REPONSES_TYPES.filter(
+        (r) => r.code.startsWith(filtre) || r.nom.toLowerCase().includes(filtre),
+      )
+    : [];
+  useEffect(() => setIndexSlash(0), [filtre]);
 
-      {/* Messages */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-4"
-      >
+  function inserer(r: ReponseType) {
+    setBrouillon(r.texte);
+    setTimeout(() => {
+      const z = zone.current;
+      if (z) {
+        z.focus();
+        z.setSelectionRange(r.texte.length, r.texte.length);
+      }
+    }, 0);
+  }
+
+  function envoyer(etResoudre: boolean) {
+    const contenu = brouillon.trim();
+    if (!contenu || envoi.isPending || (slash && choix.length > 0)) return;
+    envoi.mutate({ contenu, etResoudre });
+  }
+
+  return (
+    <div className={`flex min-h-0 flex-col ${pleineHauteur ? 'h-full' : ''}`}>
+      <div ref={fil} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5" aria-live="polite">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center text-center py-12 text-[var(--color-foreground-muted)]">
-            <IconChat className="mb-3 opacity-40" />
-            <div className="text-sm">{emptyLabel}</div>
-          </div>
+          <p className="m-auto text-center text-[13px] text-fg-3">{emptyLabel}</p>
         ) : (
-          messages.map((m, i) => {
-            const isStaff = m.authorType === 'STAFF';
-            const isMe = isStaff && me && m.authorId === me.id;
-            const prev = messages[i - 1];
-            const isGrouped = prev && prev.authorType === m.authorType;
-            return (
-              <MessageBubble
-                key={m.id}
-                message={m}
-                isStaff={isStaff}
-                isMe={!!isMe}
-                hideAvatar={isGrouped}
-                playerUuid={playerUuid}
-                playerName={playerName}
-                meUuid={me?.minecraftUuid}
-                meName={me?.minecraftUsername}
-              />
-            );
-          })
+          messages.map((m) => (
+            <Message
+              key={m.id}
+              m={m}
+              moiId={moi?.id}
+              moiUuid={moi?.minecraftUuid}
+              playerUuid={playerUuid}
+              playerName={playerName}
+              roleJoueur={roleJoueur}
+            />
+          ))
         )}
       </div>
 
-      {/* Composer */}
-      <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-elevated)]/30 px-4 py-3">
+      <div className="relative border-t border-[var(--color-border)] px-5 pb-4 pt-4">
+        {slash && choix.length > 0 && (
+          <div className="pop slash" role="listbox" aria-label="Réponses types">
+            <div className="slash-h">Réponses types</div>
+            {choix.map((r, i) => (
+              <button
+                key={r.code}
+                type="button"
+                role="option"
+                aria-selected={i === indexSlash}
+                className="slash-i"
+                onMouseEnter={() => setIndexSlash(i)}
+                onClick={() => inserer(r)}
+              >
+                <span className="mono">/{r.code}</span>
+                <span className="min-w-0 flex-1 truncate">{r.nom}</span>
+                {i === indexSlash && <Kbd>Entrée</Kbd>}
+              </button>
+            ))}
+          </div>
+        )}
         {canSend ? (
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              const content = draft.trim();
-              if (content.length === 0 || sendMut.isPending) return;
-              sendMut.mutate(content);
+              envoyer(false);
             }}
-            className="flex items-end gap-2"
           >
+            <label htmlFor={`${endpoint}-reponse`} className="sr-only">
+              Répondre à {playerName}
+            </label>
             <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              id={`${endpoint}-reponse`}
+              ref={zone}
+              value={brouillon}
+              onChange={(e) => setBrouillon(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  const content = draft.trim();
-                  if (content.length > 0 && !sendMut.isPending) {
-                    sendMut.mutate(content);
+                if (slash && choix.length > 0) {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setIndexSlash((i) => (i + 1) % choix.length);
+                    return;
+                  }
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setIndexSlash((i) => (i - 1 + choix.length) % choix.length);
+                    return;
+                  }
+                  if (e.key === 'Enter' || e.key === 'Tab') {
+                    e.preventDefault();
+                    inserer(choix[indexSlash]!);
+                    return;
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setBrouillon('');
+                    return;
                   }
                 }
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                  e.preventDefault();
+                  envoyer(e.shiftKey && !!resoudre);
+                }
               }}
-              rows={1}
-              placeholder={`Répondre à ${playerName}…`}
-              className="min-h-[40px] max-h-[120px] flex-1 resize-none rounded-[10px] border border-[var(--color-border-strong)] bg-[var(--color-background)] px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none placeholder:text-[var(--color-foreground-muted)]"
+              rows={3}
+              maxLength={4000}
+              placeholder={
+                reponsesTypes
+                  ? `Répondre à ${playerName}… (« / » pour les réponses types)`
+                  : `Répondre à ${playerName}…`
+              }
+              className="input"
             />
-            <button
-              type="submit"
-              disabled={draft.trim().length === 0 || sendMut.isPending}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed shadow-[var(--shadow-glow-accent)] transition-colors"
-              title="Envoyer (Entrée)"
-            >
-              <IconSend />
-            </button>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="hints">
+                <Kbd>Ctrl</Kbd>+<Kbd>Entrée</Kbd> envoyer
+                {resoudre && (
+                  <>
+                    {' · '}
+                    <Kbd>Ctrl</Kbd>+<Kbd>Maj</Kbd>+<Kbd>Entrée</Kbd> envoyer et résoudre
+                  </>
+                )}
+              </span>
+              <span className="ml-auto flex items-center gap-2">
+                <BoutonIcone
+                  icone={son ? 'bell' : 'bell-off'}
+                  label={son ? 'Couper le son des nouveaux messages' : 'Activer le son des nouveaux messages'}
+                  onClick={basculerSon}
+                  className={son ? '' : 'opacity-60'}
+                />
+                <Button
+                  type="submit"
+                  variante={resoudre ? 'secondary' : 'primary'}
+                  enCours={envoi.isPending && !envoi.variables?.etResoudre}
+                  disabled={brouillon.trim().length === 0 || envoi.isPending}
+                >
+                  Envoyer
+                </Button>
+                {resoudre && (
+                  <Button
+                    variante="primary"
+                    enCours={envoi.isPending && !!envoi.variables?.etResoudre}
+                    disabled={brouillon.trim().length === 0 || envoi.isPending}
+                    onClick={() => envoyer(true)}
+                  >
+                    Envoyer et résoudre
+                  </Button>
+                )}
+              </span>
+            </div>
           </form>
         ) : (
-          <div className="text-center text-xs text-[var(--color-foreground-muted)] py-1">
-            {closedLabel}
-          </div>
+          <p className="text-center text-[13px] text-fg-3">{closedLabel}</p>
         )}
+      </div>
+    </div>
+  );
+});
+
+function Message({
+  m,
+  moiId,
+  moiUuid,
+  playerUuid,
+  playerName,
+  roleJoueur,
+}: {
+  m: AdminMessage;
+  moiId?: string;
+  moiUuid?: string;
+  playerUuid: string;
+  playerName: string;
+  roleJoueur: string;
+}) {
+  if (m.authorType === 'SYSTEM') {
+    return (
+      <span className="sys" title={dateHeure(m.createdAt)}>
+        {texteSysteme(m.content)} · {ilYa(m.createdAt)}
+      </span>
+    );
+  }
+  const staff = m.authorType === 'STAFF';
+  const estMoi = staff && !!moiId && m.authorId === moiId;
+  const nom = staff ? (m.authorName ?? 'Staff') : playerName;
+  return (
+    <div className={`msg ${staff ? 'staff' : ''}`}>
+      {staff ? (
+        estMoi && moiUuid ? (
+          <MCAvatar uuid={moiUuid} size={30} />
+        ) : (
+          <span
+            className="face flex items-center justify-center text-[11px] font-semibold text-fg-2"
+            style={{ width: 30, height: 30 }}
+            aria-hidden
+          >
+            {nom.slice(0, 2).toUpperCase()}
+          </span>
+        )
+      ) : (
+        <MCAvatar uuid={playerUuid} size={30} />
+      )}
+      <div className="min-w-0">
+        <div className="msg-h">
+          <b>{estMoi ? `${nom} (toi)` : nom}</b>
+          <span>{staff ? 'Staff' : roleJoueur}</span>
+          <span title={dateHeure(m.createdAt)}>{ilYa(m.createdAt)}</span>
+        </div>
+        <div className="msg-t">{m.content}</div>
       </div>
     </div>
   );
 }
 
-function MessageBubble({
-  message,
-  isStaff,
-  isMe,
-  hideAvatar,
-  playerUuid,
-  playerName,
-  meUuid,
-  meName,
-}: {
-  message: AdminMessage;
-  isStaff: boolean;
-  isMe: boolean;
-  hideAvatar: boolean;
-  playerUuid: string;
-  playerName: string;
-  meUuid?: string;
-  meName?: string;
-}) {
-  const align = isStaff ? 'justify-end' : 'justify-start';
-  const bubbleClass = isStaff
-    ? isMe
-      ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]'
-      : 'bg-[var(--color-accent-soft)] text-[var(--color-foreground)] border-[var(--color-accent)]/30'
-    : 'bg-[var(--color-surface-elevated)] text-[var(--color-foreground)] border-[var(--color-border)]';
-
-  // L'UUID a afficher : joueur ↔ playerUuid, staff ↔ meUuid si c'est moi.
-  // Pour un staff autre que moi on n'a pas l'UUID dans le message →
-  // fallback initiale.
-  const avatarUuid = isStaff ? (isMe ? meUuid : null) : playerUuid;
-  const avatarName = isStaff
-    ? message.authorName ?? (isMe ? meName : 'Staff') ?? 'Staff'
-    : playerName;
-
-  return (
-    <div className={`flex items-end gap-2 ${align}`}>
-      {!isStaff &&
-        (hideAvatar ? (
-          <div className="w-7 shrink-0" />
-        ) : (
-          <MCAvatar
-            uuid={playerUuid}
-            username={avatarName}
-            size={28}
-            rounded="lg"
-            className="shrink-0"
-          />
-        ))}
-      <div
-        className={`max-w-[78%] rounded-[12px] border px-3 py-2 ${bubbleClass}`}
-      >
-        {!hideAvatar && (
-          <div
-            className={`mb-0.5 text-[10px] font-medium ${
-              isMe ? 'text-white/70' : 'text-[var(--color-foreground-muted)]'
-            }`}
-          >
-            {avatarName}
-          </div>
-        )}
-        <div className="text-sm whitespace-pre-wrap leading-relaxed">
-          {message.content}
-        </div>
-        <div
-          className={`mt-1 text-[9px] ${
-            isMe
-              ? 'text-white/50'
-              : isStaff
-                ? 'text-[var(--color-foreground-muted)]'
-                : 'text-[var(--color-foreground-muted)]'
-          }`}
-        >
-          {new Date(message.createdAt).toLocaleTimeString('fr-FR', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </div>
-      </div>
-      {isStaff &&
-        (hideAvatar ? (
-          <div className="w-7 shrink-0" />
-        ) : avatarUuid ? (
-          <MCAvatar
-            uuid={avatarUuid}
-            username={avatarName}
-            size={28}
-            rounded="lg"
-            className="shrink-0"
-          />
-        ) : (
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[10px] bg-[var(--color-accent-soft)] text-[10px] font-medium text-[var(--color-accent)]">
-            {(avatarName ?? '?').slice(0, 2).toUpperCase()}
-          </div>
-        ))}
-    </div>
-  );
+/**
+ * Message système affiché au staff : sans l'emoji de tête (écrit pour le
+ * launcher, PANEL_V2 §5.5 : aucun emoji au panel) ni le point final, suivi
+ * de « · il y a … ».
+ */
+function texteSysteme(contenu: string): string {
+  return contenu
+    .replace(/^[\p{Extended_Pictographic}️‍\s]+/u, '')
+    .replace(/[.\s]+$/u, '');
 }

@@ -1,7 +1,7 @@
 /**
- * Petite bibliotheque d'icones SVG inline — pas de dependance externe.
- * Stroke-only pour rester light et coherent avec le design v2 du launcher
- * (lignes fines accent-blue, jamais de fill plein).
+ * Anciennes icônes SVG du panel, encore lues par Fichiers et Annonces
+ * Discord. Les nouvelles pages passent par components/ui/Icone.tsx (dessins
+ * Lucide) : au trait, couleur héritée du texte, jamais de remplissage.
  */
 
 type IconProps = React.SVGProps<SVGSVGElement> & { className?: string };

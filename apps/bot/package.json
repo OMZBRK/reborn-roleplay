@@ -1,7 +1,7 @@
 {
   "name": "@reborn/bot",
   "version": "0.0.1",
-  "description": "Bot Discord Reborn Roleplay : commandes whitelist/tickets, sync rôles, Rich Presence.",
+  "description": "Bot Discord Reborn Roleplay : commandes whitelist/tickets, Rich Presence.",
   "author": "Reborn Roleplay",
   "private": true,
   "license": "UNLICENSED",

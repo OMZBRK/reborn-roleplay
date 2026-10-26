@@ -6,6 +6,9 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Role } from '@prisma/client';
+import { CAPACITES_KEY } from './capacite.decorator';
+import { aCapacite, LIBELLES_GRADES, messageRefus } from './capacites';
+import type { Capacite } from './capacites';
 import type { RequestUser } from './current-user.decorator';
 import { MIN_ROLE_KEY } from './roles.decorator';
 
@@ -30,16 +33,27 @@ function roleRank(role: Role): number {
   return idx === -1 ? -1 : idx;
 }
 
+/**
+ * Garde des routes staff. Deux règles, appliquées toutes deux si présentes :
+ *  - `@MinRole` : rang linéaire (routes pas encore passées aux capacités) ;
+ *  - `@ExigeCapacite` : au moins une des capacités listées (PANEL_V2 §3.3).
+ * Refus en français, sans code de grade brut.
+ */
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
+    const targets = [context.getHandler(), context.getClass()];
     const minRole = this.reflector.getAllAndOverride<Role | undefined>(
       MIN_ROLE_KEY,
-      [context.getHandler(), context.getClass()],
+      targets,
     );
-    if (!minRole) return true;
+    const capacites = this.reflector.getAllAndOverride<Capacite[] | undefined>(
+      CAPACITES_KEY,
+      targets,
+    );
+    if (!minRole && !capacites?.length) return true;
 
     const req = context.switchToHttp().getRequest<{ user?: RequestUser }>();
     const user = req.user;
@@ -47,10 +61,13 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Authentification requise.');
     }
 
-    if (roleRank(user.role) < roleRank(minRole)) {
+    if (minRole && roleRank(user.role) < roleRank(minRole)) {
       throw new ForbiddenException(
-        `Rôle insuffisant : ${user.role} < ${minRole}.`,
+        `Réservé au grade ${LIBELLES_GRADES[minRole]} et au-dessus.`,
       );
+    }
+    if (capacites?.length && !capacites.some((c) => aCapacite(user.role, c))) {
+      throw new ForbiddenException(messageRefus(capacites));
     }
     return true;
   }

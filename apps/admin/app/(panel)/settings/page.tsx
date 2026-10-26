@@ -1,386 +1,468 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { IconShield, IconPlayers, IconChat } from '@/components/icons';
+import { ChangerGrade, peutChangerGrade } from '@/components/ChangerGrade';
+import { CodeSixCases } from '@/components/CodeSixCases';
+import { MCAvatar } from '@/components/MCAvatar';
+import { ReglagesTabs } from '@/components/shell/SectionTabs';
+import { Badge, BadgeStatut } from '@/components/ui/Badge';
+import { Button, Mot } from '@/components/ui/Button';
+import { Card, ListeKV } from '@/components/ui/Card';
+import { DataTable, type Colonne } from '@/components/ui/DataTable';
+import { InputRecherche } from '@/components/ui/Field';
+import { Interrupteur } from '@/components/ui/Field';
+import { Icone } from '@/components/ui/Icone';
+import { Kbd } from '@/components/ui/Kbd';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Callout, Chargement, EmptyState, messageErreur } from '@/components/ui/States';
+import { Segmented } from '@/components/ui/Tabs';
 import { api } from '@/lib/api';
-import type { CurrentUser, Role } from '@/lib/types';
+import { useDroits } from '@/lib/droits';
+import { dateHeure, ilYa } from '@/lib/format';
+import { estStaff, libelleGrade } from '@/lib/libelles';
+import { MOTIFS_CANDIDATURE, REPONSES_TYPES } from '@/lib/modeles';
+import { usePreferences } from '@/lib/preferences';
+import { statutCompte } from '@/lib/statuts';
+import type { PlayerListItem, Role } from '@/lib/types';
 
-interface TwoFAStatus {
-  enabled: boolean;
+/**
+ * Réglages (PANEL_V2 §4.7), en pied de barre : Compte (profil, double
+ * authentification), Préférences (propres à chaque membre, dans le
+ * navigateur), Équipe (administrateurs : changer un grade), Modèles
+ * (motifs et réponses types communs).
+ */
+export default function ReglagesPage() {
+  const params = useSearchParams();
+  const { peut } = useDroits();
+  const onglet = params.get('onglet') ?? 'compte';
+  const sousTitre: Record<string, string> = {
+    compte: 'Ton compte et la sécurité de ton accès au panel',
+    preferences: 'Tes préférences, gardées dans ce navigateur',
+    equipe: 'Grades du staff · réservé aux administrateurs',
+    modeles: 'Motifs de candidature et réponses types, communs à tout le staff',
+  };
+  return (
+    <div className="page">
+      <PageHeader titre="Réglages" sousTitre={sousTitre[onglet] ?? sousTitre.compte} />
+      <ReglagesTabs />
+      {onglet === 'preferences' ? (
+        <Preferences />
+      ) : onglet === 'equipe' && peut('grades.changer') ? (
+        <Equipe />
+      ) : onglet === 'modeles' && peut('reponses-types.gerer') ? (
+        <Modeles />
+      ) : (
+        <Compte />
+      )}
+    </div>
+  );
 }
 
-interface EnrollResponse {
+// ──────────────────────────── Compte ────────────────────────────
+
+interface EtatDoubleAuth {
+  enabled: boolean;
+}
+interface Enrolement {
   secret: string;
   otpauthUri: string;
   qrDataUrl: string;
 }
 
-const ROLE_LABELS: Record<Role, string> = {
-  PLAYER: 'Joueur',
-  WHITELISTED: 'Whitelisté',
-  HELPER: 'Helper',
-  MODELISATEUR: 'Modélisateur',
-  DEVELOPPEUR: 'Développeur',
-  WHITELIST_REVIEWER: 'Reviewer WL',
-  MODERATOR: 'Modérateur',
-  ADMIN: 'Administrateur',
-  OWNER: 'Fondateur',
-};
-
-export default function SettingsPage() {
+function Compte() {
+  const { moi } = useDroits();
   return (
-    <div className="px-10 py-10 max-w-4xl mx-auto">
-      <header className="mb-8">
-        <div className="text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">
-          Mon compte
-        </div>
-        <h1
-          className="mt-1 text-5xl leading-none bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent"
-          style={{ fontFamily: 'var(--font-display)' }}
-        >
-          Paramètres
-        </h1>
-        <p className="mt-3 text-sm text-[var(--color-foreground-subtle)]">
-          Gère ton profil staff et la sécurité de ton accès au panel.
-        </p>
-        <div className="mt-4 h-[2px] w-24 bg-gradient-to-r from-[var(--color-accent)] to-transparent shadow-[var(--shadow-glow-accent)]" />
-      </header>
-
-      <div className="space-y-6">
-        <ProfileSection />
-        <TwoFASection />
-      </div>
-    </div>
-  );
-}
-
-function ProfileSection() {
-  const { data: me, isLoading } = useQuery({
-    queryKey: ['admin', 'me'],
-    queryFn: () => api<CurrentUser>('/auth/me'),
-    staleTime: 5 * 60_000,
-  });
-
-  return (
-    <section className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
-      <div className="mb-5 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
-          <IconPlayers />
-        </div>
-        <div>
-          <div className="text-sm font-medium">Profil staff</div>
-          <div className="text-xs text-[var(--color-foreground-muted)]">
-            Informations de ton compte (lecture seule).
-          </div>
-        </div>
-      </div>
-
-      {isLoading || !me ? (
-        <div className="text-sm text-[var(--color-foreground-subtle)]">
-          Chargement…
-        </div>
-      ) : (
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-          {/* Avatar */}
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[14px] border border-[var(--color-border-strong)] bg-[var(--color-surface-elevated)] text-xl font-medium uppercase text-[var(--color-foreground-subtle)]">
-            {me.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={me.avatarUrl}
-                alt={me.minecraftUsername}
-                width={64}
-                height={64}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              (me.displayName ?? me.minecraftUsername).slice(0, 2)
-            )}
-          </div>
-
-          {/* Champs profil */}
-          <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Pseudo Minecraft" value={me.minecraftUsername} mono />
-            <Field
-              label="Nom affiché"
-              value={me.displayName ?? '—'}
+    <div className="narrow">
+      <Card titre="Profil">
+        {!moi ? (
+          <Chargement />
+        ) : (
+          <div className="flex flex-wrap items-center gap-5">
+            <MCAvatar uuid={moi.minecraftUuid} size={56} />
+            <ListeKV
+              largeur={140}
+              lignes={[
+                { cle: 'pseudo', label: 'Pseudo Minecraft', valeur: moi.minecraftUsername },
+                { cle: 'nom', label: 'Nom affiché', valeur: moi.displayName ?? '—' },
+                { cle: 'grade', label: 'Grade', valeur: libelleGrade(moi.role) },
+                {
+                  cle: 'discord',
+                  label: 'Discord',
+                  valeur: moi.discord ? `@${moi.discord.username}` : <span className="text-fg-3">non lié</span>,
+                },
+              ]}
             />
-            <div>
-              <div className="text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
-                Rôle
-              </div>
-              <div className="mt-1.5">
-                <span className="inline-block rounded-full border border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] px-2.5 py-0.5 text-xs text-[var(--color-accent)]">
-                  {ROLE_LABELS[me.role]}
-                </span>
-              </div>
-            </div>
-            <div>
-              <div className="text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
-                Discord
-              </div>
-              <div className="mt-1.5 flex items-center gap-2 text-sm">
-                <IconChat className="text-[var(--color-foreground-muted)]" />
-                {me.discord ? (
-                  <span className="text-[var(--color-foreground-subtle)]">
-                    @{me.discord.username}
-                  </span>
-                ) : (
-                  <span className="text-[var(--color-foreground-muted)]">
-                    non lié
-                  </span>
-                )}
-              </div>
-            </div>
           </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function Field({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div>
-      <div className="text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
-        {label}
-      </div>
-      <div
-        className={`mt-1.5 text-sm text-[var(--color-foreground)] ${
-          mono ? 'font-mono' : ''
-        }`}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function TwoFASection() {
-  const qc = useQueryClient();
-  const { data: status, isLoading } = useQuery({
-    queryKey: ['admin', '2fa', 'status'],
-    queryFn: () => api<TwoFAStatus>('/auth/2fa/status'),
-  });
-
-  const [enrolling, setEnrolling] = useState<EnrollResponse | null>(null);
-  const [confirmCode, setConfirmCode] = useState('');
-  const [disableCode, setDisableCode] = useState('');
-  const [showDisable, setShowDisable] = useState(false);
-
-  const enrollMut = useMutation({
-    mutationFn: () => api<EnrollResponse>('/auth/2fa/enroll', { method: 'POST' }),
-    onSuccess: (data) => {
-      setEnrolling(data);
-      setConfirmCode('');
-    },
-    onError: (err) => toast.error((err as Error).message),
-  });
-
-  const confirmMut = useMutation({
-    mutationFn: (code: string) =>
-      api('/auth/2fa/confirm', { method: 'POST', body: { code } }),
-    onSuccess: () => {
-      toast.success('2FA activé', {
-        description: 'Tu devras saisir un code TOTP à chaque login.',
-      });
-      setEnrolling(null);
-      setConfirmCode('');
-      qc.invalidateQueries({ queryKey: ['admin', '2fa', 'status'] });
-    },
-    onError: (err) => toast.error((err as Error).message),
-  });
-
-  const disableMut = useMutation({
-    mutationFn: (code: string) =>
-      api('/auth/2fa/disable', { method: 'POST', body: { code } }),
-    onSuccess: () => {
-      toast.success('2FA désactivé');
-      setShowDisable(false);
-      setDisableCode('');
-      qc.invalidateQueries({ queryKey: ['admin', '2fa', 'status'] });
-    },
-    onError: (err) => toast.error((err as Error).message),
-  });
-
-  return (
-    <section className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
-      <div className="mb-5 flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
-            <IconShield />
-          </div>
-          <div>
-            <div className="text-sm font-medium">
-              Authentification à deux facteurs (2FA)
-            </div>
-            <div className="text-xs text-[var(--color-foreground-muted)]">
-              Demande un code TOTP en plus de Discord à chaque login.
-            </div>
-          </div>
-        </div>
-        {!isLoading && (
-          <span
-            className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs ${
-              status?.enabled
-                ? 'border-[var(--color-success)]/40 bg-[var(--color-success-soft)] text-[var(--color-success)]'
-                : 'border-[var(--color-border-strong)] text-[var(--color-foreground-muted)]'
-            }`}
-          >
-            {status?.enabled ? 'Actif' : 'Inactif'}
-          </span>
         )}
-      </div>
+      </Card>
+      <DoubleAuth />
+    </div>
+  );
+}
 
+function DoubleAuth() {
+  const qc = useQueryClient();
+  const { data: etat, isLoading } = useQuery({
+    queryKey: ['admin', '2fa', 'status'],
+    queryFn: () => api<EtatDoubleAuth>('/auth/2fa/status'),
+  });
+  const [enrolement, setEnrolement] = useState<Enrolement | null>(null);
+  const [code, setCode] = useState('');
+  const [desactiver, setDesactiver] = useState(false);
+  const [codeDesactivation, setCodeDesactivation] = useState('');
+
+  const enroler = useMutation({
+    mutationFn: () => api<Enrolement>('/auth/2fa/enroll', { method: 'POST' }),
+    onSuccess: (d) => {
+      setEnrolement(d);
+      setCode('');
+    },
+    onError: (e) => toast.error('Échec', { description: messageErreur(e) }),
+  });
+  const confirmer = useMutation({
+    mutationFn: (c: string) => api('/auth/2fa/confirm', { method: 'POST', body: { code: c } }),
+    onSuccess: () => {
+      toast.success('Double authentification activée', {
+        description: 'Un code te sera demandé à chaque connexion.',
+      });
+      setEnrolement(null);
+      setCode('');
+      qc.invalidateQueries({ queryKey: ['admin', '2fa', 'status'] });
+    },
+    onError: (e) => toast.error('Code refusé', { description: messageErreur(e) }),
+  });
+  const couper = useMutation({
+    mutationFn: (c: string) => api('/auth/2fa/disable', { method: 'POST', body: { code: c } }),
+    onSuccess: () => {
+      toast.success('Double authentification désactivée');
+      setDesactiver(false);
+      setCodeDesactivation('');
+      qc.invalidateQueries({ queryKey: ['admin', '2fa', 'status'] });
+    },
+    onError: (e) => toast.error('Code refusé', { description: messageErreur(e) }),
+  });
+
+  return (
+    <Card
+      titre="Double authentification"
+      action={
+        !isLoading && etat ? (
+          <Badge ton={etat.enabled ? 'succes' : 'attention'}>{etat.enabled ? 'Activée' : 'Non activée'}</Badge>
+        ) : undefined
+      }
+    >
       {isLoading ? (
-        <div className="text-sm text-[var(--color-foreground-subtle)]">
-          Chargement…
-        </div>
-      ) : status?.enabled ? (
-        <div className="space-y-3">
-          <div className="rounded-[10px] border border-[var(--color-success)]/40 bg-[var(--color-success-soft)] px-3 py-2.5 text-sm text-[var(--color-success)]">
-            ✓ 2FA actif sur ton compte.
-          </div>
-          {showDisable ? (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (disableCode.length === 6) disableMut.mutate(disableCode);
-              }}
-              className="rounded-[10px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)]/30 p-4"
-            >
-              <div className="text-xs text-[var(--color-foreground-subtle)] mb-2">
-                Saisis ton code actuel pour confirmer la désactivation :
-              </div>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={disableCode}
-                onChange={(e) =>
-                  setDisableCode(e.target.value.replace(/\D/g, '').slice(0, 6))
-                }
-                placeholder="000000"
-                className="w-full rounded-[10px] border border-[var(--color-border-strong)] bg-[var(--color-background)] py-2 px-3 text-center text-lg font-mono tracking-[0.4em] focus:border-[var(--color-danger)] focus:outline-none"
-              />
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="submit"
-                  disabled={disableCode.length < 6 || disableMut.isPending}
-                  className="flex-1 rounded-[8px] bg-[var(--color-danger)] py-2 text-sm text-white disabled:opacity-40"
-                >
-                  {disableMut.isPending ? 'Désactivation…' : 'Désactiver'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowDisable(false);
-                    setDisableCode('');
-                  }}
-                  className="rounded-[8px] border border-[var(--color-border-strong)] px-4 py-2 text-sm hover:bg-[var(--color-surface-elevated)] transition-colors"
-                >
-                  Annuler
-                </button>
-              </div>
-            </form>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowDisable(true)}
-              className="rounded-[8px] border border-[var(--color-danger)]/40 px-4 py-2 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger-soft)] transition-colors"
-            >
-              Désactiver le 2FA
-            </button>
-          )}
-        </div>
-      ) : enrolling ? (
-        <div className="space-y-4">
-          <div className="text-sm text-[var(--color-foreground-subtle)]">
-            Scanne ce QR avec Google Authenticator, Authy, 1Password, etc. Puis
-            saisis le code à 6 chiffres affiché.
-          </div>
-          <div className="flex flex-col items-start gap-4 sm:flex-row">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={enrolling.qrDataUrl}
-              alt="QR code 2FA"
-              width={180}
-              height={180}
-              className="rounded-[10px] border border-[var(--color-border-strong)] bg-white"
-            />
-            <div className="flex-1">
-              <div className="text-xs text-[var(--color-foreground-muted)]">
-                Secret manuel (si tu ne peux pas scanner) :
-              </div>
-              <code className="mt-1 block break-all rounded-[6px] bg-[var(--color-surface-elevated)] px-2 py-1 text-[11px] font-mono">
-                {enrolling.secret}
-              </code>
-            </div>
-          </div>
-
+        <Chargement />
+      ) : etat?.enabled ? (
+        desactiver ? (
           <form
+            className="flex flex-col gap-4"
             onSubmit={(e) => {
               e.preventDefault();
-              if (confirmCode.length === 6) confirmMut.mutate(confirmCode);
+              if (codeDesactivation.length === 6) couper.mutate(codeDesactivation);
             }}
           >
-            <input
-              type="text"
-              inputMode="numeric"
-              autoFocus
-              value={confirmCode}
-              onChange={(e) =>
-                setConfirmCode(e.target.value.replace(/\D/g, '').slice(0, 6))
-              }
-              placeholder="000000"
-              className="w-full rounded-[10px] border border-[var(--color-border-strong)] bg-[var(--color-background)] py-2.5 px-3 text-center text-xl font-mono tracking-[0.5em] focus:border-[var(--color-accent)] focus:outline-none"
-            />
-            <div className="mt-3 flex gap-2">
-              <button
-                type="submit"
-                disabled={confirmCode.length < 6 || confirmMut.isPending}
-                className="flex-1 rounded-[8px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] py-2 text-sm text-white disabled:opacity-40 shadow-[var(--shadow-glow-accent)]"
-              >
-                {confirmMut.isPending ? 'Activation…' : 'Activer le 2FA'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEnrolling(null);
-                  setConfirmCode('');
-                }}
-                className="rounded-[8px] border border-[var(--color-border-strong)] px-4 py-2 text-sm hover:bg-[var(--color-surface-elevated)] transition-colors"
-              >
+            <p className="text-[13px] text-fg-2">Saisis ton code actuel pour désactiver la double authentification.</p>
+            <CodeSixCases valeur={codeDesactivation} onChange={setCodeDesactivation} autoFocus />
+            <div className="flex gap-2">
+              <Button type="submit" variante="danger-outline" disabled={codeDesactivation.length < 6} enCours={couper.isPending}>
+                Désactiver
+              </Button>
+              <Button variante="ghost" onClick={() => setDesactiver(false)}>
                 Annuler
-              </button>
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[13px] text-fg-2">Un code à six chiffres t’est demandé après la connexion Discord.</p>
+            <Mot ton="danger" onClick={() => setDesactiver(true)}>
+              Désactiver
+            </Mot>
+          </div>
+        )
+      ) : enrolement ? (
+        <div className="flex flex-col gap-4">
+          <p className="text-[13px] text-fg-2">
+            Scanne ce QR code avec ton application d’authentification, puis saisis le code à six chiffres affiché.
+          </p>
+          <div className="flex flex-wrap items-start gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={enrolement.qrDataUrl} alt="QR code de double authentification" width={168} height={168} className="rounded-[8px] bg-white" />
+            <div className="min-w-0 flex-1 text-[12px] text-fg-3">
+              Sans appareil photo, saisis cette clé à la main :
+              <code className="mono mt-1 block break-all rounded-[6px] bg-surface-2 px-2 py-1 text-fg-2">{enrolement.secret}</code>
+            </div>
+          </div>
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (code.length === 6) confirmer.mutate(code);
+            }}
+          >
+            <CodeSixCases valeur={code} onChange={setCode} autoFocus />
+            <div className="flex gap-2">
+              <Button type="submit" variante="primary" disabled={code.length < 6} enCours={confirmer.isPending}>
+                Activer
+              </Button>
+              <Button variante="ghost" onClick={() => setEnrolement(null)}>
+                Annuler
+              </Button>
             </div>
           </form>
         </div>
       ) : (
-        <div>
-          <p className="text-sm text-[var(--color-foreground-subtle)] mb-4">
-            Recommandé pour les comptes admin/owner. Quand actif, après le login
-            Discord il te sera demandé un code à 6 chiffres avant d&apos;accéder
-            au panel.
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="max-w-[52ch] text-[13px] text-fg-2">
+            Recommandée pour tout le staff, indispensable pour les administrateurs : un code à six chiffres est demandé
+            après la connexion Discord.
           </p>
-          <button
-            type="button"
-            onClick={() => enrollMut.mutate()}
-            disabled={enrollMut.isPending}
-            className="rounded-[8px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] px-4 py-2 text-sm text-white disabled:opacity-40 shadow-[var(--shadow-glow-accent)]"
-          >
-            {enrollMut.isPending ? 'Génération…' : 'Activer le 2FA'}
-          </button>
+          <Button variante="primary" enCours={enroler.isPending} onClick={() => enroler.mutate()}>
+            Activer
+          </Button>
         </div>
       )}
-    </section>
+    </Card>
+  );
+}
+
+// ──────────────────────────── Préférences ────────────────────────────
+
+function Preferences() {
+  const [prefs, maj] = usePreferences();
+  return (
+    <div className="narrow">
+      <Card titre="Affichage">
+        <div className="set">
+          <div>
+            <div className="set-l">Densité des tableaux</div>
+            <div className="set-h">Compacte : lignes de 36 px. Confortable : lignes de 44 px.</div>
+          </div>
+          <div className="set-c">
+            <Segmented
+              label="Densité des tableaux"
+              valeur={prefs.densite}
+              onChange={(v) => maj({ densite: v })}
+              options={[
+                { valeur: 'compacte', label: 'Compacte' },
+                { valeur: 'confortable', label: 'Confortable' },
+              ]}
+            />
+          </div>
+        </div>
+      </Card>
+      <Card titre="Travail">
+        <LignePreference
+          titre="Enchaîner après une décision"
+          aide="Ouvre le dossier suivant du même onglet après « Valider » ou « À revoir »."
+          actif={prefs.enchainer}
+          onChange={(v) => maj({ enchainer: v })}
+        />
+        <LignePreference
+          titre="Raccourcis clavier"
+          aide={
+            <>
+              Inactifs dans un champ de saisie, sauf avec Ctrl. <Kbd>?</Kbd> ouvre la liste.
+            </>
+          }
+          actif={prefs.raccourcis}
+          onChange={(v) => maj({ raccourcis: v })}
+        />
+        <LignePreference
+          titre="Prendre automatiquement"
+          aide="Une décision ou une première réponse te donne le dossier ou le ticket s’il n’est à personne."
+          actif={prefs.priseAuto}
+          onChange={(v) => maj({ priseAuto: v })}
+        />
+      </Card>
+      <Card titre="Seuils de retard" meta="Pour toute l’équipe">
+        <div className="set">
+          <div>
+            <div className="set-l">Écrit en attente</div>
+            <div className="set-h">Au-delà, l’attente passe en rouge dans la file et dans le compteur du menu.</div>
+          </div>
+          <div className="set-c tabular text-fg">48 heures</div>
+        </div>
+        <div className="set">
+          <div>
+            <div className="set-l">Ticket sans prise en charge</div>
+          </div>
+          <div className="set-c tabular text-fg">24 heures</div>
+        </div>
+        <p className="help mt-3 flex items-center gap-1.5">
+          <Icone nom="lock" taille={14} /> Réglables par un administrateur quand le réglage d’équipe sera branché.
+        </p>
+      </Card>
+    </div>
+  );
+}
+
+function LignePreference({
+  titre,
+  aide,
+  actif,
+  onChange,
+}: {
+  titre: string;
+  aide: React.ReactNode;
+  actif: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="set">
+      <div>
+        <div className="set-l">{titre}</div>
+        <div className="set-h">{aide}</div>
+      </div>
+      <div className="set-c">
+        <Interrupteur actif={actif} onChange={onChange} label={titre} />
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────── Équipe ────────────────────────────
+
+function Equipe() {
+  const { moi, peut } = useDroits();
+  const [saisie, setSaisie] = useState('');
+  const [q, setQ] = useState('');
+  const [cible, setCible] = useState<{ id: string; pseudo: string; role: Role } | null>(null);
+  useEffect(() => {
+    const t = setTimeout(() => setQ(saisie.trim()), 250);
+    return () => clearTimeout(t);
+  }, [saisie]);
+
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['admin', 'players', 'search', 'equipe', q],
+    queryFn: () =>
+      api<PlayerListItem[]>(`/admin/players/search?take=100${q ? `&q=${encodeURIComponent(q)}` : ''}`),
+    placeholderData: keepPreviousData,
+  });
+  // Sans recherche : le staff parmi les derniers connectés ; avec : tous les comptes trouvés.
+  const lignes = (data ?? []).filter((j) => (q ? true : estStaff(j.role)));
+
+  const colonnes: Colonne<PlayerListItem>[] = [
+    {
+      cle: 'membre',
+      titre: 'Compte',
+      rendu: (j) => (
+        <span className="who">
+          <MCAvatar uuid={j.minecraftUuid} size={26} />
+          <span className="two min-w-0">
+            <span className="block truncate font-medium text-fg">
+              {j.minecraftUsername}
+              {moi?.id === j.id && <span className="ml-1 font-normal text-fg-3">· toi</span>}
+            </span>
+            {j.discordUsername && <span className="sub2 truncate">@{j.discordUsername}</span>}
+          </span>
+        </span>
+      ),
+    },
+    { cle: 'grade', titre: 'Grade', serre: true, rendu: (j) => libelleGrade(j.role) },
+    { cle: 'statut', titre: 'Statut', serre: true, cacherEtroit: true, rendu: (j) => <BadgeStatut statut={statutCompte(j)} /> },
+    {
+      cle: 'activite',
+      titre: 'Dernière connexion',
+      serre: true,
+      rendu: (j) => (j.lastLoginAt ? <span title={dateHeure(j.lastLoginAt)}>{ilYa(j.lastLoginAt)}</span> : 'jamais'),
+    },
+    {
+      cle: 'action',
+      titre: <span className="sr-only">Action</span>,
+      align: 'droite',
+      serre: true,
+      rendu: (j) =>
+        peutChangerGrade(moi, { id: j.id, role: j.role }, peut('grades.changer')) ? (
+          <Mot onClick={() => setCible({ id: j.id, pseudo: j.minecraftUsername, role: j.role })}>Changer de grade</Mot>
+        ) : (
+          <span className="text-fg-3">—</span>
+        ),
+    },
+  ];
+
+  return (
+    <>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <InputRecherche
+          value={saisie}
+          onChange={(e) => setSaisie(e.target.value)}
+          placeholder="Pseudo, Discord ou UUID"
+          aria-label="Rechercher un compte"
+          conteneur="w-full sm:w-96"
+        />
+        <span className="help">
+          {q ? 'Tous les comptes trouvés : un joueur peut être promu.' : 'Le staff parmi les 100 derniers connectés.'}
+        </span>
+      </div>
+      <DataTable<PlayerListItem>
+        label="Membres du staff"
+        colonnes={colonnes}
+        lignes={lignes}
+        cle={(j) => j.id}
+        chargement={isLoading}
+        erreur={error as Error | null}
+        onReessayer={() => void refetch()}
+        vide={<EmptyState icone="users" titre={q ? `Aucun compte pour « ${q} ».` : 'Aucun membre du staff récemment connecté.'} aide="Cherche un pseudo pour le retrouver." />}
+        pied={<span>Un grade s’affiche en mot. Chaque changement est inscrit au journal.</span>}
+      />
+      <div className="mt-4">
+        <Callout ton="neutre">
+          La liste complète de l’équipe (double authentification, dernière activité) arrivera avec sa route dédiée.
+        </Callout>
+      </div>
+      {cible && <ChangerGrade ouvert onFermer={() => setCible(null)} cible={cible} />}
+    </>
+  );
+}
+
+// ──────────────────────────── Modèles ────────────────────────────
+
+type FiltreModeles = 'tous' | 'candidatures' | 'tickets';
+
+function Modeles() {
+  const [filtre, setFiltre] = useState<FiltreModeles>('tous');
+  const lignes = [
+    ...MOTIFS_CANDIDATURE.map((m) => ({ cle: `m:${m.id}`, nom: m.nom, type: 'Motif de candidature', texte: m.texte, genre: 'candidatures' as const })),
+    ...REPONSES_TYPES.map((r) => ({ cle: `r:${r.code}`, nom: `/${r.code}`, type: 'Réponse de ticket', texte: r.texte, genre: 'tickets' as const })),
+  ].filter((l) => filtre === 'tous' || l.genre === filtre);
+  type Ligne = (typeof lignes)[number];
+  const colonnes: Colonne<Ligne>[] = [
+    { cle: 'nom', titre: 'Nom', principal: true, serre: true, rendu: (l) => (l.genre === 'tickets' ? <span className="mono text-gold">{l.nom}</span> : l.nom) },
+    { cle: 'type', titre: 'Type', serre: true, cacherEtroit: true, rendu: (l) => l.type },
+    { cle: 'texte', titre: 'Texte', rendu: (l) => <span className="block max-w-[640px] text-fg-2">{l.texte}</span> },
+  ];
+  return (
+    <>
+      <div className="mb-4">
+        <Segmented<FiltreModeles>
+          label="Modèles affichés"
+          valeur={filtre}
+          onChange={setFiltre}
+          options={[
+            { valeur: 'tous', label: 'Tous', n: MOTIFS_CANDIDATURE.length + REPONSES_TYPES.length },
+            { valeur: 'candidatures', label: 'Candidatures', n: MOTIFS_CANDIDATURE.length },
+            { valeur: 'tickets', label: 'Tickets', n: REPONSES_TYPES.length },
+          ]}
+        />
+      </div>
+      <DataTable<Ligne>
+        label="Modèles de texte"
+        colonnes={colonnes}
+        lignes={lignes}
+        cle={(l) => l.cle}
+        pied={<span>Un modèle se modifie avant envoi : c’est un point de départ, pas un texte figé.</span>}
+      />
+      <div className="mt-4">
+        <Callout ton="neutre">
+          Jeu commun livré avec le panel. Créer et modifier les modèles depuis cette page arrivera avec leur route
+          d’enregistrement.
+        </Callout>
+      </div>
+    </>
   );
 }

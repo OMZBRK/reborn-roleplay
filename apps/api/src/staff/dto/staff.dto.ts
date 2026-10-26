@@ -2,6 +2,7 @@ import { AppStatus, Role, TicketStatus } from '@prisma/client';
 import {
   IsArray,
   IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   IsUrl,
@@ -27,35 +28,95 @@ export class StaffRoleDto {
   role!: Role;
 }
 
+/**
+ * Ancienne décision globale (boutons du bot, `/whitelist accept`, PATCH
+ * /admin/whitelist/:id). Depuis la candidature v2, elle tranche l'ÉCRIT en
+ * entier (HRP et RP ensemble) : APPROVED = « écrit accepté », la whitelist
+ * attend l'oral (CANDIDATURE_ET_DOUANE.md §1.3, §2.9).
+ */
 export class WhitelistDecisionDto {
   /** Doit etre APPROVED, REJECTED ou NEEDS_REVISION (pas PENDING). */
   @IsEnum(AppStatus)
   status!: AppStatus;
 
+  /** Commentaire de l'écrit, VISIBLE du joueur. */
   @IsOptional()
   @IsString()
   @MaxLength(2000)
   reviewNotes?: string;
+
+  /**
+   * Snowflake Discord du staff qui décide (bot). Facultatif, pour l'ancien bot :
+   * s'il est fourni et lié à un compte Reborn, la décision est tracée à son nom.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  actorDiscordId?: string;
 }
 
+/** Les deux parties de l'ÉCRIT, tranchées séparément (§1.3). L'oral a sa propre route (module douane). */
+export const PARTIES_ECRIT = ['HRP', 'RP'] as const;
+export type PartieEcrit = (typeof PARTIES_ECRIT)[number];
+
 /**
- * Décision sur UNE partie de la candidature (L5) : HRP (prévalidation via
- * oral) ou RP (le personnage), traitées indépendamment. La whitelist n'est
- * accordée que quand les deux parties sont APPROVED.
+ * Décision sur UNE partie de l'écrit (PATCH /admin/whitelist/:id/decision).
+ * Les deux validées = « écrit accepté » (writtenApprovedAt) : le candidat
+ * réserve sa séance de douane ; la whitelist attend l'oral, sauf si l'oral est
+ * déjà passé sur ce compte (User.oralPassedAt). L'oral se tranche ailleurs :
+ * PATCH /admin/whitelist/:id/oral (module douane).
  */
 export class WhitelistPartDecisionDto {
-  /** 'HRP' | 'RP' — quelle partie on tranche. */
-  @IsEnum({ HRP: 'HRP', RP: 'RP' })
-  part!: 'HRP' | 'RP';
+  @IsIn(PARTIES_ECRIT)
+  part!: PartieEcrit;
 
   /** APPROVED, REJECTED ou NEEDS_REVISION (pas PENDING). */
   @IsEnum(AppStatus)
   status!: AppStatus;
 
+  /** Commentaire de l'écrit, VISIBLE du joueur (reviewNotes). */
   @IsOptional()
   @IsString()
   @MaxLength(2000)
   reviewNotes?: string;
+
+  /**
+   * Note PRIVÉE sur l'écrit (writtenStaffNotes) : les points à creuser,
+   * transmise à l'examinateur, jamais montrée au joueur.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  staffNotes?: string;
+}
+
+/**
+ * Décision sur UNE partie de l'écrit depuis le bot (boutons du MP de prise en
+ * charge, `/whitelist hrp|rp`) : PATCH /v1/staff/whitelist/:id/decision. Même
+ * service que le panel. `actorDiscordId` est obligatoire : l'API retrouve le
+ * compte Reborn lié, exige le rôle WHITELIST_REVIEWER ou plus et inscrit la
+ * décision à son nom. Pas de note privée depuis Discord (elle se saisit au
+ * panel).
+ */
+export class WhitelistPartDecisionBotDto {
+  @IsIn(PARTIES_ECRIT, { message: 'part : HRP ou RP.' })
+  part!: PartieEcrit;
+
+  /** APPROVED, REJECTED ou NEEDS_REVISION (pas PENDING). */
+  @IsEnum(AppStatus)
+  status!: AppStatus;
+
+  /** Commentaire de l'écrit, VISIBLE du joueur (reviewNotes). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  reviewNotes?: string;
+
+  /** Snowflake Discord du staff qui décide (interaction.user.id). */
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  actorDiscordId!: string;
 }
 
 export class TicketStatusDto {

@@ -2,227 +2,220 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { use, useState } from 'react';
+import { use, useRef } from 'react';
 import { toast } from 'sonner';
-import { AssignmentBlock } from '@/components/AssignmentBlock';
-import { ChatPanel } from '@/components/ChatPanel';
+import { PriseEnCharge, invaliderApresPrise } from '@/components/AssignmentBlock';
+import { ChatPanel, type ChatPanelRef } from '@/components/ChatPanel';
+import { Garde } from '@/components/Garde';
+import { MCAvatar } from '@/components/MCAvatar';
+import { BadgeStatut } from '@/components/ui/Badge';
+import { Mot } from '@/components/ui/Button';
+import { Card, ListeKV } from '@/components/ui/Card';
+import { Icone } from '@/components/ui/Icone';
+import { Chargement, ErrorState, messageErreur } from '@/components/ui/States';
 import { api } from '@/lib/api';
+import { useDroits } from '@/lib/droits';
+import { dateHeure, ilYa } from '@/lib/format';
+import { LIBELLE_CATEGORIE_TICKET_LONG, LIBELLE_STATUT_TICKET, libelleGrade } from '@/lib/libelles';
+import { preferences } from '@/lib/preferences';
+import { useRaccourcis } from '@/lib/raccourcis';
+import { STATUT_TICKET } from '@/lib/statuts';
 import type { TicketDetail, TicketStatus } from '@/lib/types';
 
-export default function TicketDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+/**
+ * Fiche ticket (PANEL_V2 §4.4) : la conversation pleine hauteur avec la
+ * réponse en bas (« / » ouvre les réponses types, Ctrl + Entrée envoie,
+ * Ctrl + Maj + Entrée envoie et résout), et un panneau latéral : le joueur,
+ * la catégorie, le statut en trois mots, qui l'a pris. La première réponse
+ * prend le ticket (préférence « Prendre automatiquement »).
+ */
+export default function FicheTicketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const qc = useQueryClient();
+  return (
+    <Garde capacites={['tickets.traiter', 'tickets.bug']}>
+      <Fiche id={id} />
+    </Garde>
+  );
+}
 
-  const { data, isLoading, error } = useQuery({
+function Fiche({ id }: { id: string }) {
+  const qc = useQueryClient();
+  const { moi, peut } = useDroits();
+  const chat = useRef<ChatPanelRef>(null);
+
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['admin', 'tickets', id],
     queryFn: () => api<TicketDetail>(`/admin/tickets/${id}`),
-    // Poll toutes les 5s comme le launcher cote user : permet de voir
-    // les nouveaux messages du joueur sans rafraichir manuellement.
-    refetchInterval: 5_000,
+    refetchInterval: 10_000,
   });
 
-  // Envoi des messages + scroll auto delegues a <ChatPanel /> (composant
-  // unifie). Plus de state local pour le draft ici.
-
-  const statusMut = useMutation({
-    mutationFn: (status: TicketStatus) =>
-      api(`/admin/tickets/${id}`, {
-        method: 'PATCH',
-        body: { status },
-      }),
-    onSuccess: (_data, status) => {
-      qc.invalidateQueries({ queryKey: ['admin', 'tickets', id] });
-      qc.invalidateQueries({ queryKey: ['admin', 'tickets'] });
-      qc.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
-      const labels: Record<TicketStatus, string> = {
-        OPEN: 'Ticket re-ouvert',
-        IN_PROGRESS: 'Ticket pris en charge',
-        RESOLVED: 'Ticket marque resolu',
-        CLOSED: 'Ticket ferme',
+  const statut = useMutation({
+    mutationFn: (s: TicketStatus) => api(`/admin/tickets/${id}`, { method: 'PATCH', body: { status: s } }),
+    onSuccess: (_d, s) => {
+      invaliderApresPrise(qc, 'tickets', id);
+      const messages: Record<TicketStatus, string> = {
+        OPEN: 'Ticket rouvert',
+        IN_PROGRESS: 'Ticket en cours',
+        RESOLVED: 'Ticket résolu',
+        CLOSED: 'Ticket fermé',
       };
-      toast.success(labels[status]);
+      toast.success(messages[s]);
     },
-    onError: (err) => {
-      toast.error('Changement de statut echoue', {
-        description: (err as Error).message,
-      });
-    },
+    onError: (e) => toast.error('Statut non changé', { description: messageErreur(e) }),
   });
+
+  useRaccourcis([{ touche: 'r', action: () => chat.current?.repondre() }], !!data);
 
   if (isLoading) {
     return (
-      <div className="p-10 text-[var(--color-foreground-subtle)]">
-        Chargement…
+      <div className="page">
+        <Chargement lignes={5} />
       </div>
     );
   }
-  if (error) {
+  if (error || !data) {
     return (
-      <div className="p-10">
-        <Link
-          href="/tickets"
-          className="text-sm text-[var(--color-accent)] hover:underline"
-        >
-          ← Retour
-        </Link>
-        <div className="mt-4 rounded-[10px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
-          {(error as Error).message}
-        </div>
+      <div className="page">
+        <ErrorState erreur={error ?? new Error('Ticket introuvable.')} onReessayer={() => void refetch()} />
       </div>
     );
   }
-  if (!data) return null;
 
-  const isClosed = data.status === 'CLOSED';
+  const ferme = data.status === 'CLOSED';
+  const clos = data.status === 'CLOSED' || data.status === 'RESOLVED';
+
+  /** Première réponse : prend le ticket s'il n'est à personne, et le passe en cours. */
+  async function avantEnvoi() {
+    if (!data || !preferences().priseAuto) return;
+    if (!data.assignee && !clos) {
+      try {
+        await api(`/admin/tickets/${id}/assign`, { method: 'POST', body: { force: false } });
+      } catch {
+        /* déjà pris entre-temps : la réponse part quand même */
+      }
+    }
+    if (data.status === 'OPEN') {
+      await api(`/admin/tickets/${id}`, { method: 'PATCH', body: { status: 'IN_PROGRESS' } });
+    }
+    invaliderApresPrise(qc, 'tickets', id);
+  }
+
+  async function resoudre() {
+    await api(`/admin/tickets/${id}`, { method: 'PATCH', body: { status: 'RESOLVED' } });
+    invaliderApresPrise(qc, 'tickets', id);
+  }
 
   return (
-    <div className="h-screen flex flex-col">
-      <div className="border-b border-[var(--color-border)] bg-[var(--color-surface)] px-10 py-5">
-        <Link
-          href="/tickets"
-          className="text-xs text-[var(--color-accent)] hover:underline"
-        >
-          ← Tous les tickets
-        </Link>
-        <div className="mt-2 flex items-start justify-between gap-6">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-1 text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
-              <span>{data.category}</span>
-              <span>·</span>
-              <TicketStatusBadge status={data.status} />
-            </div>
-            <h1
-              className="text-3xl leading-tight truncate"
-              style={{ fontFamily: 'var(--font-display)' }}
-            >
-              {data.subject}
-            </h1>
-            <div className="mt-1 text-sm text-[var(--color-foreground-subtle)]">
-              par{' '}
-              <Link
-                href={`/players/${data.user.id}`}
-                className="font-medium text-[var(--color-foreground)] hover:text-[var(--color-accent)] hover:underline"
-              >
-                {data.user.minecraftUsername}
-              </Link>
-              {data.user.discordUsername && (
-                <> · @{data.user.discordUsername}</>
-              )}
-              {' · '}ouvert le{' '}
-              {new Date(data.createdAt).toLocaleString('fr-FR', {
-                dateStyle: 'medium',
-                timeStyle: 'short',
-              })}
-            </div>
+    <div className="page">
+      <header className="ph">
+        <div className="min-w-0 flex-1">
+          <nav className="crumbs" aria-label="Fil d’Ariane">
+            <Link href="/tickets">Modération</Link>
+            <Icone nom="chevron-right" taille={12} />
+            <Link href="/tickets">Tickets</Link>
+          </nav>
+          <h1 className="ph-title">{data.subject}</h1>
+          <div className="ph-sub">
+            {LIBELLE_CATEGORIE_TICKET_LONG[data.category]} · ouvert{' '}
+            <span title={dateHeure(data.createdAt)}>{ilYa(data.createdAt)}</span> par{' '}
+            <b>{data.user.minecraftUsername}</b>
+            {data.discordThreadId && ' · fil Discord lié'}
           </div>
-          <div className="w-[240px] shrink-0">
-            <AssignmentBlock
-              kind="tickets"
-              id={data.id}
-              assignee={data.assignee}
-              assignedAt={data.assignedAt}
-            />
-          </div>
-          <StatusActions
-            current={data.status}
-            disabled={statusMut.isPending}
-            onChange={(s) => statusMut.mutate(s)}
-          />
         </div>
-      </div>
+        <div className="ph-act">
+          {ferme ? (
+            <Mot onClick={() => statut.mutate('OPEN')} enCours={statut.isPending}>
+              Rouvrir le ticket
+            </Mot>
+          ) : (
+            <div className="seg" role="group" aria-label="Statut du ticket">
+              {(['IN_PROGRESS', 'RESOLVED', 'CLOSED'] as TicketStatus[]).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className="seg-btn"
+                  aria-pressed={data.status === s}
+                  disabled={statut.isPending}
+                  onClick={() => data.status !== s && statut.mutate(s)}
+                >
+                  {LIBELLE_STATUT_TICKET[s]}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </header>
 
-      <div className="flex-1 p-4 overflow-hidden">
-        <ChatPanel
-          endpoint={`/admin/tickets/${data.id}/messages`}
-          queryKey={['admin', 'tickets', data.id]}
-          messages={data.messages}
-          canSend={!isClosed}
-          playerUuid={data.user.minecraftUuid}
-          playerName={data.user.minecraftUsername}
-          emptyLabel={`Aucun message — répondez à ${data.user.minecraftUsername} ci-dessous.`}
-          closedLabel="Ce ticket est fermé. Réouvre-le pour répondre."
-        />
+      <div className="split">
+        <section className="card flex min-h-[520px] flex-col" style={{ height: 'calc(100vh - 190px)' }} aria-label="Conversation">
+          <ChatPanel
+            ref={chat}
+            endpoint={`/admin/tickets/${data.id}/messages`}
+            queryKey={['admin', 'tickets', data.id]}
+            messages={data.messages}
+            canSend={!ferme}
+            playerUuid={data.user.minecraftUuid}
+            playerName={data.user.minecraftUsername}
+            roleJoueur="Joueur"
+            reponsesTypes
+            avantEnvoi={avantEnvoi}
+            resoudre={data.status !== 'RESOLVED' ? resoudre : undefined}
+            emptyLabel={`Aucun message : réponds à ${data.user.minecraftUsername} ci-dessous.`}
+            closedLabel="Ce ticket est fermé. Rouvre-le pour répondre."
+          />
+        </section>
+
+        <aside className="stack">
+          <Card titre="Joueur">
+            <div className="flex items-center gap-3">
+              <MCAvatar uuid={data.user.minecraftUuid} size={36} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium text-fg">{data.user.minecraftUsername}</div>
+                <div className="text-[12px] text-fg-3">
+                  {libelleGrade(data.user.role)}
+                  {data.user.discordUsername && ` · @${data.user.discordUsername}`}
+                </div>
+              </div>
+              {peut('joueurs.voir') && (
+                <Link href={`/players/${data.user.id}`} className="mot">
+                  Fiche
+                </Link>
+              )}
+            </div>
+          </Card>
+
+          <Card>
+            <ListeKV
+              largeur={96}
+              lignes={[
+                { cle: 'cat', label: 'Catégorie', valeur: LIBELLE_CATEGORIE_TICKET_LONG[data.category] },
+                { cle: 'statut', label: 'Statut', valeur: <BadgeStatut statut={STATUT_TICKET[data.status]} /> },
+                {
+                  cle: 'pris',
+                  label: 'Pris par',
+                  valeur: (
+                    <PriseEnCharge
+                      genre="tickets"
+                      id={data.id}
+                      assignee={data.assignee}
+                      statutTicket={data.status}
+                      ferme={clos}
+                    />
+                  ),
+                },
+                { cle: 'ouvert', label: 'Ouvert', valeur: dateHeure(data.createdAt) },
+                { cle: 'maj', label: 'Activité', valeur: <span title={dateHeure(data.updatedAt)}>{ilYa(data.updatedAt)}</span> },
+              ]}
+            />
+          </Card>
+          {moi && data.assignee && data.assignee.id !== moi.id && !clos && (
+            <p className="help px-1">Pris par {data.assignee.minecraftUsername} : tu peux quand même répondre.</p>
+          )}
+          <p className="help px-1">
+            <span className="kbd mr-1">R</span> répondre · <span className="kbd">/</span> réponses types en début de réponse
+          </p>
+        </aside>
       </div>
     </div>
-  );
-}
-
-function StatusActions({
-  current,
-  disabled,
-  onChange,
-}: {
-  current: TicketStatus;
-  disabled: boolean;
-  onChange: (s: TicketStatus) => void;
-}) {
-  // Transitions autorisees depuis le panel. On masque le bouton qui
-  // remettrait au statut courant.
-  const transitions: Array<{ to: TicketStatus; label: string; tone: 'warning' | 'success' | 'muted' }> = [];
-  if (current !== 'IN_PROGRESS') {
-    transitions.push({ to: 'IN_PROGRESS', label: 'Prendre en charge', tone: 'warning' });
-  }
-  if (current !== 'RESOLVED') {
-    transitions.push({ to: 'RESOLVED', label: 'Marquer resolu', tone: 'success' });
-  }
-  if (current !== 'CLOSED') {
-    transitions.push({ to: 'CLOSED', label: 'Fermer', tone: 'muted' });
-  }
-  if (current === 'CLOSED') {
-    transitions.unshift({ to: 'OPEN', label: 'Reouvrir', tone: 'warning' });
-  }
-  return (
-    <div className="flex flex-col gap-1.5 shrink-0">
-      {transitions.map((t) => (
-        <button
-          key={t.to}
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange(t.to)}
-          className={`rounded-[8px] border px-3 py-1.5 text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-            t.tone === 'success'
-              ? 'border-[var(--color-success)]/40 text-[var(--color-success)] hover:bg-[var(--color-success-soft)]'
-              : t.tone === 'warning'
-                ? 'border-[var(--color-warning)]/40 text-[var(--color-warning)] hover:bg-[var(--color-warning-soft)]'
-                : 'border-[var(--color-border-strong)] text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)]'
-          }`}
-        >
-          {t.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function TicketStatusBadge({ status }: { status: TicketStatus }) {
-  const map: Record<TicketStatus, { label: string; cls: string }> = {
-    OPEN: {
-      label: 'Ouvert',
-      cls: 'bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-[var(--color-accent)]/40',
-    },
-    IN_PROGRESS: {
-      label: 'En cours',
-      cls: 'bg-[var(--color-warning-soft)] text-[var(--color-warning)] border-[var(--color-warning)]/40',
-    },
-    RESOLVED: {
-      label: 'Resolu',
-      cls: 'bg-[var(--color-success-soft)] text-[var(--color-success)] border-[var(--color-success)]/40',
-    },
-    CLOSED: {
-      label: 'Ferme',
-      cls: 'border-[var(--color-border-strong)] text-[var(--color-foreground-muted)]',
-    },
-  };
-  const tone = map[status];
-  return (
-    <span
-      className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] uppercase tracking-wider normal-case-content ${tone.cls}`}
-    >
-      {tone.label}
-    </span>
   );
 }

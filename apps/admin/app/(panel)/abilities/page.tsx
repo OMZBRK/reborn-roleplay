@@ -18,7 +18,20 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Garde } from "@/components/Garde";
+import { SectionTabs } from "@/components/shell/SectionTabs";
+import { Button } from "@/components/ui/Button";
+import { Dialog, useConfirm } from "@/components/ui/Dialog";
+import { Icone } from "@/components/ui/Icone";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Chargement, ErrorState } from "@/components/ui/States";
+import { api } from "@/lib/api";
+import { useDroits } from "@/lib/droits";
+import { getScopes } from "@/lib/files";
+import { libelleServeur } from "@/lib/libelles";
+import type { RecapitulatifDeploiement } from "@/lib/types";
 import {
   createTechnique,
   deployTechniques,
@@ -95,6 +108,13 @@ const EFFECT_TYPES = ["particles", "sound", "entity", "effectlib"];
 /* ───────── RF <-> doc mapping ───────── */
 
 const RF_TYPE = "reborn";
+
+/** Statut d'une technique en français (jamais le code brut à l'écran, PANEL_V2 §2). */
+const LIBELLE_STATUT: Record<GraphStatus, string> = {
+  DRAFT: "Brouillon",
+  PUBLISHED: "Publiée",
+  ARCHIVED: "Archivée",
+};
 
 function docToRf(doc: TechniqueGraphDoc): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = doc.nodes.map((n, i) => ({
@@ -187,6 +207,9 @@ function emptyDoc(slug: string): TechniqueGraphDoc {
 /* ───────── editor ───────── */
 
 function EditorInner() {
+  const { demander } = useConfirm();
+  const { peut } = useDroits();
+  const [deploiement, setDeploiement] = useState(false);
   const [list, setList] = useState<TechniqueSummary[]>([]);
   const [current, setCurrent] = useState<{ dbId: string; status: GraphStatus; doc: TechniqueGraphDoc } | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -310,7 +333,10 @@ function EditorInner() {
     finally { setBusy(false); }
   }, [current, save]);
 
+  // « Déployer » passe par la fenêtre récapitulative (serveur visé,
+  // techniques modifiées depuis le dernier déploiement) : jamais en un clic.
   const deploy = useCallback(async () => {
+    setDeploiement(false);
     setBusy(true);
     try {
       const r = await deployTechniques();
@@ -320,9 +346,15 @@ function EditorInner() {
   }, []);
 
   const newTechnique = useCallback(async () => {
-    const slug = window.prompt("Identifiant (lower_snake_case) :")?.trim();
+    const slug = await demander({
+      titre: "Nouvelle technique",
+      label: "Identifiant",
+      placeholder: "ex. katon_goukakyu",
+      aide: "Minuscules, chiffres et « _ » seulement.",
+      confirmer: "Créer la technique",
+      valider: (v) => (/^[a-z0-9_]+$/.test(v) ? null : "Identifiant invalide : a-z, 0-9 et « _ »."),
+    });
     if (!slug) return;
-    if (!/^[a-z0-9_]+$/.test(slug)) { toast.error("Identifiant invalide (a-z, 0-9, _)."); return; }
     setBusy(true);
     try {
       const doc = emptyDoc(slug);
@@ -331,26 +363,26 @@ function EditorInner() {
       toast.success(`Technique '${slug}' créée.`);
     } catch (e) { toast.error(`Création impossible : ${(e as Error).message}`); }
     finally { setBusy(false); }
-  }, [refreshList, loadDoc]);
+  }, [refreshList, loadDoc, demander]);
 
   const setStatus = useCallback((status: GraphStatus) => setCurrent((c) => (c ? { ...c, status } : c)), []);
 
   return (
-    <div className="flex h-[calc(100vh-0px)] w-full">
+    <div className="flex h-[calc(100vh-200px)] min-h-[560px] w-full overflow-hidden rounded-[8px] border border-[var(--color-border)]">
       {/* liste */}
       <aside className="w-56 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-surface)] p-3 overflow-y-auto">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-sm font-semibold">Techniques</h2>
-          <button onClick={newTechnique} className="rounded bg-[var(--color-accent)] px-2 py-1 text-xs text-white hover:opacity-90">+ Nouvelle</button>
+          <button onClick={newTechnique} className="rounded bg-[var(--color-accent)] px-2 py-1 text-xs text-[var(--color-on-gold)] hover:opacity-90">+ Nouvelle</button>
         </div>
-        <button onClick={() => setImportOpen(true)} className="mb-3 w-full rounded border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-surface-elevated)]">⬇ Importer un sort MagicSpells</button>
+        <button onClick={() => setImportOpen(true)} className="mb-3 w-full rounded border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-surface-elevated)]">Importer un sort MagicSpells</button>
         <ul className="space-y-1">
           {list.map((t) => (
             <li key={t.id}>
               <button onClick={() => openTechnique(t.id)}
                 className={`w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[var(--color-surface-elevated)] ${current?.dbId === t.id ? "bg-[var(--color-surface-elevated)]" : ""}`}>
                 <div className="font-medium truncate">{t.name}</div>
-                <div className="text-[10px] text-[var(--color-foreground-muted)]">{t.slug} · {t.status}</div>
+                <div className="text-[10px] text-[var(--color-foreground-muted)]">{t.slug} · {LIBELLE_STATUT[t.status] ?? t.status}</div>
               </button>
             </li>
           ))}
@@ -366,16 +398,18 @@ function EditorInner() {
               <span className="text-sm font-semibold">{current.doc.id}</span>
               <select value={current.status} onChange={(e) => setStatus(e.target.value as GraphStatus)}
                 className="rounded border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-2 py-1 text-xs">
-                <option value="DRAFT">DRAFT</option><option value="PUBLISHED">PUBLISHED</option><option value="ARCHIVED">ARCHIVED</option>
+                <option value="DRAFT">{LIBELLE_STATUT.DRAFT}</option><option value="PUBLISHED">{LIBELLE_STATUT.PUBLISHED}</option><option value="ARCHIVED">{LIBELLE_STATUT.ARCHIVED}</option>
               </select>
               <div className="mx-1 h-4 w-px bg-[var(--color-border)]" />
               <AddSpellMenu onAdd={addSpell} />
-              <button onClick={addMagicItem} className="rounded px-2 py-1 text-[11px] text-white hover:opacity-90" style={{ background: "#0891b2" }}>+ Magic-item</button>
+              <button onClick={addMagicItem} className="rounded border border-border-strong px-2 py-1 text-[11px] text-fg hover:bg-surface-2">+ Magic-item</button>
               <div className="ml-auto flex gap-2">
                 <button disabled={busy} onClick={save} className="rounded border border-[var(--color-border)] px-3 py-1 text-xs hover:bg-[var(--color-surface-elevated)] disabled:opacity-50">Enregistrer</button>
                 <button disabled={busy} onClick={validate} className="rounded border border-[var(--color-border)] px-3 py-1 text-xs hover:bg-[var(--color-surface-elevated)] disabled:opacity-50">Valider</button>
                 <button disabled={busy} onClick={preview} className="rounded border border-[var(--color-border)] px-3 py-1 text-xs hover:bg-[var(--color-surface-elevated)] disabled:opacity-50" title="Joue l'effet sur ton perso en jeu">Tester sur moi</button>
-                <button disabled={busy} onClick={deploy} className="rounded bg-[var(--color-accent)] px-3 py-1 text-xs text-white hover:opacity-90 disabled:opacity-50">Déployer</button>
+                {peut("techniques.deployer") && (
+                  <button disabled={busy} onClick={() => setDeploiement(true)} className="rounded bg-[var(--color-accent)] px-3 py-1 text-xs font-semibold text-[var(--color-on-gold)] hover:opacity-90 disabled:opacity-50">Déployer…</button>
+                )}
               </div>
             </div>
             <ReactFlow
@@ -415,6 +449,10 @@ function EditorInner() {
         </aside>
       )}
 
+      {deploiement && (
+        <FenetreDeploiement onFermer={() => setDeploiement(false)} onDeployer={deploy} />
+      )}
+
       {importOpen && (
         <ImportModal
           onClose={() => setImportOpen(false)}
@@ -441,6 +479,7 @@ function ImportModal({
   const [root, setRoot] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const { demander } = useConfirm();
   const analyse = async () => {
     setBusy(true);
     try {
@@ -459,9 +498,15 @@ function ImportModal({
     try {
       const { graph } = await importGraph({ yaml: resolvedYaml, rootSpell: root });
       const suggested = graph.id;
-      const slug = window.prompt("Identifiant de la nouvelle technique (lower_snake_case) :", suggested)?.trim();
+      const slug = await demander({
+        titre: "Identifiant de la technique importée",
+        label: "Identifiant",
+        valeurInitiale: suggested,
+        aide: "Minuscules, chiffres et « _ » seulement.",
+        confirmer: "Importer",
+        valider: (v) => (/^[a-z0-9_]+$/.test(v) ? null : "Identifiant invalide : a-z, 0-9 et « _ »."),
+      });
       if (!slug) { setBusy(false); return; }
-      if (!/^[a-z0-9_]+$/.test(slug)) { toast.error("Identifiant invalide."); setBusy(false); return; }
       graph.id = slug;
       const created = await createTechnique({ slug, name: graph.name, category: graph.category, graph });
       toast.success(`Technique « ${root} » importée.`);
@@ -475,7 +520,7 @@ function ImportModal({
       <div className="w-full max-w-2xl rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Importer un sort MagicSpells existant</h3>
-          <button onClick={onClose} className="rounded px-2 py-1 text-xs hover:bg-[var(--color-surface-elevated)]">✕</button>
+          <button onClick={onClose} aria-label="Fermer" title="Fermer" className="rounded px-2 py-1 text-xs hover:bg-[var(--color-surface-elevated)]"><Icone nom="x" taille={14} /></button>
         </div>
         <p className="mb-2 text-[11px] text-[var(--color-foreground-muted)]">
           Colle un fichier de sorts, OU indique un chemin serveur (ex. <code>plugins/MagicSpells/spells-taijutsu.yml</code>).
@@ -498,7 +543,7 @@ function ImportModal({
               <select value={root} onChange={(e) => setRoot(e.target.value)} className="flex-1 rounded border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-2 py-1 text-xs">
                 {spellNames.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
-              <button disabled={busy} onClick={doImport} className="rounded bg-[var(--color-accent)] px-3 py-1 text-xs text-white hover:opacity-90 disabled:opacity-50">Importer</button>
+              <button disabled={busy} onClick={doImport} className="rounded bg-[var(--color-accent)] px-3 py-1 text-xs text-[var(--color-on-gold)] hover:opacity-90 disabled:opacity-50">Importer</button>
             </>
           )}
         </div>
@@ -513,7 +558,7 @@ function AddSpellMenu({ onAdd }: { onAdd: (cls: string) => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
-      <button onClick={() => setOpen((o) => !o)} className="rounded px-2 py-1 text-[11px] text-white hover:opacity-90" style={{ background: "#dc2626" }}>+ Sort ▾</button>
+      <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className="rounded border border-border-strong px-2 py-1 text-[11px] text-fg hover:bg-surface-2">+ Sort ▾</button>
       {open && (
         <div className="absolute z-20 mt-1 max-h-80 w-60 overflow-y-auto rounded border border-[var(--color-border)] bg-[var(--color-surface-elevated)] p-1 shadow-lg">
           {SPELL_CLASSES.map((g) => (
@@ -561,7 +606,7 @@ function SpellInspector({ node, onPatch }: { node: GraphNode; onPatch: (p: Parti
         <datalist id="spellclasses">{ALL_CLASSES.map((c) => <option key={c.cls} value={c.cls}>{c.label}</option>)}</datalist>
       </Field>
       <Field label="Nom affiché (name)"><input className={inputCls} value={node.displayName ?? ""} onChange={(e) => onPatch({ displayName: e.target.value })} placeholder="&cKaton &r&f- ..." /></Field>
-      <label className="flex items-center gap-2"><input type="checkbox" checked={node.helperSpell ?? true} onChange={(e) => onPatch({ helperSpell: e.target.checked })} /><span>helper-spell (sous-sort caché)</span></label>
+      <label className="flex items-center gap-2"><input type="checkbox" className="check" checked={node.helperSpell ?? true} onChange={(e) => onPatch({ helperSpell: e.target.checked })} /><span>helper-spell (sous-sort caché)</span></label>
       <KVEditor title="Options (n'importe quelle clé MagicSpells)" value={node.options ?? {}} onChange={(o) => onPatch({ options: o })} placeholder="ex. damage / horizontal-radius / projectile-velocity" />
       <EffectsEditor value={node.effects ?? []} onChange={(fx) => onPatch({ effects: fx })} />
       <StringListEditor title="Modifiers" value={node.modifiers ?? []} onChange={(m) => onPatch({ modifiers: m })} placeholder="ex. variable coup=1 required" />
@@ -602,7 +647,7 @@ function RequirementsEditor({ value, onChange }: { value: Requirement[]; onChang
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between"><span className="text-[var(--color-foreground-subtle)]">Prérequis</span>
-        <button onClick={() => onChange([...value, { type: "ability", id: "" }])} className="rounded bg-[var(--color-accent)] px-2 py-0.5 text-[11px] text-white">+ Ajouter</button></div>
+        <button onClick={() => onChange([...value, { type: "ability", id: "" }])} className="rounded bg-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-on-gold)]">+ Ajouter</button></div>
       {value.map((r, i) => (
         <div key={i} className="rounded border border-[var(--color-border)] p-2 space-y-1">
           <div className="flex gap-1">
@@ -624,7 +669,7 @@ function StringListEditor({ title, value, onChange, placeholder }: { title: stri
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between"><span className="text-[var(--color-foreground-subtle)]">{title}</span>
-        <button onClick={() => onChange([...value, ""])} className="rounded bg-[var(--color-accent)] px-2 py-0.5 text-[11px] text-white">+</button></div>
+        <button onClick={() => onChange([...value, ""])} className="rounded bg-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-on-gold)]">+</button></div>
       {value.map((s, i) => (
         <div key={i} className="flex gap-1">
           <input className={inputCls} value={s} placeholder={placeholder} onChange={(e) => onChange(value.map((x, idx) => (idx === i ? e.target.value : x)))} />
@@ -647,7 +692,7 @@ function KVEditor({ title, value, onChange, placeholder }: { title: string; valu
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between"><span className="text-[var(--color-foreground-subtle)]">{title}</span>
-        <button onClick={() => onChange({ ...value, "": "" })} className="rounded bg-[var(--color-accent)] px-2 py-0.5 text-[11px] text-white">+</button></div>
+        <button onClick={() => onChange({ ...value, "": "" })} className="rounded bg-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-on-gold)]">+</button></div>
       {placeholder && entries.length === 0 && <p className="text-[10px] text-[var(--color-foreground-muted)]">{placeholder}</p>}
       {entries.map(([k, v], i) => (
         <div key={i} className="flex gap-1">
@@ -673,7 +718,7 @@ function EffectsEditor({ value, onChange }: { value: EffectSpec[]; onChange: (v:
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between"><span className="text-[var(--color-foreground-subtle)]">Effets (VFX / SFX)</span>
-        <button onClick={add} className="rounded bg-[var(--color-accent)] px-2 py-0.5 text-[11px] text-white">+ Effet</button></div>
+        <button onClick={add} className="rounded bg-[var(--color-accent)] px-2 py-0.5 text-[11px] text-[var(--color-on-gold)]">+ Effet</button></div>
       {value.map((fx, i) => (
         <div key={i} className="rounded border border-[var(--color-border)] p-2 space-y-1">
           <div className="flex gap-1">
@@ -731,10 +776,134 @@ function EntityEditor({ value, onChange }: { value?: EffectSpec["entitySpec"]; o
   );
 }
 
+/**
+ * Contenu › Techniques (PANEL_V2 §4.5) : outil de développeur, il garde son
+ * style compact mais prend les tokens et les fenêtres du panel. Le serveur
+ * cible est affiché ; « Déployer » ouvre un récapitulatif (serveur, techniques
+ * modifiées) avant d'écrire quoi que ce soit.
+ */
 export default function AbilitiesPage() {
   return (
-    <ReactFlowProvider>
-      <EditorInner />
-    </ReactFlowProvider>
+    <Garde capacites={["techniques.editer"]}>
+      <EnTeteTechniques />
+      <ReactFlowProvider>
+        <EditorInner />
+      </ReactFlowProvider>
+    </Garde>
+  );
+}
+
+function EnTeteTechniques() {
+  const scopes = useQuery({ queryKey: ["files", "scopes"], queryFn: () => getScopes(), staleTime: 5 * 60_000 });
+  return (
+    <>
+      <PageHeader
+        fil={[{ label: "Contenu" }]}
+        titre="Contenu"
+        sousTitre={
+          <>
+            Techniques : graphes, aperçu en jeu, déploiement
+            {scopes.data?.server ? (
+              <>
+                {" · "}serveur cible : <b>{libelleServeur(scopes.data.server)}</b>
+              </>
+            ) : null}
+          </>
+        }
+      />
+      <SectionTabs section="contenu" />
+      <p className="mb-4 hidden text-[13px] text-fg-3 max-md:block">À faire depuis un ordinateur : l’éditeur demande un grand écran.</p>
+    </>
+  );
+}
+
+/** Récapitulatif avant déploiement (GET /abilities/deploy/recapitulatif). */
+function FenetreDeploiement({ onFermer, onDeployer }: { onFermer: () => void; onDeployer: () => void }) {
+  const recap = useQuery({
+    queryKey: ["abilities", "deploy", "recapitulatif"],
+    queryFn: () => api<RecapitulatifDeploiement>("/abilities/deploy/recapitulatif"),
+    staleTime: 0,
+  });
+  const r = recap.data;
+  const serveur = r ? libelleServeur(r.serveur) : "…";
+  const modifiees = r?.techniques.filter((t) => t.modifiee) ?? [];
+  // Le déploiement réécrit les fichiers générés : ce qui n'est plus publié disparaît du serveur.
+  const retirees = r?.retirees ?? [];
+  return (
+    <Dialog
+      ouvert
+      alerte
+      large
+      onFermer={onFermer}
+      titre={`Déployer sur le serveur ${serveur} ?`}
+      description="Compile toutes les techniques publiées, écrit les fichiers sur le serveur puis recharge les plugins. Les joueurs connectés reçoivent la nouvelle version."
+      pied={
+        <>
+          <Button variante="ghost" onClick={onFermer}>
+            Annuler
+          </Button>
+          <Button variante="primary" disabled={!r || r.total === 0} onClick={onDeployer}>
+            {`Déployer sur ${serveur}`}
+          </Button>
+        </>
+      }
+    >
+      {recap.isLoading && <Chargement />}
+      {recap.error && <ErrorState erreur={recap.error} onReessayer={() => void recap.refetch()} />}
+      {r && (
+        <>
+          <p className="text-[13px] text-fg-2">
+            <b className="text-fg">{r.total}</b> technique{r.total > 1 ? "s" : ""} publiée{r.total > 1 ? "s" : ""}, dont{" "}
+            <b className="text-fg">{r.modifiees}</b> modifiée{r.modifiees > 1 ? "s" : ""}{" "}
+            {r.dernierDeploiement
+              ? `depuis le dernier déploiement (${new Date(r.dernierDeploiement).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" })})`
+              : "(aucun déploiement inscrit au journal)"}
+            .
+          </p>
+          {modifiees.length > 0 ? (
+            <ul className="max-h-[240px] overflow-y-auto rounded-[8px] border border-[var(--color-border)]">
+              {modifiees.map((t) => (
+                <li key={t.id} className="flex items-center justify-between gap-3 border-b border-[var(--color-line)] px-3 py-2 text-[13px] last:border-b-0">
+                  <span className="min-w-0">
+                    <span className="block truncate text-fg">{t.name}</span>
+                    <span className="block text-[12px] text-fg-3">{t.slug} · {t.category}</span>
+                  </span>
+                  <span className="shrink-0 text-[12px] text-fg-3">
+                    {new Date(t.updatedAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : retirees.length === 0 ? (
+            <p className="text-[13px] text-fg-3">Aucune technique modifiée : le déploiement réécrit les mêmes fichiers.</p>
+          ) : null}
+          {retirees.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="flex items-center gap-2 text-[13px] font-medium text-fg">
+                <Icone nom="triangle-alert" taille={15} className="text-danger-text" />
+                Retirées du serveur par ce déploiement ({retirees.length})
+              </p>
+              <ul className="max-h-[200px] overflow-y-auto rounded-[8px] border border-border-strong">
+                {retirees.map((t) => (
+                  <li key={t.slug} className="flex items-center justify-between gap-3 border-b border-line px-3 py-2 text-[13px] last:border-b-0">
+                    <span className="min-w-0">
+                      <span className="block truncate text-fg">{t.name}</span>
+                      <span className="block text-[12px] text-fg-3">{t.slug}</span>
+                    </span>
+                    <span className="shrink-0 text-[12px] text-fg-3">
+                      {t.status === null ? "supprimée" : (LIBELLE_STATUT[t.status] ?? t.status).toLowerCase()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[12px] text-fg-3">
+                Déployées la dernière fois, elles ne sont plus publiées : les joueurs ne pourront plus les lancer. Republie-les avant de déployer pour les garder.
+              </p>
+            </div>
+          )}
+          <p className="text-[12px] text-fg-3">Le déploiement est inscrit au journal (serveur, techniques, fichiers écrits, rechargements).</p>
+        </>
+      )}
+    </Dialog>
   );
 }

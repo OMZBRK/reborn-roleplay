@@ -1,7 +1,7 @@
-import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import express, { json } from 'express';
 import { AppModule } from './app.module';
+import { RebornValidationPipe } from './common/pipes/validation.pipe';
 import { resolveUploadDir, UPLOADS_ROUTE } from './upload/upload.config';
 
 async function bootstrap() {
@@ -49,16 +49,21 @@ async function bootstrap() {
       res.status(404).end();
     },
   );
+  // Même règle pour les voix de la candidature (<uploads>/.voix par défaut,
+  // cf whitelist/voix.config.ts) : écoute par l'API seulement (staff, et le
+  // candidat pour sa propre voix). Un REBORN_VOICE_DIR servi ici est refusé.
+  app.use(
+    `${UPLOADS_ROUTE}/.voix`,
+    (_req: express.Request, res: express.Response) => {
+      res.status(404).end();
+    },
+  );
   app.use(UPLOADS_ROUTE, express.static(resolveUploadDir()));
 
   app.setGlobalPrefix('v1');
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  // whitelist + forbidNonWhitelisted + transform ; champ inconnu signalé en
+  // français, rattaché au champ (common/pipes/validation.pipe.ts).
+  app.useGlobalPipes(new RebornValidationPipe());
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port);

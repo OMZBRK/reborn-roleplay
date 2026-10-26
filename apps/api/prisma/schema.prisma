@@ -63,6 +63,15 @@ model User {
   banReason         String?
   bannedUntil       DateTime?
 
+  // Candidature v2 et douane (docs/gameplay/CANDIDATURE_ET_DOUANE.md §2.9).
+  // Ces deux dates vivent sur le compte, pas sur la candidature : elles
+  // survivent au retrait (DELETE /whitelist/me supprime la ligne de candidature).
+  /// Oral réussi (douane en jeu ou oral hors jeu). Renseigné = plus jamais d'oral, même après une nouvelle
+  /// candidature (décision du 19/10 : l'oral à la première whitelist seulement).
+  oralPassedAt        DateTime?
+  /// Dernier refus (écrit ou oral). Nouvelle candidature possible 1 jour plus tard (canReapplyAt calculé).
+  whitelistRejectedAt DateTime?
+
   // Securite
   twoFactorSecret   String?
   twoFactorEnabled  Boolean  @default(false)
@@ -84,6 +93,20 @@ model User {
   // L5 — creneaux oraux de whitelist : ceux ouverts par ce staff / celui reserve.
   oralSlotsOpened    WhitelistOralSlot[]     @relation("OralSlotOpener")
   oralSlotsBooked    WhitelistOralSlot[]     @relation("OralSlotBooker")
+
+  // Candidature v2 : brouillon serveur, oraux tranchés en tant qu'examinateur.
+  candidatureBrouillon CandidatureBrouillon?
+  oralExaminations     WhitelistApplication[] @relation("WhitelistOralExaminer")
+
+  // Douane en jeu : séances ouvertes / examinées par ce staff, réservations du
+  // candidat, passages tranchés en tant qu'examinateur.
+  douaneSeancesOuvertes  DouaneSeance[]      @relation("DouaneSeanceOpener")
+  douaneSeancesExaminees DouaneSeance[]      @relation("DouaneSeanceExaminateurs")
+  douaneReservations     DouaneReservation[] @relation("DouaneReservationCandidat")
+  douaneExamens          DouaneReservation[] @relation("DouaneReservationExaminateur")
+
+  // Personnages du jeu, poussés par les serveurs (« Mes personnages », lot J).
+  gameCharacters         GameCharacter[]
 
   // Systeme social (v1.0.5)
   friendshipsInitiated Friendship[]    @relation("FriendshipFrom")
@@ -140,34 +163,96 @@ model WhitelistApplication {
   id           String    @id @default(uuid())
   userId       String    @unique
   user         User      @relation(fields: [userId], references: [id])
-  // Statut global historique. Reste la source d'affichage legacy ; avec L5 il
-  // devient derive : APPROVED seulement quand hrpStatus == rpStatus == APPROVED.
+  // Statut global. Candidature v2 (CANDIDATURE_ET_DOUANE.md §1.3) : APPROVED
+  // seulement APRÈS l'oral (oralStatus APPROVED ou User.oralPassedAt). Écrit
+  // validé (HRP + RP) mais oral à passer = PENDING + writtenApprovedAt.
   status       AppStatus @default(PENDING)
 
-  // L5 — prevalidation HRP (via test oral) puis validation RP, independantes.
-  // HRP approuve = verrouille ; un RP rejete renvoie editer le RP seul.
+  // Les deux parties de l'ÉCRIT, tranchées au panel (v2). Avant la v2 (L5),
+  // hrpStatus voulait dire « HRP validé via le test oral » : la migration
+  // candidature_v2_douane en a tiré oralStatus.
   hrpStatus    AppStatus @default(PENDING)
   rpStatus     AppStatus @default(PENDING)
 
-  // Etape 1 — HRP (hors roleplay)
-  dob          DateTime
-  motivation   String
-  experience   String
-  availability String
+  /// 1 = ancien formulaire (ancien launcher, sans formVersion) ; 2 = candidature v2 en six onglets.
+  /// Le DTO choisit ses règles d'après cette valeur (transition « A tolérant », §2.9).
+  formVersion  Int       @default(1)
 
-  // Etape 2 — RP (le personnage)
-  firstName    String
-  lastName     String
-  village      String
-  support      String?  // URL YouTube/Canva, optionnelle
-  history      String
-  appearance   String
-  objectives   String
+  // ── Partie HRP (onglet 1 « Vous ») ──
+  /// v2 : âge déclaré du joueur, en nombre (15 à 99, borné par l'API).
+  playerAge       Int?
+  /// v1 seulement : date de naissance. Gardée pour les anciens dossiers, plus demandée en v2.
+  dob             DateTime?
+  rpYears         RpYears?
+  narutoKnowledge NarutoKnowledge?
+  /// Facultatif : null = « Pas de réponse ».
+  discoverySource DiscoverySource?
+  availability    String
+  /// v1 seulement (« Pourquoi Reborn ? ») : retiré de la v2, l'oral en jeu le remplace (complément du 24/10).
+  motivation      String?
+  /// v1 seulement (« Ton expérience du roleplay ») : retiré de la v2 (complément du 24/10).
+  experience      String?
+
+  // ── Partie RP (onglets 2 « Personnage », 3 « Village », 4 « Histoire ») ──
+  firstName     String
+  /// v1 : texte libre, en pratique le clan. v2 : nom de famille LIBRE (3 à 20 lettres, jamais un nom de clan) ;
+  /// aucun clan n'est choisi à la candidature, le premier personnage arrive « sans clan » (clan « Autre » du mod).
+  lastName      String
+  /// v2 : une des six valeurs exactes du mod (« Konohagakure »…), Déserteur exclu. v1 : texte libre.
+  village       String
+  characterType CharacterType?
+  characterSex  CharacterSex?
+  /// v2 : 10 à 60 ans, bornes du jeu.
+  characterAge  Int?
+  support       String?  // URL YouTube/Canva, optionnelle
+  history       String
+  /// v1 seulement (« Caractère et apparence ») : retiré de la v2 (complément du 24/10).
+  appearance    String?
+  objectives    String
+
+  // ── Voix (onglet 5, partie RP) — fichier PRIVÉ, jamais servi en statique ──
+  /// Nom du fichier dans le dossier privé des voix (hors /uploads public). Jamais une URL.
+  /// null = aucune voix (v1) ou voix effacée (voiceDeletedAt).
+  voiceKey         String?
+  /// audio/webm ou audio/ogg (Content-Type renvoyé à l'écoute staff).
+  voiceMimeType    String?
+  /// Durée de l'enregistrement, en secondes (15 à 60).
+  voiceDurationSec Int?
+  voiceUploadedAt  DateTime?
+  /// Effacement programmé : décision finale + 30 jours (Q2). Une tâche planifiée supprime le fichier.
+  voicePurgeAt     DateTime?
+  /// Fichier effacé (fin de la durée de garde) ; voiceKey est alors remis à null.
+  voiceDeletedAt   DateTime?
+
+  // ── Onglet 6 « Envoi » : cases cochées, datées ──
+  /// « J'ai lu le règlement et ces réponses sont de moi ».
+  rulesAcceptedAt DateTime?
+  /// « J'accepte que ma voix soit enregistrée pour ma candidature ».
+  voiceConsentAt  DateTime?
 
   submittedAt  DateTime  @default(now())
   reviewedAt   DateTime?
   reviewedBy   String?
+  /// Commentaire de l'ÉCRIT, visible du joueur.
   reviewNotes  String?
+
+  // ── Décision de l'écrit (v2) ──
+  /// HRP et RP validés : le candidat peut réserver une séance de douane (status reste PENDING).
+  writtenApprovedAt DateTime?
+  /// Note PRIVÉE du staff sur l'écrit (points à creuser), transmise à l'examinateur. Jamais renvoyée au joueur.
+  writtenStaffNotes String?
+
+  // ── Décision de l'oral (v2) ──
+  oralStatus         AppStatus @default(PENDING)
+  oralDecidedAt      DateTime?
+  /// Douane en jeu, ou oral hors jeu saisi au panel (transition §3.11, secours Q9).
+  oralVia            OralVia?
+  oralExaminerUserId String?
+  oralExaminer       User?     @relation("WhitelistOralExaminer", fields: [oralExaminerUserId], references: [id])
+  /// Motif de l'oral, VISIBLE du joueur (obligatoire pour « À revoir » et « Refusé »). Séparé de reviewNotes.
+  oralReason         String?
+  /// Notes PRIVÉES de l'examinateur. Jamais renvoyées au joueur.
+  oralNotes          String?
 
   // Legacy : ID du thread Discord cree par le bot AVANT le passage au
   // flow DM (C3). Conserve pour les anciennes candidatures qui ont encore
@@ -187,7 +272,81 @@ model WhitelistApplication {
   assignedTo       User?     @relation("WhitelistAssignee", fields: [assignedToUserId], references: [id])
   assignedAt       DateTime?
 
-  messages     WhitelistMessage[]
+  messages            WhitelistMessage[]
+  douaneReservations  DouaneReservation[]
+  /// Personnage(s) issu(s) de cette candidature (marque `application` de ShinobiCore, §4.4).
+  gameCharacters      GameCharacter[]
+}
+
+// ── Listes fermées de la candidature v2 (§2.3). Codes ASCII en base, libellés
+// français côté launcher et panel.
+
+/// « Depuis combien de temps fais-tu du roleplay ? »
+enum RpYears {
+  JAMAIS            // Jamais
+  MOINS_D_UN_AN     // Moins d'un an
+  UN_A_DEUX_ANS     // 1 à 2 ans
+  TROIS_A_CINQ_ANS  // 3 à 5 ans
+  SIX_ANS_ET_PLUS   // 6 ans et plus
+}
+
+/// « Ta connaissance de l'univers Naruto »
+enum NarutoKnowledge {
+  DEBUTANT            // Débutant
+  QUELQUES_ARCS       // Quelques arcs
+  BONNE_CONNAISSANCE  // Bonne connaissance
+  INCOLLABLE          // Incollable, Boruto compris
+}
+
+/// « Comment as-tu découvert le serveur ? » (facultatif : null = Pas de réponse)
+enum DiscoverySource {
+  DISCORD
+  TIKTOK
+  YOUTUBE
+  AMI            // Un ami
+  AUTRE_SERVEUR  // Un autre serveur
+  RECHERCHE      // Une recherche
+  AUTRE
+}
+
+/// Type de personnage (Q3, décision du 24/10 : présent dès la beta).
+enum CharacterType {
+  NINJA
+  CIVIL
+}
+
+/// Sexe du personnage. Valeurs du mod : « Homme », « Femme ».
+enum CharacterSex {
+  HOMME
+  FEMME
+}
+
+/// Où l'oral a été passé.
+enum OralVia {
+  DOUANE    // en jeu, décision envoyée par le serveur
+  HORS_JEU  // vocal ou appel, décision saisie au panel (transition, secours)
+}
+
+// Brouillon de candidature côté serveur (§2.5), à part de WhitelistApplication :
+// il ne touche ni aux statuts ni au @unique de la candidature. Nom distinct du
+// type TypeScript `WhitelistDraft` du launcher. `data` = le formulaire tel que
+// le launcher l'envoie (contrôle souple, maximums appliqués, 256 Ko au plus).
+// La voix envoyée avant l'envoi est rangée ici, dans des colonnes que seul
+// l'endpoint d'upload écrit (jamais dans `data`, que le client réécrit) ; elle
+// passe sur la candidature à l'envoi. Effacé après l'envoi ; pour une
+// candidature « à revoir », il sert de zone d'édition des onglets rouverts.
+model CandidatureBrouillon {
+  id               String    @id @default(uuid())
+  userId           String    @unique
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  formVersion      Int       @default(2)
+  data             Json      @default("{}")
+  voiceKey         String?
+  voiceMimeType    String?
+  voiceDurationSec Int?
+  voiceUploadedAt  DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
 // Conversation staff↔candidat liee a une candidature whitelist. Le canal
@@ -260,6 +419,183 @@ model WhitelistOralSlot {
   updatedAt      DateTime       @updatedAt
 
   @@index([status, startAt])
+}
+
+// ──────────────────────────────────────────────────────
+// DOUANE (oral en jeu) — CANDIDATURE_ET_DOUANE.md §3.3, §3.6, §3.9
+// ──────────────────────────────────────────────────────
+// Remplace WhitelistOralSlot (un candidat par créneau), qui sert encore pendant
+// la transition. Le staff ouvre une SÉANCE avec une capacité ; le candidat dont
+// l'écrit est validé y réserve une PLACE, avec une heure de convocation.
+
+/// Ce que la séance examine. Seulement la whitelist : les candidatures de clan sont hors périmètre.
+enum DouaneKind {
+  WHITELIST
+}
+
+enum DouaneSeanceStatut {
+  OUVERTE   // réservable dans la limite de la capacité
+  FERMEE    // plus de nouvelle réservation, la séance a lieu
+  TERMINEE  // clôturée par le staff (notes)
+  ANNULEE   // annulée par le staff : les candidats sont prévenus
+}
+
+enum DouaneReservationStatut {
+  BOOKED     // place réservée, à venir
+  DONE       // passage tranché (voir resultat)
+  MISSED     // séance manquée (au-delà de la fenêtre d'entrée) ; pas de limite pour la beta (Q12)
+  CANCELLED  // annulée : par le candidat, par le staff, séance annulée ou reportée (motifAnnulation)
+}
+
+model DouaneSeance {
+  id              String             @id @default(uuid())
+  kind            DouaneKind         @default(WHITELIST)
+  startAt         DateTime
+  endAt           DateTime
+  /// Nombre de places (réservations BOOKED ou DONE comptées). Repère : examinateurs × heures × 4.
+  capacite        Int
+  statut          DouaneSeanceStatut @default(OUVERTE)
+
+  openedByUserId  String
+  openedBy        User               @relation("DouaneSeanceOpener", fields: [openedByUserId], references: [id])
+  /// Examinateurs prévus (staff du panel, rôle WHITELIST_REVIEWER ou plus).
+  examinateurs    User[]             @relation("DouaneSeanceExaminateurs")
+
+  /// Notes PRIVÉES du staff, à la clôture.
+  notes           String?
+  clotureeAt      DateTime?
+  annuleeAt       DateTime?
+  /// Motif d'annulation, transmis aux candidats prévenus.
+  motifAnnulation String?
+
+  reservations    DouaneReservation[]
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([statut, startAt])
+  @@index([kind, startAt])
+}
+
+// Une place réservée dans une séance. Une seule réservation BOOKED par compte :
+// garde en service (transaction), pas d'index partiel (Prisma ne le décrit pas).
+model DouaneReservation {
+  id                String                  @id @default(uuid())
+  seanceId          String
+  seance            DouaneSeance            @relation(fields: [seanceId], references: [id])
+  applicationId     String
+  application       WhitelistApplication    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User                    @relation("DouaneReservationCandidat", fields: [userId], references: [id])
+
+  /// Heure de convocation H. Entrée en jeu permise de H − 15 min à H + 30 min (règle unique, §3.3).
+  convocationAt     DateTime
+  statut            DouaneReservationStatut @default(BOOKED)
+
+  // Présence, remplie par le serveur de jeu (POST /game/douane/presence, lot facultatif).
+  /// Arrivée au hall.
+  presentAt         DateTime?
+  /// Appelé au bureau par un examinateur.
+  calledAt          DateTime?
+  /// Sortie de la douane (déconnexion, fin de passage).
+  departAt          DateTime?
+
+  // Résultat du passage (l'état courant de l'oral vit sur WhitelistApplication).
+  /// APPROVED, NEEDS_REVISION ou REJECTED ; null tant que rien n'est tranché.
+  resultat          AppStatus?
+  decidedAt         DateTime?
+  examinateurUserId String?
+  examinateur       User?                   @relation("DouaneReservationExaminateur", fields: [examinateurUserId], references: [id])
+
+  /// Rappel 1 h avant envoyé (MP du bot + notification du launcher) : la tâche planifiée ne le renvoie pas.
+  rappelEnvoyeAt    DateTime?
+  annuleeAt         DateTime?
+  /// Motif d'annulation (retiré de la douane, séance annulée, séance reportée, annulée par le candidat).
+  motifAnnulation   String?
+
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@index([seanceId, statut])
+  @@index([userId, statut])
+  @@index([applicationId])
+  @@index([statut, convocationAt])
+}
+
+/// Nonces à usage unique des routes signées du jeu (nouveau garde, §3.9 et §3.12) : un nonce déjà vu est
+/// refusé. Les lignes plus vieilles que la fenêtre d'heure acceptée sont purgées par une tâche planifiée.
+model GameRequestNonce {
+  nonce     String   @id
+  /// Serveur de jeu émetteur (identifiant de config, jamais une adresse).
+  serverId  String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// ──────────────────────────────────────────────────────
+// PERSONNAGES DU JEU (CANDIDATURE_ET_DOUANE.md §4.5, lot J)
+// ──────────────────────────────────────────────────────
+
+/// Dernière photo d'un personnage de ShinobiCore, poussée par le serveur de jeu (POST /v1/game/characters/sync,
+/// route signée). Le plugin fait foi : l'API ne crée ni ne modifie un personnage, elle garde la photo la plus
+/// récente (`snapshotAt`). Chaque serveur numérote ses N° (player-ids.yml) : `serverId` entre dans les deux clés.
+/// Le dev parle à la même API que la prod : ses personnages arrivent aussi en base, mais GET /v1/me/characters ne
+/// lit que les serveurs de prod (REBORN_CHARACTERS_SERVER_IDS, `prod` par défaut).
+model GameCharacter {
+  id            String                @id @default(uuid())
+  /// Serveur émetteur : `X-Reborn-Server`, prouvé par son secret, jamais lu dans le corps (« prod », « dev »…).
+  serverId      String
+  /// Identifiant du personnage côté plugin (ShinobiCharacter.id, UUID en minuscules).
+  characterId   String
+  /// Compte Minecraft propriétaire (ShinobiCharacter.ownerId), avec tirets, en minuscules.
+  ownerMcUuid   String
+  /// Compte Reborn du propriétaire, retrouvé par ownerMcUuid à chaque synchronisation ; null = compte inconnu.
+  userId        String?
+  user          User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  /// N° (Player ID) attribué par le serveur, jamais réutilisé ; null tant qu'il n'est pas attribué. Montré au
+  /// propriétaire (GET /me/characters) et au staff seulement, jamais dans un endpoint social ou public.
+  playerId      Int?
+  /// Prénom RP (modifiable en jeu, Q13).
+  firstName     String
+  /// Nom de famille libre (clan « Autre » du mod) ; null si le personnage n'en a pas.
+  lastName      String?
+  /// Clan acquis en session de clan ; null = sans clan (premier personnage, Q4).
+  clan          String?
+  /// Village RP, valeur du mod (« Konohagakure »…) ; null = aucun.
+  village       String?
+  /// Ninja ou civil (Q3) ; NINJA tant que le plugin n'envoie pas le type.
+  type          CharacterType         @default(NINJA)
+  /// Code du grade côté plugin (enum Rank : GENIN, CHUNIN…) ; le launcher affiche le libellé. null = aucun.
+  rank          String?
+  sex           CharacterSex?
+  age           Int?
+  /// Mort RP : le personnage reste sur le roster, grisé.
+  dead          Boolean               @default(false)
+  /// Supprimé en jeu : la ligne est gardée (état « Supprimé » dans « Mes personnages »).
+  deletedAt     DateTime?
+  /// Temps de jeu compté par le plugin depuis sa mise à jour ; le passé ne se reconstitue pas.
+  playMinutes   Int                   @default(0)
+  /// Création du personnage EN JEU (pas de la ligne) ; null si le plugin ne la connaît pas.
+  createdAt     DateTime?
+  /// Dernière partie avec ce personnage actif.
+  lastSeenAt    DateTime?
+  /// Candidature d'origine (marque `application` du YAML), premier personnage seulement (§4.4). Gardée seulement
+  /// si elle appartient au même compte que le personnage.
+  applicationId String?
+  application   WhitelistApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  /// Instant de la photo côté plugin : une photo plus ancienne que celle en base est ignorée (file de reprise,
+  /// envois croisés).
+  snapshotAt    DateTime
+  /// Première synchronisation reçue : début du décompte de playMinutes pour un personnage antérieur au suivi.
+  firstSyncedAt DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@unique([serverId, characterId])
+  @@unique([serverId, playerId])
+  @@index([userId, serverId])
+  @@index([ownerMcUuid])
+  @@index([applicationId])
 }
 
 // ──────────────────────────────────────────────────────

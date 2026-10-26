@@ -86,7 +86,14 @@ export class WhitelistMessagesService {
       // d'etre — le user passe par les tickets pour toute question
       // ulterieure (cf staff service).
       throw new ForbiddenException(
-        'Ta candidature est acceptee. Pour toute question, ouvre un ticket.',
+        'Ta candidature est acceptée. Pour toute question, ouvre un ticket.',
+      );
+    }
+    if (app.status === 'REJECTED') {
+      // Fil fermé avec la décision (maquette L8), comme côté staff
+      // (postStaffMessage). Il rouvre avec la nouvelle candidature (PENDING).
+      throw new ForbiddenException(
+        'Ta candidature est refusée : le fil est fermé. Une question ? Ouvre un ticket.',
       );
     }
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -164,7 +171,10 @@ export class WhitelistMessagesService {
    * décision HRP/RP…). Best-effort : ne jette pas — un échec de message ne
    * doit pas casser la transition qui l'a déclenché.
    */
-  async postSystemMessage(applicationId: string, content: string): Promise<void> {
+  async postSystemMessage(
+    applicationId: string,
+    content: string,
+  ): Promise<void> {
     try {
       await this.prisma.whitelistMessage.create({
         data: {

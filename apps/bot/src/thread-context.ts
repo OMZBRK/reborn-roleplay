@@ -55,7 +55,9 @@ async function extractIdFromThreadChannel(
   // Seul l'embed initial cree par les webhooks pose ce footer, donc on
   // tombe sur le bon a coup sur, peu importe l'ordre.
   const messages = await thread.messages.fetch({ limit: 50 });
-  const pattern = new RegExp(`^${prefix}\\s+([\\w-]+)$`);
+  // Le pied peut porter des segments ajoutés ensuite (« · Pris par X »,
+  // « · Statut : … ») : seul le début « <prefix> <id> » compte.
+  const pattern = new RegExp(`^${prefix}\\s+([\\w-]+)(?:\\s·\\s.*)?$`);
   for (const m of messages.values()) {
     if (m.author.id !== client.user?.id) continue;
     for (const embed of m.embeds) {
