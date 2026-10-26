@@ -18,6 +18,7 @@ import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 /**
  * Data live du menu ESC (compteur Discord, dernières patch notes, streams).
@@ -52,10 +53,15 @@ public final class EscData {
     /** Une patch note (champs nettoyés ArcadePix + URL web brute) ; {@code titreTexte} : titre d'origine (Inter). */
     public record PatchNote(String version, String title, String date, String url, String titreTexte) {}
 
-    /** Snapshot immuable exposé au render thread (volatile publish). */
+    /**
+     * Snapshot immuable exposé au render thread (volatile publish).
+     * {@code discordInviteUrl} : invitation renvoyée par l'API, {@code null}
+     * si absente ou refusée (voir {@link #invitationDiscord}).
+     */
     public record Snapshot(
         int discordMembers, int discordOnline,
-        List<PatchNote> patchNotes, List<Stream> streams
+        List<PatchNote> patchNotes, List<Stream> streams,
+        String discordInviteUrl
     ) {
         public int liveStreamCount() {
             int n = 0;
@@ -116,11 +122,13 @@ public final class EscData {
 
     private static Snapshot parse(JsonObject root) {
         int members = -1, online = -1;
+        String invite = null;
         JsonElement d = root.get("discord");
         if (d != null && d.isJsonObject()) {
             JsonObject dj = d.getAsJsonObject();
             members = optInt(dj, "members", -1);
             online = optInt(dj, "online", -1);
+            invite = invitationDiscord(optStr(dj, "inviteUrl", null));
         }
 
         List<PatchNote> notes = new ArrayList<>();
@@ -154,7 +162,18 @@ public final class EscData {
             }
         }
 
-        return new Snapshot(members, online, notes, streams);
+        return new Snapshot(members, online, notes, streams, invite);
+    }
+
+    /** Seuls liens acceptés pour les boutons Discord : une invitation Discord, rien d'autre. */
+    private static final Pattern INVITATION_DISCORD = Pattern.compile(
+        "https://(discord\\.gg|discord\\.com/invite)/[A-Za-z0-9-]{2,32}");
+
+    /** L'URL si c'est bien une invitation Discord, sinon {@code null} (repli sur la constante). */
+    static String invitationDiscord(String url) {
+        if (url == null) return null;
+        String u = url.trim();
+        return INVITATION_DISCORD.matcher(u).matches() ? u : null;
     }
 
     private static int optInt(JsonObject o, String k, int def) {

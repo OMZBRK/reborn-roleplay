@@ -1,6 +1,7 @@
 package fr.reborn.guardian.listener;
 
 import fr.reborn.guardian.auth.AuthSessionState;
+import fr.reborn.guardian.auth.ScopeMetadata;
 import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -25,6 +26,11 @@ import org.bukkit.scheduler.BukkitTask;
  *
  * <p>Si le delai expire sans attestation valide, on kick avec un message
  * actionnable pour le joueur.
+ *
+ * <p>La marque {@code reborn.scope} est effacee au JOIN (priorite LOWEST,
+ * avant les autres plugins) et au QUIT : les metadonnees de joueur Bukkit
+ * survivent a la deconnexion, une ancienne valeur ne doit jamais servir de
+ * preuve pour la connexion suivante.
  */
 public final class PendingAuthListener implements Listener {
 
@@ -39,11 +45,16 @@ public final class PendingAuthListener implements Listener {
         this.state = state;
     }
 
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void clearStaleScope(PlayerJoinEvent event) {
+        ScopeMetadata.clear(plugin, event.getPlayer());
+    }
+
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         plugin.getLogger().info(String.format(
-            "[guardian] %s connecte — attestation attendue dans %ds",
+            "[guardian] %s connecté — attestation attendue dans %ds",
             player.getName(),
             KICK_DELAY_TICKS / 20
         ));
@@ -52,7 +63,7 @@ public final class PendingAuthListener implements Listener {
             () -> {
                 if (player.isOnline()) {
                     plugin.getLogger().warning(String.format(
-                        "[guardian] kick %s : pas d'attestation recue",
+                        "[guardian] kick %s : pas d'attestation reçue",
                         player.getName()
                     ));
                     player.kick(Component.text(
@@ -67,10 +78,11 @@ public final class PendingAuthListener implements Listener {
         state.trackPendingKick(player.getUniqueId(), kickTask);
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(PlayerQuitEvent event) {
         // Cleanup au quit volontaire : si le joueur se deco avant l'attestation,
         // on libere le task pour eviter qu'il tente de kick un absent.
         state.forget(event.getPlayer().getUniqueId());
+        ScopeMetadata.clear(plugin, event.getPlayer());
     }
 }

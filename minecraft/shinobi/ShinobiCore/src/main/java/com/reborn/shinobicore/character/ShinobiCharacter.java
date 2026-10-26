@@ -203,6 +203,21 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
      */
     private int playerId = -1;
 
+    /* ------------------------------------- candidature et suivi (lot J, §4.4-4.5) */
+    /** Type de personnage, {@code NINJA} ou {@code CIVIL} (repris de la candidature pour le premier personnage). */
+    private String type = TYPE_NINJA;
+    /** Candidature d'où vient ce personnage (marque {@code application} du YAML), ou {@code null}. */
+    private String applicationId;
+    /** Création en jeu (ms epoch) ; 0 = inconnue (personnage créé avant le suivi). */
+    private long createdAt;
+    /** Dernière partie avec ce personnage actif (ms epoch) ; 0 = inconnue. */
+    private long lastSeenAt;
+    /** Minutes jouées avec ce personnage actif, depuis la mise à jour du plugin : le passé ne se reconstitue pas. */
+    private int playMinutes;
+
+    public static final String TYPE_NINJA = "NINJA";
+    public static final String TYPE_CIVIL = "CIVIL";
+
     /**
      * Active injuries on this character. Each {@link Injury} carries a
      * body part, type (Hématome/Brûlure/etc.), origin (Taijutsu/Katon/…)
@@ -615,6 +630,54 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
     public boolean hasPlayerId()  { return playerId >= 0; }
     /** Réservé au registre et au chargement : le N° ne change jamais une fois attribué. */
     public void    setPlayerId(int n) { if (n != playerId) { this.playerId = n; touch(); } }
+
+    /* ---------------------------------------------- candidature et suivi (lot J) */
+
+    /** {@code NINJA} ou {@code CIVIL}. */
+    public String type() { return TYPE_CIVIL.equals(type) ? TYPE_CIVIL : TYPE_NINJA; }
+    /** Valeur inconnue = {@code NINJA}. */
+    public void setType(String t) {
+        String n = t != null && TYPE_CIVIL.equalsIgnoreCase(t.strip()) ? TYPE_CIVIL : TYPE_NINJA;
+        if (!n.equals(type)) { this.type = n; touch(); }
+    }
+
+    /** Identifiant de la candidature liée (premier personnage), ou {@code null}. */
+    public String applicationId() { return applicationId; }
+    public void setApplicationId(String id) {
+        String n = id == null || id.isBlank() ? null : id.strip();
+        if (!java.util.Objects.equals(n, applicationId)) { this.applicationId = n; touch(); }
+    }
+
+    /** Création en jeu (ms epoch), 0 si inconnue. */
+    public long createdAt() { return createdAt; }
+    public void setCreatedAt(long ms) { long n = Math.max(0L, ms); if (n != createdAt) { this.createdAt = n; touch(); } }
+
+    /**
+     * Dernière partie (ms epoch), 0 si inconnue. Le setter ne marque pas la fiche « sale » : il est appelé chaque
+     * minute pour chaque joueur en ligne, et l'auto-sauvegarde ne doit pas réécrire le roster d'un joueur immobile.
+     * La valeur part avec la prochaine vraie sauvegarde ; changement de personnage, déconnexion et arrêt écrivent
+     * toujours.
+     */
+    public long lastSeenAt() { return lastSeenAt; }
+    public void setLastSeenAt(long ms) { this.lastSeenAt = Math.max(0L, ms); }
+
+    /** Minutes jouées avec ce personnage actif. */
+    public int playMinutes() { return playMinutes; }
+    public void setPlayMinutes(int m) { int n = Math.max(0, m); if (n != playMinutes) { this.playMinutes = n; touch(); } }
+
+    /** Toutes les combien de minutes de jeu la fiche est marquée « sale » (perte bornée en cas de plantage). */
+    private static final int MINUTES_ENTRE_SAUVEGARDES = 10;
+
+    /**
+     * Une minute de plus (compteur de {@code SynchroPersonnages}), bornée pour ne jamais déborder. Ne marque la fiche
+     * « sale » que toutes les {@value #MINUTES_ENTRE_SAUVEGARDES} minutes (même raison que {@link #setLastSeenAt}) :
+     * un plantage perd au plus ces quelques minutes de temps de jeu.
+     */
+    public void addPlayMinute() {
+        if (playMinutes >= Integer.MAX_VALUE) return;
+        playMinutes++;
+        if (playMinutes % MINUTES_ENTRE_SAUVEGARDES == 0) touch();
+    }
 
     /* ---------------------------------------------- jutsu bindings */
 

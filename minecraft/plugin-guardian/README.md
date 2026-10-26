@@ -29,7 +29,7 @@ Plugin Paper qui valide les clients Reborn Roleplay (cf `PLAN_CONCEPTION_LAUNCHE
 
 Depuis IntelliJ, ouvre le panneau **Gradle** (a droite) et clique sur :
 
-- `Tasks/build/build` — compile et package en `build/libs/reborn-guardian-0.1.0-dev.jar`
+- `Tasks/build/build` — compile et package en `build/libs/reborn-guardian-0.2.0-dev.jar`
 - `Tasks/run paper/runServer` — lance un serveur Paper 1.21.1 local avec le
   plugin charge. Premier run : telecharge ~80 Mo (Paper jar + worlds par
   defaut). Le serveur ecoute sur **localhost:25565** par defaut. Console
@@ -78,18 +78,32 @@ Vérification de l'attestation **play-token** envoyée par le mod
    Bukkit (`PendingAuthListener`).
 2. `AuthChannelListener` reçoit le payload sur le canal Plugin
    Messaging `reborn:auth`.
-3. `PlayTokenVerifier.verify(token)` recalcule HMAC-SHA256 avec
-   `REBORN_PLAY_TOKEN_SECRET` partagé avec l'API, vérifie `exp`, et
-   décode le payload JSON.
-4. Vérification additionnelle : `payload.mcUuid == player.getUniqueId()`
-   (sinon = token volé d'un autre joueur -> kick).
-5. Si tout passe, `AuthSessionState.markAuthenticated` annule le kick.
+3. `PlayTokenVerifier.check(token)` recalcule HMAC-SHA256 avec
+   `REBORN_PLAY_TOKEN_SECRET` partagé avec l'API (secret brut pour
+   `play`, clé dérivée `HMAC(secret, "reborn-douane-v1")` pour `douane` :
+   la clé qui signe fixe la portée), vérifie `exp`, et décode le payload
+   JSON.
+4. `AttestationPolicy.evaluate` vérifie en plus : `payload.mcUuid ==
+   player.getUniqueId()` (sinon = token volé d'un autre joueur -> kick),
+   la portée `scope` (`play` ou `douane`, absente = `play`) et le serveur
+   visé `aud` contre la clé `server-id`.
+5. Si tout passe, `AuthSessionState.markAuthenticated` annule le kick et
+   la marque transitoire `reborn.scope` est posée sur le joueur (fil
+   principal), effacée au JOIN et au QUIT.
+
+Sans secret valide, ou avec un `config.yml` illisible (jamais réécrit),
+le plugin passe en **mode fermé** (seuls op et staff entrent) au lieu de
+se désactiver. Clés de config, claims du jeton, contrat
+de la marque et étapes de transition : `docs/technique/PLUGINS_REFERENCE.md`
+§5.4.
 
 ### Pièges connus
 
-- Le secret HMAC vit **uniquement** dans `.env` (API) et
-  `System.getenv()` (plugin Paper). Le mod et le launcher ne le voient
-  jamais.
+- Le secret HMAC vit **uniquement** dans `.env` (API) et côté serveur de
+  jeu (`System.getenv()` ou `plugins/RebornGuardian/config.yml`, clé
+  `play-token-secret`). Le mod et le launcher ne le voient jamais.
+- Les métadonnées de joueur Bukkit survivent à la déconnexion : ne jamais
+  retirer l'effacement de `reborn.scope` au JOIN et au QUIT.
 - `./gradlew runServer` du plugin ne lit pas le `.env` du monorepo —
   le `build.gradle.kts` a un fallback dev hardcodé. Si tu l'utilises,
   mets la même valeur côté API.

@@ -212,6 +212,15 @@ public final class RebornHudClient implements ClientModInitializer {
                     if (isCharacterScreen(mc.gui.screen())) mc.setScreenAndShow(null);
                     return;
                 }
+                // Refus de création par le serveur (« create-refus\n<étape>\n<message> », lot J) : l'écran de création
+                // annule sa sortie et rouvre l'étape fautive ; ailleurs, le message de chat du serveur suffit.
+                if (content != null && content.startsWith("create-refus\n")) {
+                    String[] r = content.split("\n", 3);
+                    if (mc.gui.screen() instanceof fr.reborn.hud.menu.character.perso.PersoCreationScreen pc) {
+                        pc.refusServeur(r.length > 1 ? r[1] : "", r.length > 2 ? r[2] : "");
+                    }
+                    return;
+                }
                 fr.reborn.hud.menu.character.CharacterData.update(content);
                 if (mc.player == null) return;
                 // Le serveur n'envoie ce roster QUE pendant la sélection → le joueur
@@ -726,6 +735,10 @@ public final class RebornHudClient implements ClientModInitializer {
         // Poste de garde (panel staff, canal reborn:staff, touche F7 ou /garde) : alertes, fiche joueur, casier,
         // sanctions au sceau, chat staff, journal, commandes. Le serveur (ShinobiCore StaffPanel) décide de tout.
         fr.reborn.hud.staff.StaffClient.init();
+        // Douane (25/10, canal reborn:douane, ShinobiCore DouaneCanal) : ligne du haut, attente, appel, question,
+        // Bienvenue, résultat, plaques (candidat) ; onglet Douane du Poste de garde (examinateur) ; banc REBORN_DOUANE_DEBUG.
+        fr.reborn.hud.douane.DouaneClient.init();
+        fr.reborn.hud.douane.DouaneDebug.init();
         fr.reborn.hud.parchemin.ParcheminClient.init();
         fr.reborn.hud.staff.StaffDebug.init();
         fr.reborn.hud.staff.InfirmerieDebug.init();

@@ -30,7 +30,9 @@ NOMS = ["chercher", "cloche", "joueurs", "journal", "outils", "croix", "gauche",
         "plus", "reveiller", "annonce", "chat", "commandes", "infirmerie", "zones", "verrou", "filtre", "emote",
         "tenue", "seisme", "zero", "suppr", "lien", "horloge", "point", "epee", "alerte", "crane",
         "drapeau", "aide", "renvoyer", "hopital", "reglages", "masque", "bouclier", "copier", "tri", "coeur",
-        "cercle"]
+        "cercle",
+        # onglet Douane du Poste de garde (lot E, 25/10, maquettes J6 à J8) : ajoutées en fin, l'ordre ne bouge pas
+        "micro", "micro_off", "externe", "lecture", "coche", "porte", "tirage", "barriere", "dossier"]
 TAILLES = [5, 6, 7, 8, 10, 12, 14, 15, 16, 18, 20, 21, 24, 28, 30, 32, 40]
 
 
@@ -182,6 +184,27 @@ def masque(nom: str, s: int) -> Image.Image:
         L((12, 20), (4, 12)); L((12, 20), (20, 12)); A(2.5, 4, 12.5, 14, 135, 360); A(11.5, 4, 21.5, 14, 180, 405)
     elif nom == "cercle":
         C(12, 12, 8)
+    elif nom in ("micro", "micro_off"):        # mic (état du micro, Plasmo Voice)
+        R(9, 2, 15, 14, 3); A(5, 4, 19, 18, 0, 180); L((5, 9), (5, 11)); L((19, 9), (19, 11)); L((12, 18), (12, 22))
+        if nom == "micro_off":
+            L((3, 3), (21, 21))
+    elif nom == "externe":                     # external-link (« Ouvrir dans le panel »)
+        L((14, 3), (21, 3), (21, 10)); L((11, 13), (21, 3))
+        L((18, 14), (18, 19), (16, 21), (5, 21), (3, 19), (3, 8), (5, 6), (10, 6))
+    elif nom == "lecture":                     # play (la voix du personnage)
+        L((7, 4), (19, 12), (7, 20), (7, 4))
+    elif nom == "coche":                       # check (question déjà posée)
+        L((4, 12.5), (9.5, 18), (20, 6.5))
+    elif nom == "porte":                       # door (un bureau de la douane)
+        R(5, 3, 19, 21, 1.5); C(15, 12.5, 1.1, True)
+    elif nom == "tirage":                      # dé (autre question)
+        R(4, 4, 20, 20, 3); C(9, 9, 1.3, True); C(12, 12, 1.3, True); C(15, 15, 1.3, True)
+    elif nom == "barriere":                    # barrière du poste-frontière : boîtier, lisse, appui (aucun kanji)
+        R(3, 3, 8.5, 21, 1); L((1.5, 21), (10, 21)); L((8.5, 8.5), (22, 8.5), (22, 13), (8.5, 13))
+        L((12, 13), (14.5, 8.5)); L((16.5, 13), (19, 8.5))
+    elif nom == "dossier":                     # chemise de dossier
+        L((3, 8), (3, 19), (5, 21), (19, 21), (21, 19), (21, 10), (19, 8), (12, 8), (10, 5), (5, 5), (3, 7), (3, 8))
+        L((3, 11), (21, 11))
     else:
         raise KeyError(nom)
     return m.resize((s, s), Image.LANCZOS)

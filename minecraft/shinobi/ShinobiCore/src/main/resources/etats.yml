@@ -41,6 +41,15 @@ lignes:
     refuse: [TOUT]
     sauf: [MODE_STAFF]
 
+  # Douane (CANDIDATURE_ET_DOUANE.md §3.4) : candidat au hall ou au bureau, examinateur en mode examinateur.
+  # Les refus de HORS_JEU, mais on marche, on saute, on est vu, on parle et on est entendu.
+  cadre.HORS_JEU.DOUANE:
+    raison: "Douane : aucune mécanique RP."
+    refuse: [MOBILITE, FRAPPER, GARDER, TECHNIQUE, CANALISER, UTILISER_OBJET, OUVRIR_SACOCHE, MODIFIER_SACOCHE,
+             LACHER, RAMASSER, CONSOMMER, DEGAINER, INTERAGIR, PORTER, EXECUTER, SOIGNER, FOUILLER, ETRE_PORTE,
+             ETRE_FOUILLE, ETRE_EXECUTE, CIBLABLE, TOMBE_KO, BLESSURES, XP_COMBAT, RADIO, EMOTE, DUEL,
+             CHANGER_PERSO, TELEPORTE_PAR_COMMANDE]
+
   cadre.HORS_JEU:
     raison: "Hors jeu."
     refuse: [DEPLACEMENT, FRAPPER, GARDER, TECHNIQUE, CANALISER, UTILISER_OBJET, OUVRIR_SACOCHE, MODIFIER_SACOCHE,

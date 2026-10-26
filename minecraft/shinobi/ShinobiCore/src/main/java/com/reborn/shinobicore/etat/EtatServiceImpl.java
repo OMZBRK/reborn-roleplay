@@ -215,6 +215,10 @@ public final class EtatServiceImpl implements EtatService {
         if (o != null && o.mode().horsJeu(id)) return new String[] {Cadre.STAFF.name(), null};
         if (p != null && plugin.cinematics() != null && plugin.cinematics().isPlaying(p))
             return new String[] {Cadre.HORS_JEU.name(), "CINEMATIQUE"};
+        // Douane (CANDIDATURE_ET_DOUANE.md §3.4) : candidat au hall ou au bureau, examinateur en mode examinateur —
+        // aucune mécanique RP, mais déplacement, voix et visibilité (ligne cadre.HORS_JEU.DOUANE d'etats.yml).
+        if (plugin.douane() != null && plugin.douane().cadreDouane(id))
+            return new String[] {Cadre.HORS_JEU.name(), "DOUANE"};
         if (c == null || (plugin.characterSelect() != null && plugin.characterSelect().isSelecting(id)))
             return new String[] {Cadre.HORS_JEU.name(), null};
         if (plugin.isStaffBuilding(id)) return new String[] {Cadre.CONSTRUCTION.name(), null};

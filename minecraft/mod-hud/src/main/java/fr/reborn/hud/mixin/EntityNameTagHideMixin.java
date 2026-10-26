@@ -39,7 +39,7 @@ public abstract class EntityNameTagHideMixin {
         at = @At("HEAD"), cancellable = true)
     private void reborn$hidePlayerNameTag(Entity entity, EntityRenderState state, float partialTick,
                                           double x, double z, CallbackInfo ci) {
-        if (entity instanceof Player && TablistData.hasData()) {
+        if (entity instanceof Player && (TablistData.hasData() || fr.reborn.hud.douane.DouaneClient.plaquesActives())) {
             ci.cancel();
         }
     }

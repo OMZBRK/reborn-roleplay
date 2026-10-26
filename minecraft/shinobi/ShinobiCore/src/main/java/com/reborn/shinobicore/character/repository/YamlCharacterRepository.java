@@ -247,6 +247,12 @@ public class YamlCharacterRepository implements CharacterRepository {
         // Player ID (N°) : absent avant la migration du 13/10 — PlayerIdRegistry le pose au démarrage.
         if (s.isInt("playerId")) c.setPlayerId(s.getInt("playerId"));
         for (String oid : s.getStringList("owned-outfits")) c.addOwnedOutfit(oid);
+        // Candidature et suivi (lot J, CANDIDATURE_ET_DOUANE.md §4.4-4.5) : absents avant la mise à jour.
+        c.setType(s.getString("type", ShinobiCharacter.TYPE_NINJA));
+        c.setApplicationId(s.getString("application", null));
+        c.setCreatedAt(s.getLong("created-at", 0L));
+        c.setLastSeenAt(s.getLong("last-seen-at", 0L));
+        c.setPlayMinutes(s.getInt("play-minutes", 0));
 
         // disabled-mobility-slots block is no longer read — the mobility
         // toggle system was deleted. Legacy keys in saved YAML files are
@@ -428,6 +434,12 @@ public class YamlCharacterRepository implements CharacterRepository {
         cfg.set(key + ".ninja-art", c.ninjaArt().name());
         cfg.set(key + ".affinity", c.affinity().name());
         cfg.set(key + ".rank", c.rank().name());
+        // Candidature et suivi (lot J) : n'écrire que les valeurs présentes (type par défaut NINJA omis).
+        cfg.set(key + ".type", ShinobiCharacter.TYPE_NINJA.equals(c.type()) ? null : c.type());
+        cfg.set(key + ".application", c.applicationId());
+        cfg.set(key + ".created-at", c.createdAt() > 0 ? c.createdAt() : null);
+        cfg.set(key + ".last-seen-at", c.lastSeenAt() > 0 ? c.lastSeenAt() : null);
+        cfg.set(key + ".play-minutes", c.playMinutes() > 0 ? c.playMinutes() : null);
 
         // Multi-affinity: write list form; drop the legacy single-value key so
         // we don't ship stale data from old saves.

@@ -1,5 +1,6 @@
 package fr.reborn.hud.menu;
 
+import fr.reborn.hud.menu.esc.EscData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -78,9 +79,10 @@ public final class RebornBranding {
      */
     public static final String SITE_URL = "https://reborn-rp.com";
     /**
-     * Invite Discord publique.
+     * Invitation Discord officielle (DECISIONS.md), repli quand l'API ne
+     * donne pas la sienne. Voir {@link #discordUrl()}.
      */
-    public static final String DISCORD_URL = "https://discord.gg/reborn";
+    public static final String DISCORD_URL = "https://discord.gg/Nw7jpjJ6dg";
     /** Compte X (@REBORNOFF). */
     public static final String X_URL = "https://x.com/REBORNOFF";
     /** Chaîne YouTube. */
@@ -121,9 +123,20 @@ public final class RebornBranding {
         openUri(SITE_URL);
     }
 
+    /**
+     * Invitation Discord à ouvrir (Échap, Options › Discord) : celle que
+     * renvoie l'API dans {@code /menu/panel} (déjà filtrée par
+     * {@link EscData}), sinon la constante {@link #DISCORD_URL}.
+     */
+    public static String discordUrl() {
+        EscData.Snapshot snap = EscData.get();
+        String url = snap != null ? snap.discordInviteUrl() : null;
+        return url != null ? url : DISCORD_URL;
+    }
+
     /** Bouton "Discord" → ouvre l'invite Discord. */
     public static void openDiscord() {
-        openUri(DISCORD_URL);
+        openUri(discordUrl());
     }
 
     private static void openUri(String url) {

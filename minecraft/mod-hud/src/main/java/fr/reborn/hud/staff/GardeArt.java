@@ -76,7 +76,7 @@ final class GardeArt {
             "plus", "reveiller", "annonce", "chat", "commandes", "infirmerie", "zones", "verrou", "filtre", "emote",
             "tenue", "seisme", "zero", "suppr", "lien", "horloge", "point", "epee", "alerte", "crane",
             "drapeau", "aide", "renvoyer", "hopital", "reglages", "masque", "bouclier", "copier", "tri", "coeur",
-            "cercle"};
+            "cercle", "micro", "micro_off", "externe", "lecture", "coche", "porte", "tirage", "barriere", "dossier"};
     private static final int[] TAILLES = {5, 6, 7, 8, 10, 12, 14, 15, 16, 18, 20, 21, 24, 28, 30, 32, 40};
     private static final Map<String, Integer> INDEX = new HashMap<>();
     private static final Map<Integer, Integer> RANGEE = new HashMap<>();
@@ -179,6 +179,8 @@ final class GardeArt {
                 var conn = Minecraft.getInstance().getConnection();
                 PlayerInfo info = conn != null && uuid != null && !uuid.isEmpty() ? conn.getPlayerInfo(UUID.fromString(uuid)) : null;
                 if (info != null) skin = info.getSkin().body().texturePath();
+                // hors de la liste des joueurs (banc, joueur parti) : l'apparence RP connue, s'il y en a une
+                if (skin == null && uuid != null && !uuid.isEmpty()) skin = fr.reborn.hud.skin.RebornSkins.overrideFor(UUID.fromString(uuid));
             } catch (RuntimeException ignored) { }
             int k = echelle();
             int kk = Math.max(1, Math.round(taille * k / 8f));

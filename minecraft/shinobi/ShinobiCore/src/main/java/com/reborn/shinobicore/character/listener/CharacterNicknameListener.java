@@ -81,6 +81,10 @@ public class CharacterNicknameListener implements Listener {
      *  line from {@code sender}. Console / non-player viewers always
      *  see the real name. */
     private Component prefixFor(ShinobiCharacter senderChar, Player sender, Audience viewer) {
+        // Douane (CANDIDATURE_ET_DOUANE.md §3.4) : au hall et dans les bureaux, chacun parle sous son pseudo Minecraft
+        // (« Examinateur » devant pour un examinateur en mode), comme la plaque — jamais « Inconnu » ni un nom RP.
+        Component douane = com.reborn.shinobicore.douane.DouaneManager.prefixeTchat(sender);
+        if (douane != null) return douane;
         if (senderChar == null) {
             // Sender genuinely has no active character (never selected
             // one OR the cache was deliberately cleared) — fall back to

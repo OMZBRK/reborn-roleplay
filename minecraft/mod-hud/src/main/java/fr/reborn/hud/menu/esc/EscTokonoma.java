@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.function.Supplier;
 
 import static fr.reborn.hud.menu.esc.EchapArt.*;
 
@@ -86,12 +87,14 @@ public final class EscTokonoma {
     };
     private static final int[] CHARM_COL = {0xDC5AC8, 0x468CDC, 0x46AA64, 0x965AF0, 0xE6B43C};
 
-    private record Social(String label, String url) {}
+    // Lien lu au clic : celui de Discord vient de l'API (/menu/panel), avec
+    // l'invitation officielle en repli (RebornBranding.discordUrl).
+    private record Social(String label, Supplier<String> url) {}
     private static final Social[] SOCIALS = {
-        new Social("Discord", RebornBranding.DISCORD_URL),
-        new Social("X", RebornBranding.X_URL),
-        new Social("YouTube", RebornBranding.YOUTUBE_URL),
-        new Social("Site", RebornBranding.SITE_URL),
+        new Social("Discord", RebornBranding::discordUrl),
+        new Social("X", () -> RebornBranding.X_URL),
+        new Social("YouTube", () -> RebornBranding.YOUTUBE_URL),
+        new Social("Site", () -> RebornBranding.SITE_URL),
     };
 
     // Zones cliquables (ids) recalculées à chaque image.
@@ -627,7 +630,7 @@ public final class EscTokonoma {
                     charmKick[id - H_CHARM] = 1f;
                     RebornSounds.playReborn("esc.charm", 1.0f, 0.45f);
                 } else if (id >= H_SOCIAL && id < H_SOCIAL + SOCIALS.length) {
-                    open(SOCIALS[id - H_SOCIAL].url());
+                    open(SOCIALS[id - H_SOCIAL].url().get());
                 }
             }
         }

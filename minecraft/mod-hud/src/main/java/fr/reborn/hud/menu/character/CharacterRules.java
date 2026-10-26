@@ -1,5 +1,6 @@
 package fr.reborn.hud.menu.character;
 
+import java.text.Normalizer;
 import java.util.Locale;
 
 /**
@@ -57,25 +58,56 @@ public final class CharacterRules {
         return "";
     }
 
+    /**
+     * Nom d'un clan de la liste (« Autre » exclu), casse et accents ignorés : même règle que le serveur
+     * ({@code ReglesCreation.clanDeSession}), pour que le joueur voie le refus avant l'envoi.
+     */
     public static boolean isPredefinedClan(String s) {
         if (s == null) return false;
-        for (String c : CharacterCreateScreen.CLANS) if (!c.equals("Autre") && c.equalsIgnoreCase(s.trim())) return true;
+        String k = cleNom(s);
+        if (k.isEmpty()) return false;
+        for (String c : CharacterCreateScreen.CLANS) if (!c.equals("Autre") && cleNom(c).equals(k)) return true;
         return false;
     }
 
-    /** Village verrouillé par la candidature (le staff n'est jamais verrouillé). */
-    public static boolean villageLocked(String v) {
-        String cand = CharacterData.candidatureVillage();
-        if (cand == null || CharacterData.staffExempt()) return false;
-        return !v.equalsIgnoreCase(cand);
+    /** Clé de comparaison d'un nom : sans accents ni casse (comme le serveur et l'API). */
+    private static String cleNom(String s) {
+        return Normalizer.normalize(s.strip(), Normalizer.Form.NFD).replaceAll("\\p{M}", "").toLowerCase(Locale.ROOT);
     }
 
+    /**
+     * Village verrouillé par la candidature : premier personnage seulement (CANDIDATURE_ET_DOUANE.md §4.2) ; le staff
+     * n'est jamais verrouillé ; un village de candidature hors liste n'impose rien.
+     */
+    public static boolean villageLocked(String v) {
+        return villageCandidature() >= 0 && !v.equalsIgnoreCase(CharacterData.candidatureVillage());
+    }
+
+    /** Index du village imposé par la candidature (premier personnage), ou -1. */
+    public static int villageCandidature() {
+        String cand = CharacterData.candidatureVillage();
+        if (cand == null || !CharacterData.candidaturePremier()) return -1;
+        return villageIndex(cand);
+    }
+
+    /** Âge imposé par la candidature (premier personnage, entre 10 et 60), ou -1. */
+    public static int ageCandidature() {
+        Integer a = CharacterData.candidatureAge();
+        if (a == null || !CharacterData.candidaturePremier() || a < 10 || a > 60) return -1;
+        return a;
+    }
+
+    /**
+     * Décision du 24/10 (Q4) : tous les clans de la liste se rejoignent en <b>session de clan</b>. Hors staff, seul
+     * « Autre » (« Sans clan » + nom de famille) reste ouvert à la création ; le serveur refuse le reste.
+     */
     public static boolean clanLocked(String c) {
         if ("Autre".equals(c)) return false;
-        String cand = CharacterData.candidatureClan();
-        if (cand == null || CharacterData.staffExempt()) return false;
-        return !c.equalsIgnoreCase(cand);
+        return !CharacterData.staffExempt();
     }
+
+    /** Libellé du clan « Autre » : « Sans clan » hors staff (nom de famille libre), « Autre » pour le staff (clan libre). */
+    public static String libelleAutre() { return CharacterData.staffExempt() ? "Autre" : "Sans clan"; }
 
     public static String slug(String s) { return CharacterCreateScreen.slug(s == null ? "" : s).toLowerCase(Locale.ROOT); }
 }

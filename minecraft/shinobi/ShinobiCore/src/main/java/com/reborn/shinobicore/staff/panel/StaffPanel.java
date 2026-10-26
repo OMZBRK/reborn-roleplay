@@ -937,6 +937,21 @@ public final class StaffPanel implements Listener, PluginMessageListener {
         system("Économie : " + texte + (at == null ? "" : " · " + place(at)) + ".");
     }
 
+    /**
+     * Douane (CANDIDATURE_ET_DOUANE.md §3.8) : alerte {@code douane} « un candidat est arrivé » ; un type inconnu du
+     * mod s'affiche en générique. Retirée quand le candidat est appelé, part ou est tranché ({@link #finAlerteDouane}).
+     */
+    public void onAlerteDouane(UUID who, String texte, Location at) {
+        String key = "douane-" + who;
+        boolean fresh = !alerts.containsKey(key);
+        alerts.put(key, new Alert(key, "douane", who, texte, at == null ? List.of() : List.of(place(at)), 0,
+                System.currentTimeMillis()));
+        if (fresh) system("Douane : " + texte + ".");
+    }
+
+    /** Le candidat a été appelé, est parti ou a été tranché. */
+    public void finAlerteDouane(UUID who) { alerts.remove("douane-" + who); }
+
     /** Deux comptes déjà vus avec la même IP (Poste de garde, « Comptes liés ») ? */
     public boolean comptesLies(UUID a, UUID b) {
         if (a == null || b == null || a.equals(b)) return false;

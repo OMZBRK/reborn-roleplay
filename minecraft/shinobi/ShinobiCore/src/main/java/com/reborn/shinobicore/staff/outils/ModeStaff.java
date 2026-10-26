@@ -69,8 +69,8 @@ public final class ModeStaff implements Listener {
     public static final String CANAL_PLAQUES = "reborn:plaques";
     private static final double RAYON = 64.0;
 
-    /** Commandes RP (nom de base et alias, sans « / » ni espace de noms) refusées en mode staff. */
-    static final Set<String> COMMANDES_RP = Set.of(
+    /** Commandes RP (nom de base et alias, sans « / » ni espace de noms) refusées en mode staff (et en mode examinateur de la douane). */
+    public static final Set<String> COMMANDES_RP = Set.of(
             "me", "action", "act", "rencontrer", "meet", "introduce", "amitier", "friend", "amis",
             "osculter", "ausculter", "auscult", "examine", "soigner", "heal", "treat", "paume", "shosen", "soin",
             "aide", "help-rp", "meditation", "meditate", "med", "corps", "duel", "defi", "assoir", "asseoir", "sit",

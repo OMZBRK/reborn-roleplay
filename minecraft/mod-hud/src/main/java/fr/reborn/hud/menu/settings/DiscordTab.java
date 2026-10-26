@@ -27,12 +27,16 @@ public class DiscordTab extends SectionedTab {
             valueRow("En ligne", null,
                 snap.discordOnline() + " en ligne", Colors.SUCCESS);
         } else {
-            labelRow("Membres", "Compteur indisponible (API injoignable)");
+            // snap null = API injoignable ; sinon l'API répond mais n'a pas de
+            // compteur (Discord muet ou invitation à vérifier).
+            labelRow("Membres", snap == null
+                ? "Compteur indisponible (API injoignable)"
+                : "Compteur indisponible pour le moment");
         }
 
         actionButton("→ Rejoindre le Discord", () -> {
             try {
-                Util.getPlatform().openUri(URI.create(RebornBranding.DISCORD_URL));
+                Util.getPlatform().openUri(URI.create(RebornBranding.discordUrl()));
             } catch (Exception ignored) {
                 // Ouverture navigateur best-effort ; on n'échoue pas l'UI.
             }

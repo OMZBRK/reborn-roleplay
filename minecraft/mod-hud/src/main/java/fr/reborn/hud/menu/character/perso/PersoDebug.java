@@ -77,6 +77,17 @@ public final class PersoDebug {
             ClientTickEvents.END_CLIENT_TICK.register(PersoDebug::tick);
             return;
         }
+        if ("candidature".equalsIgnoreCase(v.trim())) {
+            // Lot J (maquette J9, 25/10) : premier personnage issu de la candidature (Kaito Arashi, Konoha, 16 ans) —
+            // ouverture directe à l'étape Taille, village et âge sous cadenas, « Sans clan » + nom de famille, refus du
+            // serveur ; puis un 2e personnage (clans de session sous cadenas). 1920×1080.
+            String[] et = {"taille_ouverture", "village", "clan", "nom", "age", "refus_serveur", "recap"};
+            for (int i = 0; i < et.length; i++) SHOTS.add(new Shot("perso_14" + (char) ('a' + i) + "_candidature_" + et[i],
+                400 + i, 0, 2, 1920, 1080));
+            SHOTS.add(new Shot("perso_14h_deuxieme_perso_clan", 407, 0, 2, 1920, 1080));
+            ClientTickEvents.END_CLIENT_TICK.register(PersoDebug::tick);
+            return;
+        }
         boolean vite = "vite".equalsIgnoreCase(v.trim());
         perf = "perf".equalsIgnoreCase(v.trim());
         if (perf) {
@@ -175,7 +186,18 @@ public final class PersoDebug {
             mc.setScreenAndShow(new Vide());
             return;
         }
-        if (k == 3) {
+        if (k == 3 && s.etape() >= 400) {
+            int n = s.etape() - 400;
+            rosterCandidature(n < 7);
+            PersoSons.voixCoupee = true;
+            PersoCreationScreen sc = new PersoCreationScreen();
+            mc.setScreenAndShow(sc);
+            sc.debugOuvrir();
+            int[] etapes = {-1, 0, 1, 3, 4, 4, 7, 1};
+            if (etapes[n] >= 0) sc.debugEtape(etapes[n]);
+            if (n == 5) sc.refusServeur("age", "Ta candidature fixe l'âge de ton personnage à 16 ans.");
+            PersoSons.voixCoupee = !PersoSons.VOIX;
+        } else if (k == 3) {
             if (s.etape() < 0 && s.etape() > -3 || s.etape() == -4) {
                 PersoSelectionScreen sc = PersoSelectionScreen.fromRoster(mc);
                 mc.setScreenAndShow(sc);
@@ -335,6 +357,35 @@ public final class PersoDebug {
         arr.add(card("c3", "Renji", "Sabaku", 0xFFC97B3C, "Sunagakure", "Tokubetsu Jōnin", true, 24, 1.10, "Homme",
             look(false, 6, "Cheveux_4", 0xFFC23B3B, 0xFF4E8A4A, "Complet_Taijutsuka")));
         root.add("characters", arr);
+        CharacterData.update(root.toString());
+    }
+
+    /**
+     * Roster du banc « candidature », au format de ShinobiCore (lot J) : {@code premier} = aucun personnage et bloc
+     * candidature complet ; sinon un personnage déjà créé et le seul drapeau staff (2e personnage libre, sans clan).
+     */
+    private static void rosterCandidature(boolean premier) {
+        JsonObject root = new JsonObject();
+        root.addProperty("slotLimit", 2);
+        JsonArray arr = new JsonArray();
+        if (!premier) {
+            arr.add(card("c1", "Kaito", "Arashi", 0xFFFFFFFF, "Konohagakure", "Genin", false, 16, 172 / 180.0, "Homme",
+                look(false, 4, "Cheveux_Sasuke", 0xFF1A1414, 0xFF1E1A16, "Complet_Uchiha")));
+        }
+        root.add("characters", arr);
+        JsonObject c = new JsonObject();
+        c.addProperty("staff", false);
+        c.addProperty("premier", premier);
+        if (premier) {
+            c.addProperty("village", "Konohagakure");
+            c.addProperty("age", 16);
+            c.addProperty("clan", "Autre");
+            c.addProperty("name", "Kaito");
+            c.addProperty("familyName", "Arashi");
+            c.addProperty("sexe", "Homme");
+            c.addProperty("type", "NINJA");
+        }
+        root.add("candidature", c);
         CharacterData.update(root.toString());
     }
 

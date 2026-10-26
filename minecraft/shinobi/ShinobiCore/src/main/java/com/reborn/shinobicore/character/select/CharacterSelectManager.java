@@ -47,7 +47,8 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
 
     /** Candidature whitelist validée par joueur (village/clan lockés du wizard). */
     private final CandidatureClient candidatureClient;
-    private final Map<UUID, CandidatureClient.Candidature> candidatures = new HashMap<>();
+    /** Concurrente : écrite par la lecture asynchrone et par la douane (fil principal). */
+    private final Map<UUID, CandidatureClient.Candidature> candidatures = new java.util.concurrent.ConcurrentHashMap<>();
 
     public CharacterSelectManager(ShinobiCore plugin) {
         this.plugin = plugin;
@@ -114,6 +115,13 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
      * joueur sans perso n'aurait aucun accès au menu de création).
      */
     public boolean beginSelection(Player p) {
+        // Douane active (CANDIDATURE_ET_DOUANE.md §3.3) : refus par défaut. Sans preuve d'accès « play » (attente,
+        // candidat au hall), la sélection ne s'ouvre pas, même demandée par le client (touche « open »). Vrai = traité :
+        // l'appelant ne retombe pas sur l'ancienne GUI.
+        if (plugin.douane() != null && !plugin.douane().selectionPermise(p)) {
+            plugin.getLogger().info("[character-select] " + p.getName() + " : sélection refusée (accès douane non vérifié).");
+            return true;
+        }
         if (!enabled) {
             plugin.getLogger().info("[character-select] " + p.getName()
                     + " : feature désactivée (enabled=false) → fallback GUI.");
@@ -158,12 +166,20 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
     /**
      * Interroge l'API Reborn (async) pour la candidature validée du joueur, met en
      * cache, et re-pousse le roster (avec le bloc {@code candidature}) sur le main
-     * thread. Silencieux en cas d'indisponibilité (grisage simplement absent).
+     * thread. Silencieux en cas d'indisponibilité (grisage simplement absent ; la
+     * création du premier personnage attend alors une lecture réussie, voir
+     * {@link #handleCreate}).
      */
     private void fetchCandidatureAsync(Player p) {
         UUID id = p.getUniqueId();
+        if (!lecturesEnCours.add(id)) return;               // une lecture à la fois par joueur
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            CandidatureClient.Candidature cand = candidatureClient.fetch(id);
+            CandidatureClient.Candidature cand;
+            try {
+                cand = candidatureClient.fetch(id);
+            } finally {
+                lecturesEnCours.remove(id);
+            }
             if (cand == null) return;
             candidatures.put(id, cand);
             Bukkit.getScheduler().runTask(plugin, () -> {
@@ -172,6 +188,39 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
                 }
             });
         });
+    }
+
+    /** Lectures de candidature en vol (une par joueur). */
+    private final java.util.Set<UUID> lecturesEnCours = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /** Staff : grade du serveur ou compte staff côté API. Aucun verrou de création. */
+    private static boolean estStaff(Player p, CandidatureClient.Candidature cand) {
+        return p.hasPermission("shinobicore.staff") || (cand != null && cand.staff());
+    }
+
+    /**
+     * Premier personnage issu de la candidature (CANDIDATURE_ET_DOUANE.md §4.2, Q8) : candidature acceptée, compte
+     * hors staff, aucun personnage sur ce serveur (morts compris), candidature pas encore liée ailleurs.
+     */
+    private static boolean premierDeCandidature(Player p, CandidatureClient.Candidature cand,
+                                                List<ShinobiCharacter> roster) {
+        return cand != null && cand.found() && !cand.consumed() && !estStaff(p, cand) && roster.isEmpty();
+    }
+
+    /**
+     * Candidature lue ailleurs (douane : bloc {@code candidature} de {@code GET /v1/game/acces}, signé par le nouveau
+     * garde) : remplace le cache et renvoie le roster si la sélection est ouverte. Fil principal.
+     */
+    public void definirCandidature(UUID id, CandidatureClient.Candidature cand) {
+        if (cand == null) return;
+        candidatures.put(id, cand);
+        Player p = Bukkit.getPlayer(id);
+        if (p != null && isSelecting(id)) sendRoster(p, plugin.characters().getAll(id));
+    }
+
+    /** Oublie la candidature en cache (lue avant l'oral) : la prochaine sélection la relit. Fil principal. */
+    public void oublierCandidature(UUID id) {
+        candidatures.remove(id);
     }
 
     private void scheduleRosterSend(Player p, long delayTicks) {
@@ -232,28 +281,26 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
             sb.append('}');
         }
         sb.append(']');
-        // Bloc candidature (village/clan validés à verrouiller côté wizard). Absent
-        // si non récupéré → le mod ne verrouille rien (dégradation propre).
+        // Bloc candidature (lot J, §4.1-4.2). « premier » = création du premier personnage issu de la candidature :
+        // village et âge sous cadenas, prénom et nom de famille pré-remplis mais modifiables, sexe libre. Les valeurs
+        // ne partent que dans ce cas (un mod d'avant verrouillait le village de tous les personnages). « staff » :
+        // aucun verrou, clans de la liste ouverts. Absent → le mod ne pré-remplit rien.
         CandidatureClient.Candidature cand = candidatures.get(p.getUniqueId());
-        if (cand != null && (cand.found() || cand.staff())) {
-            sb.append(",\"candidature\":{");
-            boolean first = true;
-            if (cand.village() != null && !cand.village().isBlank()) {
-                sb.append("\"village\":\"").append(esc(cand.village())).append('"');
-                first = false;
+        boolean staff = estStaff(p, cand);
+        boolean premier = premierDeCandidature(p, cand, roster);
+        if (staff || premier) {
+            sb.append(",\"candidature\":{\"staff\":").append(staff);
+            sb.append(",\"premier\":").append(premier);
+            if (premier) {
+                ReglesCreation.Verrous v = ReglesCreation.Verrous.de(cand);
+                champ(sb, "village", v.village());
+                if (v.age() != null) sb.append(",\"age\":").append(v.age());
+                champ(sb, "clan", ReglesCreation.AUTRE);
+                champ(sb, "name", cand.name());
+                champ(sb, "familyName", cand.familyName());
+                champ(sb, "sexe", cand.sex());
+                champ(sb, "type", cand.type());
             }
-            if (cand.clan() != null && !cand.clan().isBlank()) {
-                if (!first) sb.append(',');
-                sb.append("\"clan\":\"").append(esc(cand.clan())).append('"');
-                first = false;
-            }
-            if (cand.name() != null && !cand.name().isBlank()) {
-                if (!first) sb.append(',');
-                sb.append("\"name\":\"").append(esc(cand.name())).append('"');
-                first = false;
-            }
-            if (!first) sb.append(',');
-            sb.append("\"staff\":").append(cand.staff());
             sb.append('}');
         }
         sb.append('}');
@@ -355,6 +402,13 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
             return;
         }
         if (!isSelecting(p.getUniqueId())) return;
+        // Douane (CANDIDATURE_ET_DOUANE.md §3.3) : pendant le contrôle tardif de l'accès (marque de Guardian pas encore
+        // « play »), le choix est retenu puis rejoué à sa fin : un candidat n'entre jamais dans le monde RP avant.
+        if ((msg.startsWith("select:") || msg.startsWith("create"))
+                && plugin.douane() != null && !plugin.douane().choixPermis(p)) {
+            plugin.douane().differerChoix(p, () -> onPluginMessageReceived(channel, p, message));
+            return;
+        }
         if (msg.startsWith("select:")) {
             handleSelect(p, msg.substring("select:".length()).trim());
         } else if (msg.startsWith("create")) {
@@ -418,9 +472,27 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
     }
 
     /**
+     * Refus d'une création : message au joueur (chat, pour tout client), roster renvoyé (candidature à jour), puis
+     * {@code create-refus\n<étape>\n<message>} sur le canal : le mod annule la sortie de l'écran de création et rouvre
+     * l'étape fautive. Un mod d'avant ignore ce message (JSON illisible).
+     */
+    private void refuserCreation(Player p, String etape, String message) {
+        p.sendMessage(Component.text(message, NamedTextColor.RED));
+        sendRoster(p, plugin.characters().getAll(p.getUniqueId()));
+        try {
+            p.sendPluginMessage(plugin, CHANNEL,
+                    ("create-refus\n" + etape + "\n" + message).getBytes(StandardCharsets.UTF_8));
+        } catch (Exception ignored) { }
+    }
+
+    /**
      * Crée un personnage depuis le wizard client. Format du message :
      * {@code create\n<name>\n<clan>\n<village>\n<sexe>\n<age>\n<size>}.
      * Un {@code create} nu (wizard pas encore soumis) = message d'attente.
+     *
+     * <p>Contrôles <b>côté serveur</b> ({@link ReglesCreation}, CANDIDATURE_ET_DOUANE.md §4.2) : hors staff, aucun clan
+     * de session (« Sans clan » + nom de famille) ; premier personnage issu de la candidature : village et âge imposés,
+     * type et marque {@code application} repris. Un client modifié qui envoie autre chose est refusé.
      */
     private void handleCreate(Player p, String msg) {
         String[] parts = msg.split("\n", -1);
@@ -438,21 +510,41 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
         try { age = Integer.parseInt(parts[5].trim()); } catch (NumberFormatException e) { age = 12; }
         try { size = Double.parseDouble(parts[6].trim()); } catch (NumberFormatException e) { size = 1.0; }
 
-        if (name.isBlank()) {
-            p.sendMessage(Component.text("Le prénom ne peut pas être vide.", NamedTextColor.RED));
-            return;
-        }
         List<ShinobiCharacter> roster = plugin.characters().getAll(p.getUniqueId());
         if (roster.size() >= slotLimit(p)) {
-            p.sendMessage(Component.text("Limite de personnages atteinte (" + slotLimit(p) + ").",
-                    NamedTextColor.RED));
+            refuserCreation(p, "general", "Limite de personnages atteinte (" + slotLimit(p) + ").");
+            return;
+        }
+        CandidatureClient.Candidature cand = candidatures.get(p.getUniqueId());
+        boolean staff = estStaff(p, cand);
+        // Candidature pas encore lue (elle arrive en asynchrone) : sans elle, le premier personnage échapperait à ses
+        // verrous. On la relit et le joueur renvoie sa création. Sans aucun secret réglé (dev sans API), rien ne se lit :
+        // création libre comme avant, toujours sans clan de session.
+        if (!staff && roster.isEmpty() && cand == null && candidatureClient.configure()) {
+            fetchCandidatureAsync(p);
+            refuserCreation(p, "general", "Lecture de ta candidature en cours : valide à nouveau dans quelques secondes.");
+            return;
+        }
+        boolean premier = premierDeCandidature(p, cand, roster);
+        ReglesCreation.Verrous verrous = premier ? ReglesCreation.Verrous.de(cand) : null;
+        ReglesCreation.Refus refus = ReglesCreation.verifier(
+                new ReglesCreation.Demande(name, clan, village, sexe, age, size), staff, premier, verrous);
+        if (refus != null) {
+            plugin.getLogger().info("[character-select] création refusée pour " + p.getName() + " (" + refus.etape()
+                    + ") : " + refus.message());
+            refuserCreation(p, refus.etape(), refus.message());
             return;
         }
         if (plugin.characters().findByName(p.getUniqueId(), name).isPresent()) {
-            p.sendMessage(Component.text("Tu as déjà un personnage nommé « " + name + " ».",
-                    NamedTextColor.RED));
+            refuserCreation(p, "nom", "Tu as déjà un personnage nommé « " + name + " ».");
             return;
         }
+        if (!staff) {
+            village = ReglesCreation.villageCanonique(village);
+            sexe = ReglesCreation.sexeCanonique(sexe);
+            size = ReglesCreation.tailleBornee(size);
+        }
+        clan = ReglesCreation.clanAEnregistrer(clan, staff);
 
         // Apparence RP composée = tout ce qui suit le size (queue SkinSpec.serialize()),
         // rejointe telle quelle (lignes séparées par \n) pour re-diffusion au client.
@@ -467,19 +559,25 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
         }
 
         ShinobiCharacter c = plugin.characters().create(p.getUniqueId(), name);
-        c.setClan(clan.isBlank() ? "None" : clan);
+        c.setClan(clan);
         c.setVillage(village);
         c.setSexe(sexe);
         c.setAge(age);
         c.setSize(size);
         c.setAppearance(appearance);
+        if (premier) {
+            // Lien candidature → personnage (§4.4) : la synchronisation renseigne la candidature côté API.
+            c.setType(cand.type());
+            c.setApplicationId(uuidOuNull(cand.applicationId()));
+        }
         plugin.characters().save(c);
         // États de service (fiche v2) : « Enregistré à <village> », daté de la création.
         if (plugin.serviceRecords() != null) plugin.serviceRecords().enregistrement(c);
+        if (plugin.synchroPersonnages() != null) plugin.synchroPersonnages().signaler(c, true);
 
         plugin.getLogger().info("[character-select] " + p.getName() + " a créé le perso « "
                 + name + " » (clan=" + clan + ", village=" + village + ", sexe=" + sexe
-                + ", age=" + age + ", size=" + size + ")");
+                + ", age=" + age + ", size=" + size + (premier ? ", issu de la candidature" : "") + ")");
 
         if (plugin.ko() != null && plugin.ko().isKo(p.getUniqueId())) {
             p.sendMessage(Component.text("Personnage « " + name + " » créé. Ton personnage à terre doit être repris d'abord.",
@@ -513,6 +611,18 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
         candidatures.remove(e.getPlayer().getUniqueId());
         broadcastClear(e.getPlayer().getUniqueId()); // les autres retirent son override skin
         plugin.rpInventory().broadcastCosmeticsClear(e.getPlayer().getUniqueId()); // + ses cosmétiques
+    }
+
+    /** UUID valide sous forme canonique, ou {@code null}. */
+    private static String uuidOuNull(String s) {
+        if (s == null || s.isBlank()) return null;
+        try { return UUID.fromString(s.strip()).toString(); } catch (IllegalArgumentException e) { return null; }
+    }
+
+    /** {@code ,"k":"v"} si {@code v} n'est pas vide. */
+    private static void champ(StringBuilder sb, String k, String v) {
+        if (v == null || v.isBlank()) return;
+        sb.append(",\"").append(k).append("\":\"").append(esc(v)).append('"');
     }
 
     private static String esc(String s) {

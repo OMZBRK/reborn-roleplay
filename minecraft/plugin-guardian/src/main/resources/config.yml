@@ -1,15 +1,51 @@
 # Reborn Guardian — configuration du plugin.
+# Référence complète : docs/technique/PLUGINS_REFERENCE.md, section Guardian.
 #
-# play-token-secret : secret HMAC-SHA256 partage avec l'API Reborn
-# (cf .env du monorepo : REBORN_PLAY_TOKEN_SECRET). Doit etre EXACTEMENT
-# la meme valeur, sinon les attestations seront systematiquement rejetees.
+# Fichier illisible (YAML invalide) : il n'est jamais réécrit et le serveur
+# passe en mode fermé jusqu'à correction. Une valeur qui contient « : » ou
+# « # » se met entre guillemets.
+# Clés true / false : sans guillemets. Une valeur invalide est signalée au
+# démarrage et remplacée par la plus prudente (false pour les deux clés
+# accept-…, true pour closed-mode).
+
+# Secret HMAC-SHA256 partagé avec l'API Reborn (variable REBORN_PLAY_TOKEN_SECRET
+# de l'API). Doit être EXACTEMENT la même valeur, sinon toutes les attestations
+# sont refusées. 32 caractères minimum.
 #
-# 32+ chars requis. Genere via :
-#   openssl rand -base64 48
-#   ou : node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
+# Priorité de lecture :
+#   1. variable d'environnement REBORN_PLAY_TOKEN_SECRET du serveur (si posée,
+#      cette clé est ignorée) ;
+#   2. cette valeur, pour les hébergeurs sans variable d'environnement.
 #
-# Priorite de lecture :
-#   1. Variable d'environnement REBORN_PLAY_TOKEN_SECRET (preferee, plus
-#      secure : pas dans le filesystem)
-#   2. Cette valeur (fallback pour les serveurs sans gestion d'env vars)
+# Vide ou trop court : mode fermé (voir closed-mode).
 play-token-secret: ''
+
+# Identifiant de ce serveur, comparé à la claim « aud » des jetons. Même valeur,
+# casse comprise, que l'identifiant donné à l'API (REBORN_SERVER_ID ou une
+# entrée de REBORN_SERVER_IDS). Lettres minuscules, chiffres et tirets, par
+# exemple : prod, dev, build.
+# Vide : « aud » n'est pas contrôlée et la douane est refusée.
+server-id: ''
+
+# Transition : accepte un jeton de jeu qui ne désigne aucun serveur (jetons émis
+# avant le 25/10, ou API sans identifiant de serveur). Ne joue que si server-id
+# est renseigné. À passer à false quand l'API émet « aud » pour tous les
+# serveurs. Un jeton « douane » sans « aud » est toujours refusé.
+accept-tokens-without-aud: true
+
+# Accepte les jetons de portée « douane » (candidats à l'oral). À n'activer
+# qu'une fois ShinobiCore à jour (aiguillage vers le hall) sur ce serveur :
+# sinon un candidat arriverait en jeu normal.
+accept-douane-tokens: false
+
+# Mode fermé : sans secret valide, refuse toute connexion qui ne vient pas du
+# staff (op ou une des permissions ci-dessous). false = le plugin se désactive
+# et PLUS AUCUN client n'est vérifié : à éviter.
+closed-mode: true
+
+# Permissions qui désignent le staff pendant le mode fermé (groupes LuckPerms).
+closed-mode-staff-permissions:
+  - reborn.staff.helper
+  - reborn.staff.modo
+  - reborn.staff.admin
+  - reborn.staff.owner

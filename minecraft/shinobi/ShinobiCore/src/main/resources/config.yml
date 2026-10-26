@@ -865,6 +865,112 @@ shop:
 reborn:
   api-url: "http://localhost:3000/v1"
   webhook-secret: ""
+  # Routes signées du jeu (GET /game/acces, /game/douane/*), contrat :
+  # docs/technique/PLUGINS_REFERENCE.md §4 decies.
+  #   - server-id   : identifiant de ce serveur (prod, dev, build…), MÊME valeur
+  #                   que server-id de RebornGuardian et que l'API. Minuscules,
+  #                   chiffres, tirets. Vide : variable d'environnement REBORN_SERVER_ID.
+  #   - game-secret : secret propre au jeu, 32 caractères au moins, différent
+  #                   pour chaque serveur. La variable d'environnement
+  #                   REBORN_GAME_SECRET passe avant. Jamais écrit au journal ;
+  #                   jamais de vraie valeur dans le dépôt.
+  server-id: ""
+  game-secret: ""
+  # Synchronisation des personnages vers l'API (« Mes personnages » du launcher,
+  # CANDIDATURE_ET_DOUANE.md §4.5) : POST /game/characters/sync, signé comme les
+  # routes ci-dessus. Rattrapage complet au démarrage, file de reprise dans
+  # synchro-personnages.json. Le temps de jeu par personnage est compté même à false.
+  sync-personnages: true
+
+# ----------------------------------------------------------------------
+# DOUANE EN JEU (docs/gameplay/CANDIDATURE_ET_DOUANE.md §3)
+# ----------------------------------------------------------------------
+# enabled: false = sélection directe à la connexion (comportement d'avant).
+# true = aiguillage : attente neutre jusqu'à une preuve d'accès (réponse de
+# l'API au pré-login, ou marque reborn.scope de RebornGuardian) ; sans preuve,
+# expulsion (refus par défaut). « play » → sélection, « douane » → hall.
+# Ordre : ShinobiCore à jour, puis accept-douane-tokens de Guardian sur ce
+# serveur, puis REBORN_DOUANE_ENABLED sur l'API. enabled et monde : lus au
+# démarrage seulement ; le reste se relit par /sc reload.
+douane:
+  enabled: false
+  monde: douane
+  creer-monde: true          # crée le monde vide s'il n'existe pas (générateur vide)
+  heure-fixe: 6000           # midi, figé
+  fuseau: "Europe/Paris"     # heures de convocation affichées
+  # Hall provisoire en blocs simples et bureaux, posés une seule fois aux
+  # positions ci-dessous (rien n'est posé si le sol du hall existe déjà). À
+  # laisser à false une fois le décor de l'équipe en place.
+  hall-provisoire: false
+  hall:
+    point: {x: 0.5, y: 65.0, z: 0.5, yaw: 0.0, pitch: 0.0}
+    # Zone autorisée : cylindre de ce rayon autour du point, ou un pavé
+    # zone: {min: {x: …, y: …, z: …}, max: {x: …, y: …, z: …}}.
+    rayon: 16
+  # Bureaux : un examinateur + un candidat. Au moins deux fois la portée
+  # vocale de Plasmo entre eux et avec le hall (100 blocs pour 32), pour que les
+  # voix ne passent pas. Zone du candidat : rayon autour du milieu des deux points.
+  bureaux:
+    b1:
+      candidat: {x: 150.5, y: 65.0, z: -1.5, yaw: 0.0, pitch: 0.0}
+      examinateur: {x: 150.5, y: 65.0, z: 2.5, yaw: 180.0, pitch: 0.0}
+      rayon: 6
+    b2:
+      candidat: {x: -149.5, y: 65.0, z: -1.5, yaw: 0.0, pitch: 0.0}
+      examinateur: {x: -149.5, y: 65.0, z: 2.5, yaw: 180.0, pitch: 0.0}
+      rayon: 6
+  delais:
+    preuve-secondes: 10      # sans preuve d'accès au bout de ce délai : expulsion (10 à 30 : Guardian peut attester jusqu'à 8 s après l'arrivée)
+    http-ms: 2500            # délai des appels à l'API (de 1 000 à 3 000)
+    reprise-minutes: 10      # reconnexion après une coupure : place (ou bureau) gardée
+    report-minutes: 20       # hall fermé après l'heure de convocation : séance reportée
+    report-grace-minutes: 5  # … seulement si le hall est fermé sans interruption depuis ce délai (1 à 30)
+    renvoi-secondes: 30      # décision non envoyée (API injoignable, 429, 5xx) : nouvel essai
+    abandon-heures: 48       # décision jamais acceptée par l'API : abandonnée (journal)
+    expulsion-secondes: 8    # « À revoir » / « Refusé » : écran, puis expulsion
+    bienvenue-secondes: 3    # écran « Bienvenue sur Reborn » avant la sélection
+  # Voix (Plasmo Voice) coupée au hall fermé et pendant l'attente neutre :
+  # commandes console, {joueur} = pseudo. À vérifier sur le serveur avant de
+  # les remplir. Les DEUX sont obligatoires pour activer la douane (sinon elle
+  # ne démarre pas, erreur au journal), sauf non-coupee-acceptee: true.
+  voix:
+    couper: ""
+    rendre: ""
+    non-coupee-acceptee: false
+  # Banque de questions, tirée au hasard (surtout des mises en situation). Le
+  # tirage évite les questions déjà tirées pour ce candidat et les dernières
+  # tirées pour les autres : une grande banque se devine moins au hall.
+  questions:
+    - "Ton personnage trouve un ninja d'un autre village blessé près de la frontière. Que fait-il ?"
+    - "Un inconnu propose de l'argent à ton personnage contre des informations sur son village. Comment réagit-il ?"
+    - "Ton personnage est témoin d'un vol au marché, et le voleur est un enfant. Que fait-il ?"
+    - "Un joueur te frappe sans aucune raison RP. Que fais-tu, en jeu et hors jeu ?"
+    - "Ton personnage reçoit une mission qu'il juge injuste. Comment le joues-tu ?"
+    - "Ton personnage perd un combat important devant ses amis. Comment réagit-il les jours suivants ?"
+    - "Tu apprends hors jeu où se cache un personnage recherché. Ton personnage peut-il s'en servir ? Pourquoi ?"
+    - "Ton personnage croise le Kage de son village dans la rue. Comment se comporte-t-il ?"
+    - "Un autre joueur décrit une action impossible pour son personnage. Que fais-tu ?"
+    - "Ton personnage est capturé par un groupe hostile. Comment joues-tu la scène ?"
+    - "Un ami de ton personnage trahit le village. Que fait ton personnage ?"
+    - "Ton personnage garde la porte du village toute la nuit, sous la pluie. À quoi pense-t-il ?"
+    - "Quelqu'un insulte la famille de ton personnage en public. Comment répond-il ?"
+    - "Ton personnage découvre un parchemin interdit. Que fait-il ?"
+    - "Pendant une scène, un joueur ne répond plus depuis dix minutes. Que fais-tu ?"
+    - "Ton personnage est grièvement blessé, loin de l'hôpital. Comment joues-tu ses blessures ?"
+    - "Un marchand refuse de servir ton personnage à cause de son village d'origine. Que fait-il ?"
+    - "Un supérieur ordonne à ton personnage d'abandonner un coéquipier. Obéit-il ?"
+    - "Ton personnage rencontre quelqu'un de masqué qui refuse de dire son nom. Que fait-il ?"
+    - "Une dispute hors RP éclate en vocal au milieu d'une scène. Que fais-tu ?"
+    - "Ton personnage doit annoncer à une famille qu'un ninja est tombé en mission. Comment s'y prend-il ?"
+    - "Ton personnage échoue à l'examen chunin. Que fait-il ensuite ?"
+    - "Un élève de l'académie demande à ton personnage de lui apprendre une technique dangereuse. Que répond-il ?"
+    - "Ton personnage apprend qu'un espion se cache dans son équipe. Comment mène-t-il l'enquête ?"
+    - "Qu'est-ce qu'une mort RP, et qui peut la demander ?"
+    - "Ton personnage est à terre et son adversaire hésite à l'achever. Comment joues-tu ce moment ?"
+    - "Ton personnage voit un ninja de son village maltraiter un civil. Que fait-il ?"
+    - "Un joueur te propose des objets rares en échange d'argent réel. Que fais-tu ?"
+    - "Ton personnage doit traverser seul un territoire ennemi. Comment prépare-t-il le voyage ?"
+    - "En deux phrases : que veut devenir ton personnage dans un an ?"
 
 # ----------------------------------------------------------------------
 # PANEL COMMAND BRIDGE (déclenchement de reloads console depuis le panel)

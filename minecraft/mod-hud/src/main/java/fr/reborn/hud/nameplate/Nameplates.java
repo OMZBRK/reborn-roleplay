@@ -55,8 +55,9 @@ public final class Nameplates {
     public static void render(GuiGraphicsExtractor ctx) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || mc.options == null || mc.gui.hud.isHidden()) return;
-        // Sans data serveur (hors serveur Shinobi / solo), on ne remplace rien.
-        if (!TablistData.hasData() && !debugAvatars) return;
+        // Sans data serveur (hors serveur Shinobi / solo), on ne remplace rien — sauf dans la douane (plaques du canal
+        // reborn:douane : « Examinateur », ou le pseudo à la place d'« Inconnu »).
+        if (!TablistData.hasData() && !debugAvatars && !fr.reborn.hud.douane.DouaneClient.plaquesActives()) return;
 
         Camera cam = mc.gameRenderer.mainCamera();
         if (cam == null || !cam.isInitialized()) return;
@@ -99,6 +100,13 @@ public final class Nameplates {
         String name = known ? rp.name() : null;
         int clanCol = known && rp.clanColor() != 0 ? (0xFF000000 | rp.clanColor()) : NEUTRAL_CLAN;
         String village = known ? villageKey(rp.village()) : null;
+        // Douane (PLUGINS_REFERENCE §4 decies.4, plaques) : « Examinateur » (carré d'or), sinon le pseudo du profil.
+        String douane = fr.reborn.hud.douane.DouaneClient.nomPlaque(e);
+        if (douane != null) {
+            name = douane;
+            clanCol = fr.reborn.hud.douane.DouaneClient.examinateur(e.getUUID()) ? Da.GOLD : NEUTRAL_CLAN;
+            village = null;
+        }
 
         Vec3 head = e.getEyePosition(pt).add(0.0, 0.62, 0.0);
         Vector4f clip = vp.transform(CLIP.get().set(

@@ -69,6 +69,8 @@ public final class ShinobiCore extends JavaPlugin {
     private LoreCalendar loreCalendar;
     private TabListManager tabList;
     private com.reborn.shinobicore.character.select.CharacterSelectManager characterSelect;
+    /** Temps de jeu par personnage et synchronisation vers l'API (lot J). */
+    private com.reborn.shinobicore.character.sync.SynchroPersonnages synchroPersonnages;
     private com.reborn.shinobicore.chat.TypingManager typing;
     private com.reborn.shinobicore.inventory.InventoryManager rpInventory;
     private RencontrerManager rencontrer;
@@ -86,6 +88,8 @@ public final class ShinobiCore extends JavaPlugin {
     private com.reborn.shinobicore.staff.panel.StaffPanel staffPanel;
     private com.reborn.shinobicore.journal.JournalServiceImpl journal;
     private com.reborn.shinobicore.staff.outils.OutilsStaff outilsStaff;
+    /** Douane en jeu (CANDIDATURE_ET_DOUANE.md §3.3-3.10) ; null en mode build. */
+    private com.reborn.shinobicore.douane.DouaneManager douane;
     private com.reborn.shinobicore.ko.HospitalBeds hospitalBeds;
     private com.reborn.shinobicore.chakra.ExhaustionManager exhaustionManager;
     private com.reborn.shinobicore.ko.action.PorterManager porterManager;
@@ -436,6 +440,11 @@ public final class ShinobiCore extends JavaPlugin {
             Bukkit.getPluginManager().registerEvents(characterSelect, this);
             this.characterSelect.start();
         }
+
+        // 7d bis. Temps de jeu par personnage + photos POST /v1/game/characters/sync (lot J, CANDIDATURE_ET_DOUANE.md
+        //        §4.5) : rattrapage complet au démarrage, file de reprise sur disque. Coupée par reborn.sync-personnages.
+        this.synchroPersonnages = new com.reborn.shinobicore.character.sync.SynchroPersonnages(this);
+        this.synchroPersonnages.demarrer();
 
         // 7e. Indicateur de frappe chat (reborn:typing) → 3 points au-dessus des têtes.
         this.typing = new com.reborn.shinobicore.chat.TypingManager(this);
@@ -836,6 +845,13 @@ public final class ShinobiCore extends JavaPlugin {
         this.outilsStaff = new com.reborn.shinobicore.staff.outils.OutilsStaff(this);
         this.outilsStaff.demarrer();
 
+        // Douane (CANDIDATURE_ET_DOUANE.md §3.3-3.10) : aiguillage à la connexion (refus par défaut), monde « douane »,
+        // hall, file, bureaux, mode examinateur, /douane, canal reborn:douane. Coupée tant que douane.enabled: false.
+        if (!buildMode) {
+            this.douane = new com.reborn.shinobicore.douane.DouaneManager(this);
+            this.douane.demarrer();
+        }
+
         // Nourriture (GAMEPLAN §12, NOURRITURE.md v3) : registre des modificateurs (reborn:modifs), entreprises
         // (/entreprise), satiété + régénération (reborn:vitals étendu), cuisine, repas, geste « tendre » (/tendre).
         if (!buildMode) {
@@ -883,6 +899,9 @@ public final class ShinobiCore extends JavaPlugin {
         // BEFORE the flush below, so the capture records the survival
         // inventory rather than creative build junk.
         if (panelBridge != null) panelBridge.stop();
+        if (synchroPersonnages != null) synchroPersonnages.arreter();
+        // Douane d'abord : les examinateurs reviennent à leur point avant la sauvegarde des personnages.
+        if (douane != null) douane.arreter();
         if (etatsModule != null) etatsModule.arreter();
         if (outilsStaff != null) outilsStaff.arreter();
         if (nourriture != null) nourriture.stop();
@@ -965,6 +984,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (monnaie             != null) monnaie.reload();
         if (boutiques           != null) boutiques.recharger();
         if (etatsModule         != null) etatsModule.service().charger();
+        if (douane              != null) douane.recharger();
         if (to != null) {
             to.sendMessage(Component.text("Configuration ShinobiCore rechargée.", NamedTextColor.GREEN));
         }
@@ -1332,6 +1352,8 @@ public final class ShinobiCore extends JavaPlugin {
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.character.select.CharacterSelectManager characterSelect() { return characterSelect; }
     @com.reborn.shinobicore.api.Internal
+    public com.reborn.shinobicore.character.sync.SynchroPersonnages synchroPersonnages() { return synchroPersonnages; }
+    @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.chakra.ExhaustionManager exhaustion() { return exhaustionManager; }
     @com.reborn.shinobicore.api.Internal
     public ChakraManager chakra() { return chakraManager; }
@@ -1402,6 +1424,8 @@ public final class ShinobiCore extends JavaPlugin {
     /** Journal universel (14/10) ; les add-ons passent par le service {@code JournalService}. */
     public com.reborn.shinobicore.journal.JournalServiceImpl journal() { return journal; }
     public com.reborn.shinobicore.staff.outils.OutilsStaff outilsStaff() { return outilsStaff; }
+    /** Douane en jeu ; null en mode build ou avant l'init. */
+    public com.reborn.shinobicore.douane.DouaneManager douane() { return douane; }
 
     private com.reborn.shinobicore.nourriture.NourritureModule nourriture;
 

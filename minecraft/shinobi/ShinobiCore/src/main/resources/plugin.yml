@@ -293,6 +293,15 @@ commands:
     usage: "/<command>"
     aliases: [modeanimation]
     permission: reborn.staff.animation
+  douane:
+    description: "Douane — candidat : son statut ; examinateur : aller, quitter, file, appeler, renvoyer, retirer, dossier, question, notes, decision (journalisé)."
+    usage: "/<command> [aller|quitter|file|appeler|renvoyer|retirer|dossier|question|notes|decision] …"
+    permission: shinobicore.use
+  modeexaminateur:
+    description: "Examinateur de la douane — visible, plaque « Examinateur », aucune mécanique RP, tout est journalisé (Helper au minimum)."
+    usage: "/<command>"
+    aliases: [modeexam]
+    permission: reborn.douane.examinateur
   entreprise:
     description: "Entreprises (restaurant, forge, échoppe) — staff : creer, supprimer, renommer, membre, poste, info, liste ; joueur : les siennes."
     usage: "/<command> [creer|supprimer|renommer|membre|poste|info|liste] …"
@@ -354,6 +363,9 @@ permissions:
     default: op
   reborn.staff.animation:
     description: "Mode animation (/modeanim) : incarner un personnage pour un event, entièrement journalisé."
+    default: op
+  reborn.douane.examinateur:
+    description: "Examinateur de la douane : mode examinateur, appels, questions, décisions, onglet Douane du Poste de garde (avec un grade reborn.staff.* Helper au minimum)."
     default: op
   reborn.staff.helper:
     description: Poste de garde — Helper (alertes, TP, avertissements, chat staff).

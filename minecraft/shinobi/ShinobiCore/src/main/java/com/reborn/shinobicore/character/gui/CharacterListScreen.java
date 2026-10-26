@@ -110,6 +110,12 @@ public final class CharacterListScreen extends CoreScreen {
                     NamedTextColor.RED));
             return;
         }
+        // Douane : pendant le contrôle tardif de l'accès, aucun personnage ne s'active (CANDIDATURE_ET_DOUANE.md §3.3).
+        if (core().douane() != null && !core().douane().choixPermis(viewer)) {
+            viewer.sendMessage(Component.text("Vérification de l'accès en cours : réessaie dans un instant.",
+                    NamedTextColor.GRAY));
+            return;
+        }
         viewer.closeInventory();
         if (!core().characters().setActive(viewer, c)) return;   // refusé (KO, combat, gel…) : déjà prévenu
         viewer.sendMessage(Component.text(

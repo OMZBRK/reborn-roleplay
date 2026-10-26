@@ -137,6 +137,8 @@ public class CharacterManager implements CharacterService {
 
     public ShinobiCharacter create(UUID owner, String name) {
         ShinobiCharacter c = new ShinobiCharacter(owner, name);
+        // Date de création en jeu (« Mes personnages » du launcher, lot J).
+        c.setCreatedAt(System.currentTimeMillis());
         // Player ID : attribué (et le compteur écrit) avant la première sauvegarde du personnage.
         if (plugin.playerIds() != null) {
             int n = plugin.playerIds().assign(c.id(), owner, name);
@@ -152,8 +154,12 @@ public class CharacterManager implements CharacterService {
 
     public boolean delete(UUID owner, UUID characterId) {
         List<ShinobiCharacter> list = getAll(owner);
+        ShinobiCharacter supprime = null;
+        for (ShinobiCharacter c : list) if (c.id().equals(characterId)) { supprime = c; break; }
         boolean removed = list.removeIf(c -> c.id().equals(characterId));
         if (removed) {
+            // Dernière photo (deleted: true) avant que le personnage ne quitte le disque : file de reprise persistée.
+            if (supprime != null && plugin.synchroPersonnages() != null) plugin.synchroPersonnages().supprime(supprime);
             com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.JOUEUR, "SUPPRESSION_PERSO").acteur(owner)
                     .cibleTexte(characterId.toString()).ecrire();
             repo.delete(owner, characterId);
@@ -237,6 +243,7 @@ public class CharacterManager implements CharacterService {
         //    inventory capture MUST happen before the new character's
         //    inventory overwrites the player.
         if (online && previous != null && !previous.id().equals(character.id())) {
+            previous.setLastSeenAt(System.currentTimeMillis());   // dernière partie (lot J), avant sa sauvegarde
             teardownPrevious(player, previous);
         }
 
@@ -244,9 +251,17 @@ public class CharacterManager implements CharacterService {
         active.put(character.ownerId(), character);
         lastSeenActive.put(character.ownerId(), character);
 
+        // 3b. Dernière partie (lot J) du nouveau personnage, avant sa sauvegarde (applyNext) ; les photos partent vers
+        //     l'API sans attendre la vérification périodique.
+        if (online) character.setLastSeenAt(System.currentTimeMillis());
+
         // 4. Apply the new character onto the live player.
         if (online) {
             applyNext(player, character);
+        }
+        if (online && plugin.synchroPersonnages() != null) {
+            if (previous != null && !previous.id().equals(character.id())) plugin.synchroPersonnages().signaler(previous, true);
+            plugin.synchroPersonnages().signaler(character, true);
         }
         return true;
     }

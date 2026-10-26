@@ -82,6 +82,8 @@ public class StaffScreen extends Screen {
     protected final GardeOutils outilsVue = new GardeOutils(this);
     protected final GardeFormulaire formulaire = new GardeFormulaire(this);
     protected final GardeRecherche recherche = new GardeRecherche(this);
+    /** Onglet Douane (lot E, 25/10) : file, bureaux, dossier, décision — {@link GardeDouane}. */
+    protected final GardeDouane douaneVue = new GardeDouane(this);
 
     public StaffScreen() {
         super(Component.literal("Poste de garde"));
@@ -101,10 +103,12 @@ public class StaffScreen extends Screen {
         annoncesVue.init();
         outilsVue.init();
         formulaire.init();
+        douaneVue.init();
         if (!ouvert) {
             ouvert = true;
             openedAt = System.currentTimeMillis();
             StaffClient.send("refresh");
+            fr.reborn.hud.douane.DouaneClient.demanderEtat();   // ignoré par le serveur sans droits d'examinateur
             RebornSounds.playReborn("sacoche.open", 1.15f, 0.4f);
         }
     }
@@ -145,6 +149,7 @@ public class StaffScreen extends Screen {
     @Override
     public void removed() {
         StaffClient.clearProfile();
+        douaneVue.fermer();
         super.removed();
     }
 
@@ -160,12 +165,13 @@ public class StaffScreen extends Screen {
         }
         journalVue.tick();
         recherche.tick();
+        douaneVue.tick();
     }
 
     /* =================================================================== géométrie */
 
-    /** Volet élargi (carte des zones, réglages du KO) ? */
-    protected boolean large() { return false; }
+    /** Volet élargi (carte des zones, réglages du KO, dossier de la douane) ? */
+    protected boolean large() { return "douane".equals(tab) && douaneVue.large(); }
 
     protected int pw() { return large() ? Math.max(PW, Math.min(width - 2 * MARGE, 640)) : PW; }
 
@@ -205,6 +211,7 @@ public class StaffScreen extends Screen {
             case "players" -> profileUuid != null ? 0 : recherche.active() ? 23 : 38;
             case "journal" -> journalVue.hauteurOutils();
             case "outils" -> outilsVue.hauteurOutils();
+            case "douane" -> 0;
             default -> 16;
         };
     }
@@ -218,6 +225,7 @@ public class StaffScreen extends Screen {
                     : "Clic : fiche  ·  Clic droit : actions  ·  F7 : fermer";
             case "journal" -> "Ctrl + clic sur un N° : filtrer ce joueur";
             case "outils" -> outilsVue.pied();
+            case "douane" -> douaneVue.pied();
             default -> "Une alerte = un clic : « Y aller » vous téléporte";
         };
     }
@@ -228,6 +236,7 @@ public class StaffScreen extends Screen {
             case "players" -> profileUuid == null;
             case "journal" -> true;
             case "outils" -> outilsVue.pleineHauteur();
+            case "douane" -> douaneVue.pleineHauteur();
             default -> false;
         };
     }
@@ -258,6 +267,8 @@ public class StaffScreen extends Screen {
     protected void dessiner(GuiGraphicsExtractor ctx) {
         ctxCourant = ctx;
         JsonObject snap = StaffClient.snapshot();
+        // douane coupée, ou droits d'examinateur perdus : l'onglet disparaît
+        if ("douane".equals(tab) && !fr.reborn.hud.douane.DouaneClient.ongletVisible()) { tab = "alerts"; douaneVue.retourFile(); }
         int full = height - 2 * MARGE;
         if (pleineHauteur()) ph = full;
         else ph = Math.max(140, Math.min(full, H_TETE + toolsH() + contentH + (pied() == null ? 6 : H_PIED + 2) + 4));
@@ -307,6 +318,7 @@ public class StaffScreen extends Screen {
             case "players" -> profileUuid != null ? fiche.corps(snap, y) : recherche.active() ? recherche.corps(snap, y) : joueurs(snap, y);
             case "journal" -> journalVue.corps(snap, y);
             case "outils" -> outilsVue.corps(snap, y);
+            case "douane" -> douaneVue.corps(snap, y);
             default -> alertes(snap, y);
         };
     }
@@ -334,6 +346,24 @@ public class StaffScreen extends Screen {
         tip(rx - 10, y0 + 5, 12, 12, "Fermer (F7)");
         rx -= 15;
         if (snap == null) return;
+        if (fr.reborn.hud.douane.DouaneClient.modeExaminateur()) {
+            // mode examinateur (exclusif avec le mode staff et le mode animation) : puce or
+            String le = "Examinateur";
+            float we = pz.largeur(le, 12, false) + 12;
+            float ex = rx - we;
+            boolean hovE = hover(Math.round(ex), y0 + 6, Math.round(we), 11);
+            pz.fond(Math.round(ex), y0 + 6, rx, y0 + 17, hovE ? 0xFF33271A : 0xFF281F12);
+            pz.cadre(ex, y0 + 6, we, 11, 0xFF68522E);
+            pz.pastille(ex + 5, y0 + 11.5f, 1.25f, OR);
+            pz.texte(le, ex + 8.5f, y0 + 11.5f, 12, OR, false);
+            hits.add(new Hit(Math.round(ex), y0 + 6, Math.round(we), 11, () -> {
+                fr.reborn.hud.douane.DouaneClient.envoyer("mode");
+                RebornSounds.uiClick();
+            }, null, null));
+            tip(Math.round(ex), y0 + 6, Math.round(we), 11,
+                    "Mode examinateur actif : visible des candidats, plaque « Examinateur », aucune mécanique RP, tout est journalisé. Clique pour le couper.");
+            return;
+        }
         boolean staff = bool(snap, "modeStaff"), anim = bool(snap, "modeAnim");
         String lab = anim ? "Animation" : "Mode staff";
         float w = pz.largeur(lab, 12, false) + 12;
@@ -354,10 +384,18 @@ public class StaffScreen extends Screen {
                 : "Mode staff inactif. Clique pour l'activer (invisible, aucune mécanique RP, plaques).");
     }
 
-    private static final String[][] ONGLETS = {{"alerts", "cloche", "Alertes"}, {"players", "joueurs", "Joueurs"},
+    private static final String[][] ONGLETS_BASE = {{"alerts", "cloche", "Alertes"}, {"players", "joueurs", "Joueurs"},
             {"journal", "journal", "Journal"}, {"outils", "outils", "Outils"}};
+    private static final String[][] ONGLETS_DOUANE = {{"alerts", "cloche", "Alertes"}, {"players", "joueurs", "Joueurs"},
+            {"journal", "journal", "Journal"}, {"outils", "outils", "Outils"}, {"douane", "barriere", "Douane"}};
+
+    /** Onglets du volet : le 5ᵉ, Douane, seulement pour un examinateur quand la douane est active. */
+    protected String[][] onglets() {
+        return fr.reborn.hud.douane.DouaneClient.ongletVisible() ? ONGLETS_DOUANE : ONGLETS_BASE;
+    }
 
     protected void onglets(JsonObject snap) {
+        String[][] ONGLETS = onglets();
         int ty = py0() + 26;
         float[] ws = new float[ONGLETS.length];
         float[] lw = new float[ONGLETS.length];
@@ -370,16 +408,23 @@ public class StaffScreen extends Screen {
             ws[i] = 11 + lw[i] + (badges[i] > 0 ? 11 : 0);
             total += ws[i];
         }
+        // cinq onglets dans le volet étroit : les icônes tombent faute de place (maquette J6)
+        boolean icones = total + (ONGLETS.length - 1) * 8 <= iw();
+        if (!icones) {
+            total = 0;
+            for (int i = 0; i < ONGLETS.length; i++) { ws[i] -= 11; total += ws[i]; }
+        }
         float gap = Math.min(16, (iw() - total) / (ONGLETS.length - 1));
         float ox = ix();
         for (int i = 0; i < ONGLETS.length; i++) {
             String id = ONGLETS[i][0];
             boolean on = id.equals(tab);
             boolean hov = !on && hover(Math.round(ox) - 2, ty - 1, Math.round(ws[i]) + 4, 16);
-            pz.icone(ONGLETS[i][1], ox, ty + 1, 8, on ? OR : hov ? GRIS : GRIS_2);
-            pz.texte(ONGLETS[i][2], ox + 11, ty + 5, 13, on ? CREME : hov ? CREME : GRIS, on);
+            float lx = icones ? ox + 11 : ox;
+            if (icones) pz.icone(ONGLETS[i][1], ox, ty + 1, 8, on ? OR : hov ? GRIS : GRIS_2);
+            pz.texte(ONGLETS[i][2], lx, ty + 5, 13, on ? CREME : hov ? CREME : GRIS, on);
             if (badges[i] > 0) {
-                float bx = ox + 11 + lw[i] + 3;
+                float bx = lx + lw[i] + 3;
                 String n = badges[i] > 99 ? "99" : String.valueOf(badges[i]);
                 pz.fond(Math.round(bx), ty + 1, Math.round(bx) + 8, ty + 9, LAQUE);
                 pz.texteC(n, bx + 4, ty + 4.75f, 10, CREME, true);
@@ -392,6 +437,7 @@ public class StaffScreen extends Screen {
     }
 
     protected int compteOnglet(String id, JsonObject snap) {
+        if ("douane".equals(id)) return fr.reborn.hud.douane.DouaneClient.enAttente();
         return "alerts".equals(id) && snap != null ? arr(snap, "alerts").size() : 0;
     }
 
@@ -399,6 +445,7 @@ public class StaffScreen extends Screen {
         if (!id.equals(tab)) RebornSounds.uiClick();
         else if ("players".equals(id) && profileUuid != null) { retourListe(); return; }
         else if ("outils".equals(id) && outil != null) { outil = null; scroll = 0; return; }
+        else if ("douane".equals(id) && douaneVue.dossierU != null) { douaneVue.retourFile(); return; }
         tab = id;
         scroll = 0;
         menu = null;
@@ -406,6 +453,7 @@ public class StaffScreen extends Screen {
         if (!"players".equals(id)) { profileUuid = null; StaffClient.clearProfile(); }
         if ("journal".equals(id)) journalVue.ouvrir();
         if ("players".equals(id) && profileUuid == null) setFocused(searchBox);
+        if ("douane".equals(id)) douaneVue.ouvrir();
     }
 
     /** Zone d'outils fixe (sous les onglets). */
@@ -421,6 +469,7 @@ public class StaffScreen extends Screen {
             }
             case "journal" -> journalVue.outils(snap, y);
             case "outils" -> outilsVue.outils(snap, y);
+            case "douane" -> { }   // tout l'onglet défile dans le corps
             default -> {
                 float x = ix();
                 String[][] vues = {{"attente", "En attente " + arr(snap, "alerts").size()}, {"traitees", "Traitées"}, {"miennes", "Les miennes"}};
@@ -445,6 +494,7 @@ public class StaffScreen extends Screen {
             case "signalement" -> new String[]{"drapeau", "Signalement"};
             case "yeux" -> new String[]{"observer", "Prélèvement d'œil"};
             case "vol" -> new String[]{"sac", "Vol de parchemin"};
+            case "douane" -> new String[]{"barriere", "Douane"};
             default -> new String[]{"alerte", kind.isEmpty() ? "Alerte" : kind};
         };
     }
@@ -455,6 +505,7 @@ public class StaffScreen extends Screen {
             case "agression" -> TERRE;
             case "aide" -> GLACE;
             case "signalement" -> NOIR_V;
+            case "douane" -> OR;
             default -> STAFF;
         };
     }
@@ -492,6 +543,16 @@ public class StaffScreen extends Screen {
             cible.addProperty("_alerte", id);
             float x = ix();
             float cy = y + 42;
+            if (kind.equals("douane")) {
+                // candidat arrivé au hall : l'onglet Douane, pas de téléportation
+                boolean dv = fr.reborn.hud.douane.DouaneClient.ongletVisible();
+                motAction(dv ? "Onglet Douane" : "Fiche", x, cy, true, dv ? () -> switchTab("douane") : () -> openProfile(str(a, "uuid")));
+                float iwD = pz.largeur("Ignorer", 13, false);
+                motCouleur("Ignorer", ix() + iw() - iwD, cy, 13, GRIS_2, () -> dismiss(id));
+                y += h;
+                pz.filetH(ix(), ix() + iw(), y - 0.5f, FILET);
+                continue;
+            }
             x += motAction(kind.equals("signalement") ? "Voir le chat" : "Y aller", x, cy, true, kind.equals("signalement")
                     ? () -> { openProfile(str(a, "uuid")); fiche.ouvrirSection("sanctions"); }
                     : () -> GardeActions.envoyer(this, "tp", cible, Map.of())) + 10;
@@ -1223,12 +1284,14 @@ public class StaffScreen extends Screen {
             if ("players".equals(tab) && profileUuid != null) { retourListe(); return true; }
             if ("journal".equals(tab) && journalVue.echap()) return true;
             if ("outils".equals(tab) && outil != null) { outil = null; scroll = 0; return true; }
+            if ("douane".equals(tab) && douaneVue.echap()) return true;
             onClose();
             return true;
         }
         if (k == GLFW.GLFW_KEY_F7 && !saisie) { onClose(); return true; }
         if (k == GLFW.GLFW_KEY_ENTER || k == GLFW.GLFW_KEY_KP_ENTER) {
             if (formulaire.actif() && formulaire.entree()) return true;
+            if ("douane".equals(tab) && !formulaire.actif() && douaneVue.entree(e.hasControlDown())) return true;
             if ("players".equals(tab) && profileUuid == null && recherche.active() && recherche.entree()) return true;
             if (outilsVue.entree()) return true;
             if (journalVue.entree()) return true;

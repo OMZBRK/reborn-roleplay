@@ -69,6 +69,8 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     private int vue;
     private float lacet = 26f, lacetCible = 26f;
     private long openedAt, introAt, stepAt, leaveAt = -1, questionsAt, errorAt;
+    /** Durée d'affichage du message d'erreur (plus longue pour un refus du serveur). */
+    private long errorDuree = 3000;
     private int intro;
     private String error = "";
     private boolean prevHidden;
@@ -109,18 +111,121 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
 
     public PersoCreationScreen() {
         super(Component.literal("Nouveau shinobi"));
-        String cv = CharacterData.candidatureVillage();
         String[] vs = CharacterRules.villages();
-        for (int i = 0; cv != null && i < villageCount(); i++) if (vs[i].equalsIgnoreCase(cv)) village = i;
+        int vc = CharacterRules.villageCandidature();
+        if (vc >= 0 && vc < villageCount()) village = vc;
         if (village < 0) for (int i = 0; i < villageCount(); i++) if (!CharacterRules.villageLocked(vs[i])) { village = i; break; }
         if (village < 0) village = 0;
         presetClan();
-        String cn = CharacterData.candidatureName();
-        if (cn != null) name = cn;
         look.skinColor = SkinSpec.skinRamp(skinIdx / 11f);
+        appliquerCandidature(true);
         appliquerPalette();
         applyLists();
         scene.forcerVillage(village);
+    }
+
+    /* ------------------------------------------------------------- candidature (lot J, maquette J9) */
+
+    /** Génération du bloc candidature déjà appliquée, et valeurs pré-remplies (remplacées tant que le joueur n'y touche pas). */
+    private int candGen = Integer.MIN_VALUE;
+    private String prefNom, prefFamille;
+
+    /**
+     * Premier personnage issu de la candidature (CANDIDATURE_ET_DOUANE.md §4.2, maquette J9) : village et âge sous
+     * cadenas, « Sans clan » avec le nom de famille de la candidature, prénom et nom de famille pré-remplis mais
+     * modifiables, sexe libre (suggéré à l'ouverture). Relu à chaque nouveau bloc : la candidature arrive en asynchrone,
+     * parfois après l'ouverture de l'écran (§4.3, course au chargement). Le serveur refait tous ces contrôles.
+     */
+    private void appliquerCandidature(boolean ouverture) {
+        candGen = CharacterData.generation();
+        int vc = CharacterRules.villageCandidature();
+        if (vc >= 0 && vc < villageCount() && vc != village) {
+            village = vc;
+            presetClan();
+            if (!ouverture) {
+                appliquerPalette();
+                applyLists();
+                scene.setVillage(vc);
+                PersoSons.ambiance(vc);
+            }
+        }
+        int ac = CharacterRules.ageCandidature();
+        if (ac >= 0) age = ac;
+        if (!CharacterData.candidaturePremier()) return;
+        String[] cs = CharacterRules.clansOf(village);
+        for (int i = 0; i < cs.length; i++) if ("Autre".equals(cs[i])) clanIdx = i;
+        String fam = CharacterData.candidatureFamille();
+        if (fam != null && (customClan.isBlank() || customClan.equals(prefFamille))) customClan = fam;
+        prefFamille = fam;
+        String cn = CharacterData.candidatureName();
+        if (cn != null && (name.isBlank() || name.equals(prefNom))) name = cn;
+        prefNom = cn;
+        String sx = CharacterData.candidatureSexe();
+        if (ouverture && sx != null) {
+            sexeIdx = "Femme".equalsIgnoreCase(sx) ? 1 : 0;
+            look.female = sexeIdx == 1;
+        }
+    }
+
+    /** Cadenas du fil d'étapes et du registre : 1 VILLAGE, 5 ÂGE (maquette J9). */
+    private boolean[] verrous() {
+        boolean[] v = new boolean[STEPS];
+        v[S_VILLAGE] = CharacterRules.villageCandidature() >= 0;
+        v[S_AGE] = CharacterRules.ageCandidature() >= 0;
+        return v;
+    }
+
+    /** Refus de l'âge ou du village sous cadenas, sans répéter le son à chaque cran d'une réglette glissée. */
+    private void refusVerrou(String msg) {
+        if (msg.equals(error) && System.currentTimeMillis() - errorAt < 900) return;
+        fail(msg);
+    }
+
+    /**
+     * Refus du serveur ({@code create-refus\n<étape>\n<message>}, ShinobiCore {@code handleCreate}) : la sortie est
+     * annulée, l'étape fautive rouverte avec le message du serveur.
+     */
+    public void refusServeur(String etape, String message) {
+        leaveAt = -1;
+        if (intro < 2) { intro = 2; questionsAt = System.currentTimeMillis() - 5000; }
+        int s = switch (etape == null ? "" : etape.strip()) {
+            case "village" -> S_VILLAGE;
+            case "clan" -> S_CLAN;
+            case "sexe" -> S_SEXE;
+            case "nom" -> S_NOM;
+            case "age" -> S_AGE;
+            default -> step;
+        };
+        setStep(s);
+        error = message == null || message.isBlank() ? "Création refusée par le serveur." : message.strip();
+        errorAt = System.currentTimeMillis();
+        errorDuree = 6000;
+        RebornSounds.deny();
+    }
+
+    /** Hors staff, « Autre » = « Sans clan » : le champ porte le nom de famille, soumis aux règles du prénom. */
+    private boolean familleLibre() { return isCustomClan() && !CharacterData.staffExempt(); }
+
+    /** Nom affiché (registre, plaque) : prénom, puis nom de famille quand il n'y a pas de clan. */
+    private String nomComplet() {
+        String n = name.trim();
+        return familleLibre() && !customClan.isBlank() ? n + " " + customClan.trim() : n;
+    }
+
+    /** Une étape pré-remplie déjà valable, sans bruit ni message (ouverture directe à l'étape Taille, maquette J9). */
+    private boolean etapeValable(int s) {
+        return switch (s) {
+            case S_VILLAGE -> village >= 0 && !CharacterRules.villageLocked(CharacterRules.villages()[village]);
+            case S_CLAN -> {
+                String[] cs = CharacterRules.clansOf(village);
+                yield clanIdx >= 0 && clanIdx < cs.length && !CharacterRules.clanLocked(cs[clanIdx])
+                    && (!isCustomClan() || (!CharacterRules.isPredefinedClan(customClan)
+                        && (familleLibre() ? nomValide(customClan) : !customClan.isBlank())));
+            }
+            case S_NOM -> nomValide() && !nomPris();
+            case S_AGE -> CharacterRules.ageCandidature() < 0 || age == CharacterRules.ageCandidature();
+            default -> true;
+        };
     }
 
     @Override public int plancherW() { return 840; }
@@ -173,8 +278,11 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
 
     private int cmActuel() { return (int) Math.round(180 * size * croissance(age)); }
 
-    private boolean nomValide() {
-        String n = name.trim();
+    private boolean nomValide() { return nomValide(name); }
+
+    /** Prénom ou nom de famille : 3 à 20 caractères, lettres, espaces, apostrophes et tirets (même règle au serveur). */
+    private static boolean nomValide(String s) {
+        String n = s == null ? "" : s.trim();
         if (n.length() < 3 || n.length() > 20) return false;
         for (char c : n.toCharArray()) if (!(Character.isLetter(c) || c == ' ' || c == '\'' || c == '’' || c == '-')) return false;
         return true;
@@ -187,16 +295,30 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
 
     private boolean validate(int s) {
         switch (s) {
-            case S_VILLAGE -> { if (village < 0) return fail("Choisis un village."); }
+            case S_VILLAGE -> {
+                if (village < 0) return fail("Choisis un village.");
+                if (CharacterRules.villageLocked(CharacterRules.villages()[village])) {
+                    return fail("Ta candidature t'attache à un autre village.");
+                }
+            }
             case S_CLAN -> {
                 String[] cs = CharacterRules.clansOf(village);
                 if (clanIdx < 0 || clanIdx >= cs.length) return fail("Choisis un clan.");
+                if (CharacterRules.clanLocked(cs[clanIdx])) return fail(MSG_SESSION);
                 if (isCustomClan()) {
-                    if (customClan.isBlank()) return fail("Écris le nom de ton clan.");
+                    if (customClan.isBlank()) return fail(familleLibre() ? "Écris ton nom de famille." : "Écris le nom de ton clan.");
                     if (CharacterRules.isPredefinedClan(customClan)) {
-                        return fail("« " + customClan.trim() + " » est un clan existant : choisis-le dans la grille.");
+                        return fail(familleLibre() ? "« " + customClan.trim() + " » est un clan : " + MSG_SESSION_COURT
+                            : "« " + customClan.trim() + " » est un clan existant : choisis-le dans la grille.");
+                    }
+                    if (familleLibre() && !nomValide(customClan)) {
+                        return fail("Nom de famille : lettres, espaces, apostrophes et tirets, de 3 à 20 caractères.");
                     }
                 }
+            }
+            case S_AGE -> {
+                int ac = CharacterRules.ageCandidature();
+                if (ac >= 0 && age != ac) age = ac;
             }
             case S_NOM -> {
                 if (name.isBlank()) return fail("Écris ton nom.");
@@ -211,9 +333,13 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     private boolean fail(String msg) {
         error = msg;
         errorAt = System.currentTimeMillis();
+        errorDuree = 3000;
         RebornSounds.deny();
         return false;
     }
+
+    private static final String MSG_SESSION = "Ce clan se rejoint en session de clan, annoncée sur le Discord.";
+    private static final String MSG_SESSION_COURT = "il se rejoint en session de clan.";
 
     /* ------------------------------------------------------------- palettes de clan */
 
@@ -449,7 +575,18 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         intro = 2;
         questionsAt = System.currentTimeMillis();
         RebornSounds.confirm();
-        setStep(0);
+        setStep(etapeOuverture());
+    }
+
+    /**
+     * Étape d'ouverture : premier personnage issu de la candidature (maquette J9) → directement l'étape Taille si le
+     * village, le clan, le sexe, le nom et l'âge repris sont valables, sinon la première étape à reprendre ; « Retour »
+     * ou Échap rouvrent les étapes précédentes. Autres créations : la première étape.
+     */
+    private int etapeOuverture() {
+        if (!CharacterData.candidaturePremier()) return 0;
+        for (int s = 0; s < S_TAILLE; s++) if (!etapeValable(s)) return s;
+        return S_TAILLE;
     }
 
     private void next() {
@@ -466,11 +603,11 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     public void setVillage(int v) {
         String[] vs = CharacterRules.villages();
         if (v < 0 || v >= villageCount()) return;
-        if (CharacterRules.villageLocked(vs[v])) { fail("Ta candidature t'attache à un autre village."); return; }
+        if (CharacterRules.villageLocked(vs[v])) { refusVerrou("Ta candidature t'attache à un autre village."); return; }
         if (v != village) {
             village = v;
             presetClan();
-            customClan = "";
+            if (!familleLibre()) customClan = "";        // le nom de famille (« Sans clan ») suit le perso, pas le village
             appliquerPalette();
             applyLists();
             scene.setVillage(v);
@@ -482,7 +619,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     public void setClan(int c) {
         String[] cs = CharacterRules.clansOf(village);
         if (c < 0 || c >= cs.length) return;
-        if (CharacterRules.clanLocked(cs[c])) { fail("Ta candidature t'attache à un autre clan."); return; }
+        if (CharacterRules.clanLocked(cs[c])) { fail(MSG_SESSION); return; }
         if (c != clanIdx) SceneSounds.tick();
         clanIdx = c;
         hairColorIdx = 0;
@@ -501,6 +638,12 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     }
 
     public void setAge(int a) {
+        int ac = CharacterRules.ageCandidature();
+        if (ac >= 0) {                                       // âge sous cadenas (candidature, maquette J9)
+            if (a != ac) refusVerrou("Ta candidature fixe ton âge : " + ac + " ans.");
+            age = ac;
+            return;
+        }
         int n = Math.max(10, Math.min(60, a));
         if (n != age) SceneSounds.key();
         age = n;
@@ -549,6 +692,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
 
     @Override
     public void tick() {
+        if (CharacterData.generation() != candGen && leaveAt < 0) appliquerCandidature(false);
         PersoSons.tick();
         if (leaveAt >= 0 && System.currentTimeMillis() - leaveAt > 2600) onClose();
     }
@@ -623,7 +767,15 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             else RebornSounds.deny();
             return true;
         }
-        if (step == S_CLAN && isCustomClan() && customClan.length() < 20) { customClan += c; SceneSounds.key(); return true; }
+        if (step == S_CLAN && isCustomClan()) {
+            char ch = c.charAt(0);
+            // Nom de famille (« Sans clan ») : mêmes caractères que le prénom ; clan libre du staff : texte libre.
+            boolean ok = !familleLibre() || Character.isLetter(ch) || ch == '\'' || ch == '’' || ch == '-'
+                || (ch == ' ' && !customClan.isEmpty() && !customClan.endsWith(" "));
+            if (ok && customClan.length() < 20) { customClan += c; SceneSounds.key(); }
+            else RebornSounds.deny();
+            return true;
+        }
         return false;
     }
 
@@ -896,7 +1048,8 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         g.pose().pushMatrix();
         g.pose().translate(0, T);
         oyHit = T;
-        PersoUi.progression(g, f, cx, step, ui);
+        boolean[] cadenas = verrous();
+        PersoUi.progression(g, f, cx, step, ui, cadenas);
         float dur = PersoSons.DUREE_VOIX[step];
         float lu = (!PersoSons.VOIX || PersoSons.voixCoupee) ? 1f : Math.min(1f, Math.max(0f, (now - stepAt - 200) / dur));
         String q = QUESTIONS[step];
@@ -937,12 +1090,21 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         }
         if (step == S_RECAP) {
             PersoArt.panneau(g, P_REGISTRE_RECAP, xD, y0, 262);
-            PersoUi.registre(g, f, xD, y0, valeurs(), -1, 1f);
+            PersoUi.registre(g, f, xD, y0, valeurs(), -1, 1f, cadenas);
             inter(g, f, inter("Le registre sera scellé."), xD + 16, y0 + 228, 7, DOUX, 0);
             sceauRegistre(g, indexSceau(), xD + 188, y0 + 222);        // à la place de l'ancien tampon 認 (18/10)
         } else if (step != S_LOOK) {
-            PersoArt.panneau(g, P_REGISTRE, xD, y0, 214);
-            PersoUi.registre(g, f, xD, y0, valeurs(), step, 1f);
+            boolean repris = CharacterData.candidaturePremier();
+            // Premier personnage : planche allongée d'une ligne « Repris de ta candidature · Une erreur ? Un ticket. » (J9)
+            PersoArt.panneau(g, repris ? P_REGISTRE_RECAP : P_REGISTRE, xD, y0, repris ? 238 : 214);
+            PersoUi.registre(g, f, xD, y0, valeurs(), step, 1f, cadenas);
+            if (repris) {
+                int ly = y0 + 214;
+                g.fill(xD + 14, ly - 9, xD + 226, ly - 8, 0x40C8A870);
+                PersoArt.cadenas(g, xD + 14, ly - 4);
+                inter(g, f, inter("Repris de ta candidature"), xD + 26, ly, 7, CREME, 0);
+                inter(g, f, inter("Une erreur ? Un ticket."), xD + 226, ly, 7, DOUX, 2);
+            }
         }
         g.pose().popMatrix();
         oyHit = 0;
@@ -968,8 +1130,8 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             bouton(g, f, B_HASARD, hh ? 1 : 0, 24, by, null);
             hit(24, by, wa, 20, A_HASARD);
         }
-        if (!error.isEmpty() && now - errorAt < 3000) {
-            float ea = Math.min(1f, (3000 - (now - errorAt)) / 400f);
+        if (!error.isEmpty() && now - errorAt < errorDuree) {
+            float ea = Math.min(1f, (errorDuree - (now - errorAt)) / 400f);
             inter(g, f, inter(error), cx, by - 12, 8, argb(0xE87070, ea * ui), 1);
         }
         String[][] aides = switch (step) {
@@ -977,7 +1139,8 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             case S_CLAN -> new String[][]{{"CLIC", "choisir"}, {"ENTREE", "suivant"}, {"ECHAP", "retour"}};
             case S_SEXE -> new String[][]{{"< >", "changer"}, {"ENTREE", "suivant"}, {"ECHAP", "retour"}};
             case S_NOM -> new String[][]{{"CLAVIER", "écrire"}, {"ENTREE", "suivant"}};
-            case S_AGE -> new String[][]{{"< >", "1 an"}, {"GLISSER", "régler"}, {"ENTREE", "suivant"}};
+            case S_AGE -> CharacterRules.ageCandidature() >= 0 ? new String[][]{{"ENTREE", "suivant"}, {"ECHAP", "retour"}}
+                : new String[][]{{"< >", "1 an"}, {"GLISSER", "régler"}, {"ENTREE", "suivant"}};
             case S_TAILLE -> new String[][]{{"< >", "1 cm"}, {"GLISSER", "régler"}, {"ENTREE", "suivant"}};
             case S_LOOK -> new String[][]{{"GLISSER", "tourner"}, {"CLIC", "choisir"}, {"ENTREE", "suivant"}};
             default -> new String[][]{{"ENTREE", "valider"}, {"ECHAP", "modifier"}};
@@ -1005,9 +1168,10 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         int lim = step == S_RECAP ? 7 : step;
         String clan = clanName();
         String slug = CharacterRules.slug(clanBrut());
+        // Hors staff, « Autre » = « Sans clan » : le nom de famille rejoint le prénom sur la ligne NOM (maquette J9).
+        String ligneClan = familleLibre() ? "Sans clan" : clan.isEmpty() ? (isCustomClan() ? "Autre" : null) : affiche(clan);
         String[] vals = {village >= 0 ? CharacterRules.villages()[village] : null,
-            clan.isEmpty() ? (isCustomClan() ? "Autre" : null) : affiche(clan), sexe(),
-            name.isBlank() ? null : name.trim(), age + " ans", cmActuel() + " cm", ""};
+            ligneClan, sexe(), name.isBlank() ? null : nomComplet(), age + " ans", cmActuel() + " cm", ""};
         for (int i = 0; i <= Math.min(6, lim); i++) {
             if (i == lim && step == S_RECAP) break;
             if (i == 6) {
@@ -1017,7 +1181,8 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
                 continue;
             }
             if (vals[i] == null) continue;
-            int em = i == 0 ? idxVillage(village) : i == 1 ? idxClan(slug) : -1;
+            // « Sans clan » : pas de blason (maquette J9)
+            int em = i == 0 ? idxVillage(village) : i == 1 && !familleLibre() ? idxClan(slug) : -1;
             v[i] = new PersoUi.Ligne(vals[i], em, null);
         }
         return v;
@@ -1081,18 +1246,21 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             int col = sel ? OR_CLAIR : sur ? CREME : lock ? 0xFF5E5248 : DOUX;
             emblemeCentre(g, idxClan(CharacterRules.slug(cs[i])), cx0 + cw / 2f, ey, t, col);
             if (!lock) g.fill(cx0 + cw / 2 - 6, cy0 + ch - 21, cx0 + cw / 2 + 6, cy0 + ch - 20, opaque(mix(cc, 0xFFF0D2, 0.25f)));
-            arcFin(g, f, arcade(affiche(cs[i])), cx0 + cw / 2f, cy0 + ch - 13, sel || sur ? CREME : lock ? 0xFF5E5248 : 0xFFC8B898, 1, sel);
+            String lib = "Autre".equals(cs[i]) ? CharacterRules.libelleAutre() : affiche(cs[i]);
+            arcFin(g, f, arcade(lib), cx0 + cw / 2f, cy0 + ch - 13, sel || sur ? CREME : lock ? 0xFF5E5248 : 0xFFC8B898, 1, sel);
             hit(cx0, cy0, cw, ch, 100 + i);
         }
         int ly = y0 + h - 15;
         if (isCustomClan()) {
+            // « Sans clan » (hors staff) : nom de famille libre, repris de la candidature et modifiable ; clan libre du staff.
             String v = customClan + ((now / 500) % 2 == 0 ? "|" : "");
-            etiq(g, f, "NOM DU CLAN", x + 14, ly, OR_ETIQ);
-            inter(g, f, inter(v.isEmpty() ? "|" : v), x + 96, ly, 9, CREME, 0);
-            g.fill(x + 96, ly + 7, x + 226, ly + 8, R_OR[3]);
+            float we = etiq(g, f, familleLibre() ? "NOM DE FAMILLE" : "NOM DU CLAN", x + 14, ly, OR_ETIQ);
+            int vx = Math.max(x + 96, Math.round(x + 14 + we + 8));
+            inter(g, f, inter(v.isEmpty() ? "|" : v), vx, ly, 9, CREME, 0);
+            g.fill(vx, ly + 7, x + 226, ly + 8, R_OR[3]);
         } else if (unVerrou) {
             cadenas(g, x + 40, ly - 4);
-            inter(g, f, inter("Clan ouvert sur candidature"), x + 52, ly, 7, DOUX, 0);
+            inter(g, f, inter("Clans en session, annoncée sur le Discord"), x + 52, ly, 7, DOUX, 0);
         } else {
             String desc = CharacterRules.clanDesc(clanBrut());
             if (desc != null && !desc.isEmpty()) {
@@ -1139,7 +1307,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     private void etapeNom(GuiGraphicsExtractor g, Font f, long now, int hautFig) {
         // plaque de nom au-dessus de la tête (aperçu de la plaque flottante)
         int ny = Math.max(150, hautFig - 18 - T);
-        String n = name.trim().isEmpty() ? "…" : name.trim();
+        String n = name.trim().isEmpty() ? "…" : nomComplet();
         float nw = largeur(f, inter(n), 9) + 14;
         g.fill(Math.round(cx - nw / 2), ny - 6, Math.round(cx + nw / 2), ny + 6, 0x960A0608);
         inter(g, f, inter(n), cx, ny, 9, CREME, 1);
@@ -1160,7 +1328,9 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         PersoArt.panneau(g, P_AGE, x, y0, 184);
         int X = x + 14, WL = 212;
         float yy = y0 + 50;
-        inter(g, f, interGras(age + " ans"), X, yy, 16, CREME, 0);
+        boolean verrou = CharacterRules.ageCandidature() >= 0;     // âge repris de la candidature (maquette J9)
+        float wa = inter(g, f, interGras(age + " ans"), X, yy, 16, CREME, 0);
+        if (verrou) cadenas(g, Math.round(X + wa + 8), Math.round(yy) - 4);
         plusMoins(g, X + WL - 44, Math.round(yy) - 7, mx, my);
         int ry = Math.round(yy) + 22;
         regleDyn(g, f, X + 2, ry, WL - 4, 10, 60, age, new int[]{10, 20, 30, 40, 50, 60});
@@ -1170,7 +1340,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         int cur = age < 13 ? 0 : age < 17 ? 1 : 2;
         for (int k = 0; k < 3; k++) {
             int tx = X + k * (tw + 4);
-            boolean sur = k != cur && dans(mx, my, tx, by, tw, 34);
+            boolean sur = !verrou && k != cur && dans(mx, my, tx, by, tw, 34);
             tuile(g, T_AGE, k == cur ? ACTIF : sur ? SURVOL : NORMAL, tx, by, 34);
             arcFin(g, f, arcade(lib[k]), tx + tw / 2f, by + 8, k == cur ? CREME : 0xFFA8946E, 1, k == cur);
             inter(g, f, inter(sous[k]), tx + tw / 2f, by + 23, 7, k == cur ? 0xFFF2D8B0 : DOUX, 1);
@@ -1179,7 +1349,8 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         String phrase = age < 13 ? "Encore à l'Académie : ton corps n'a pas fini de grandir."
             : age < 17 ? "Jeune genin : tu grandis encore un peu." : "Ton corps a fini de grandir.";
         inter(g, f, inter(phrase), X, by + 50, 8, CREME, 0);
-        inter(g, f, inter("Ta taille d'aujourd'hui suit ton âge (étape suivante)."), X, by + 64, 7, DOUX, 0);
+        inter(g, f, inter(verrou ? "Repris de ta candidature. Une erreur ? Un ticket."
+            : "Ta taille d'aujourd'hui suit ton âge (étape suivante)."), X, by + 64, 7, DOUX, 0);
     }
 
     private void etapeTaille(GuiGraphicsExtractor g, Font f, int x, int y0, int mx, int my, int sx, int pieds, float k) {
@@ -1666,7 +1837,8 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         int cx0 = wx + ww + 10;
         String clan = clanName();
         emblemeCentre(g, idxClan(CharacterRules.slug(clanBrut())), cx0 + 38, wy + 28, 32, OR_CLAIR);
-        inter(g, f, interGras(clan.isEmpty() ? "Sans clan" : "Clan " + affiche(clan)), cx0 + 38, wy + 64, 9, CREME, 1);
+        inter(g, f, interGras(clan.isEmpty() || familleLibre() ? "Sans clan" : "Clan " + affiche(clan)), cx0 + 38, wy + 64, 9,
+            CREME, 1);
         embleme(g, idxVillage(village), cx0 + 4, wy + 76, 12, DOUX);
         inter(g, f, inter(CharacterRules.villages()[village]), cx0 + 18, wy + 82, 8, DOUX, 0);
         inter(g, f, inter("Académicien"), cx0 + 38, wy + 100, 8, 0xFFC8A870, 1);
@@ -1741,6 +1913,14 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         this.outfitIdx = outfit;
         appliquerPalette();
         applyLists();
+    }
+
+    /** Ouverture réelle (étape choisie par {@link #etapeOuverture()}), animations d'entrée déjà jouées. */
+    void debugOuvrir() {
+        beginScene();
+        questionsAt -= 5000;
+        stepAt -= 5000;
+        lacet = lacetCible;
     }
 
     void debugEtape(int s) {

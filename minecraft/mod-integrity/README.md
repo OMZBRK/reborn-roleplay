@@ -22,14 +22,19 @@ Reborn au moment du JOIN, via un play-token signé par l'API.
    |    .base64(HMAC-SHA256(REBORN_PLAY_TOKEN_SECRET, payload))
    v
 [launcher Rust]
-   |  écrit dans <gameDir>/.reborn-play-token
+   |  écrit dans <gameDir>/.reborn-play-token (+ -dev pour un staff)
    |  lance JVM avec -Dreborn.playTokenPath=<chemin absolu>
+   |                 (-Dreborn.playTokenPath.dev=<chemin> pour un staff)
+   |  réécrit ces fichiers toutes les 3 min tant que le jeu tourne
+   |  (launcher/play_tokens.rs : jeton de 5 min, écriture atomique)
    v
 [mod Reborn Integrity — ICI]
    onInitializeClient :
-     - lit le fichier pointé par la sysprop
      - registre AuthPayload sur le canal C2S "reborn:auth"
-     - ClientPlayConnectionEvents.JOIN -> envoie le payload au serveur
+   ClientPlayConnectionEvents.JOIN (à CHAQUE connexion) :
+     - adresse rejointe = reborn.server.dev.host/.port ? fichier dev
+       (absent : jeton principal), sinon fichier principal
+     - relit le fichier (jeton frais), l'envoie au serveur
    v
 [plugin Reborn Guardian]
    - PlayerJoinEvent schedule un kick à T+8s
@@ -56,13 +61,16 @@ launcher Reborn — vanilla server, LAN, dev) le mod log un warn et ne
 fait rien. Le client reste exploitable : il ne s'attestera juste pas
 et se fera kick par notre serveur s'il s'y connecte.
 
+Fichier illisible au moment de la connexion : le mod renvoie le dernier
+jeton lu de ce fichier (Guardian tranche s'il a expiré).
+
 ## Build
 
-JDK 21 requis. Projet isolé du monorepo pnpm.
+JDK 25 requis. Projet isolé du monorepo pnpm.
 
 ```pwsh
 ./gradlew build       # → build/libs/reborn-integrity-<ver>.jar
-./gradlew runClient   # client MC 1.21.1 avec le mod
+./gradlew runClient   # client MC 26.2 avec le mod
 ```
 
 ## Packaging par le launcher
@@ -73,8 +81,9 @@ JDK 21 requis. Projet isolé du monorepo pnpm.
 
 ## Versions
 
-Alignées sur `REBORN_MC_VERSION=1.21.1`. À bumper en lockstep avec le
-serveur Paper et le plugin Guardian.
+Alignées sur `REBORN_MC_VERSION=26.2`. À bumper en lockstep avec le
+serveur Paper et le plugin Guardian. 0.3.2 : jeton relu à chaque
+connexion, jeton dev choisi selon l'adresse rejointe.
 
 ## Voir aussi
 

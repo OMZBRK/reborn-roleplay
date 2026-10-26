@@ -40,29 +40,38 @@ public class CharacterLifecycleListener implements Listener {
     @EventHandler(priority = EventPriority.LOW)
     public void onJoin(PlayerJoinEvent e) {
         Player p = e.getPlayer();
-        CharacterManager mgr = plugin.characters();
-        List<ShinobiCharacter> roster = mgr.getAll(p.getUniqueId());
-
-        // Sélection pilotée par le mod client (build + overlay Reborn). Ouverte
-        // MÊME à 0 perso (l'écran présente la tuile « Créer ») → un nouveau joueur
-        // peut créer son 1er perso sans staff. Différé d'un tick pour laisser le
-        // client prêt. Si la feature est désactivée, on retombe sur l'ancien
-        // comportement (hub coffre si roster, lockdown+staff si vide).
+        // Différé d'un tick pour laisser le client prêt.
         plugin.getServer().getScheduler().runTask(plugin, () -> {
-            if (plugin.characterSelect() != null && plugin.characterSelect().beginSelection(p)) {
-                return;
-            }
-            if (roster.isEmpty()) {
-                if (plugin.noCharacterLockdown() != null) {
-                    plugin.noCharacterLockdown().apply(p);
-                }
-                p.sendMessage(Component.text(
-                        "Vous devez contacter un Staff pour créer votre personnage.",
-                        NamedTextColor.RED));
-            } else {
-                plugin.coreGui().openHub(p);
-            }
+            if (!p.isOnline()) return;
+            // Douane (CANDIDATURE_ET_DOUANE.md §3.3) : aiguillage AVANT toute sélection. Si elle est active, elle prend
+            // la main (attente neutre jusqu'à une preuve, puis sélection, hall ou expulsion) et rappelle ouvrirSelection.
+            if (plugin.douane() != null && plugin.douane().aiguiller(p)) return;
+            ouvrirSelection(plugin, p);
         });
+    }
+
+    /**
+     * Sélection pilotée par le mod client (build + overlay Reborn). Ouverte MÊME à 0 perso (l'écran présente la tuile
+     * « Créer ») → un nouveau joueur peut créer son 1er perso sans staff. Si la feature est désactivée, on retombe sur
+     * l'ancien comportement (hub coffre si roster, lockdown+staff si vide). Appelée aussi par la douane, après une
+     * preuve d'accès « play » ou l'acceptation à l'oral ; refusée sans cette preuve quand la douane est active.
+     */
+    public static void ouvrirSelection(ShinobiCore plugin, Player p) {
+        if (plugin.douane() != null && !plugin.douane().selectionPermise(p)) return;
+        if (plugin.characterSelect() != null && plugin.characterSelect().beginSelection(p)) {
+            return;
+        }
+        List<ShinobiCharacter> roster = plugin.characters().getAll(p.getUniqueId());
+        if (roster.isEmpty()) {
+            if (plugin.noCharacterLockdown() != null) {
+                plugin.noCharacterLockdown().apply(p);
+            }
+            p.sendMessage(Component.text(
+                    "Vous devez contacter un Staff pour créer votre personnage.",
+                    NamedTextColor.RED));
+        } else {
+            plugin.coreGui().openHub(p);
+        }
     }
 
     @EventHandler

@@ -91,7 +91,7 @@ public class GardeScreen extends StaffScreen {
 
     @Override
     protected boolean large() {
-        return "outils".equals(tab) && ("zones".equals(outil) || "hopitaux".equals(outil) || "reglages".equals(outil));
+        return super.large() || "outils".equals(tab) && ("zones".equals(outil) || "hopitaux".equals(outil) || "reglages".equals(outil));
     }
 
     @Override

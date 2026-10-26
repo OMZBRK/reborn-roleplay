@@ -64,6 +64,11 @@ final class PersoUi {
 
     /** Fil des huit sceaux (étapes de la création). */
     static void progression(GuiGraphicsExtractor g, Font f, int cx, int etape, float a) {
+        progression(g, f, cx, etape, a, null);
+    }
+
+    /** Fil d'étapes ; {@code verrous[i]} : petit cadenas au coin du sceau i (valeur reprise de la candidature, J9). */
+    static void progression(GuiGraphicsExtractor g, Font f, int cx, int etape, float a, boolean[] verrous) {
         int al = argb(0xFFFFFF, a);
         blit(g, PROGRESSION, cx - 280, 0, 0, 0, 560, 32, 560, 32, al);
         if ((al >>> 24) == 0) return;
@@ -82,6 +87,10 @@ final class PersoUi {
             arcFin(libs, g, f, arcade(ETAPES[i]), x, etat == 1 ? 44 : 41, alpha(col, a), 1, etat == 1);
         }
         libs.fermer();
+        if (verrous == null || a < 0.5f) return;
+        for (int i = 0; i < 8 && i < verrous.length; i++) {
+            if (verrous[i]) cadenas(g, cx - 217 + 62 * i + 9, 8);
+        }
     }
 
     /**
@@ -118,6 +127,12 @@ final class PersoUi {
 
     /** Le registre qui se remplit : lignes remplies (puce or), ligne en cours (filet rouge, or clair), à venir (—). */
     static void registre(GuiGraphicsExtractor g, Font f, int x, int y, Ligne[] valeurs, int enCours, float a) {
+        registre(g, f, x, y, valeurs, enCours, a, null);
+    }
+
+    /** Registre ; {@code verrous[k]} : la ligne k finit par un cadenas au lieu de la puce (reprise de la candidature, J9). */
+    static void registre(GuiGraphicsExtractor g, Font f, int x, int y, Ligne[] valeurs, int enCours, float a,
+                         boolean[] verrous) {
         int X = x + 14, CV = 74, WL = 212;
         float yy = y + 46;
         // aplats (repère, nuanciers) et textes du registre : un lot chacun ; aucun texte ne touche un aplat, un emblème
@@ -158,7 +173,8 @@ final class PersoUi {
                     }
                     inter(txt, g, f, inter(texte), vx, yy, t, alpha(cur ? OR_CLAIR : CREME, a), 0);
                 }
-                if (!cur) losange(g, X + WL - 4, Math.round(yy) - 1);
+                if (verrous != null && k < verrous.length && verrous[k]) cadenas(g, X + WL - 7, Math.round(yy) - 4);
+                else if (!cur) losange(g, X + WL - 4, Math.round(yy) - 1);
             } else {
                 inter(txt, g, f, inter("—"), X + CV, yy, 9, alpha(0xFF5A4E42, a), 0);
             }
