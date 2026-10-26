@@ -166,6 +166,17 @@ pub struct PlaySession {
     /// Serveur visé (claim `aud`), ou `None` si l'API n'en émet pas.
     #[serde(default)]
     pub aud: Option<String>,
+    /// Adresse de jeu du serveur visé (`REBORN_SERVER_ADDRESSES` de l'API),
+    /// `None` si l'API ne la donne pas : l'adresse inscrite au build sert alors.
+    #[serde(default)]
+    pub adresse: Option<AdresseServeur>,
+}
+
+/// Adresse de jeu renvoyée avec le jeton (`POST /play/session`).
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct AdresseServeur {
+    pub host: String,
+    pub port: u16,
 }
 
 impl std::fmt::Debug for PlaySession {
@@ -175,6 +186,7 @@ impl std::fmt::Debug for PlaySession {
             .field("expires_at", &self.expires_at)
             .field("scope", &self.scope)
             .field("aud", &self.aud)
+            .field("adresse", &self.adresse.as_ref().map(|_| "<fournie>"))
             .finish()
     }
 }

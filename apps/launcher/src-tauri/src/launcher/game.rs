@@ -968,7 +968,11 @@ fn build_argv(
         ram_mb: user_prefs.ram_mb,
         width: user_prefs.width,
         height: user_prefs.height,
-        auto_connect: resolve_auto_connect(),
+        auto_connect: choisir_auto_connect(
+            runtime_server_override(),
+            tokens.adresse.clone(),
+            resolve_auto_connect(),
+        ),
         dev_server: resolve_dev_server(),
         is_staff: identity.is_staff,
         play_token_path: Some(tokens.main.display().to_string()),
@@ -1093,6 +1097,8 @@ struct PlayTokens {
     /// Portée et serveur du jeton principal, tels que l'API les a émis.
     scope: Option<String>,
     server_id: Option<String>,
+    /// Adresse du serveur visé donnée par l'API avec le jeton principal.
+    adresse: Option<jvm::ServerAddress>,
     /// Fichiers à tenir à jour pendant la partie (cf `play_tokens`), avec le
     /// serveur demandé pour chacun.
     targets: Vec<TokenTarget>,
@@ -1168,6 +1174,10 @@ async fn write_play_tokens(
         dev,
         scope: session.scope,
         server_id: session.aud,
+        adresse: session.adresse.map(|a| jvm::ServerAddress {
+            host: a.host,
+            port: a.port,
+        }),
         targets,
     })
 }
@@ -1331,6 +1341,38 @@ pub async fn launcher_mods_purge(game: State<'_, GameState>) -> Result<Vec<Strin
 /// `REBORN_SERVER_HOST_BUILD` (baker au build release). Idem pour port.
 /// Quand le manifest signé portera l'adresse du serveur, on la prendra de
 /// là et on virera ces fallbacks.
+/// Adresse forcée sur ce PC (`REBORN_SERVER_HOST` à l'exécution), sans repli.
+fn runtime_server_override() -> Option<jvm::ServerAddress> {
+    let host = std::env::var("REBORN_SERVER_HOST").ok()?;
+    let host = host.trim();
+    if host.is_empty() {
+        return None;
+    }
+    let port = std::env::var("REBORN_SERVER_PORT")
+        .ok()
+        .and_then(|s| s.trim().parse::<u16>().ok())
+        .unwrap_or(25565);
+    Some(jvm::ServerAddress {
+        host: host.to_string(),
+        port,
+    })
+}
+
+/// Serveur de connexion automatique : l'adresse forcée sur ce PC, puis celle
+/// que l'API joint au jeton (aiguillage depuis le VPS : dev pré-prod, bascule
+/// en prod), puis celle inscrite à la publication du launcher.
+fn choisir_auto_connect(
+    forcee: Option<jvm::ServerAddress>,
+    api: Option<jvm::ServerAddress>,
+    build: Option<jvm::ServerAddress>,
+) -> Option<jvm::ServerAddress> {
+    let choix = forcee.or(api).or(build);
+    if let Some(a) = &choix {
+        tracing::info!("serveur de connexion : port {}", a.port);
+    }
+    choix
+}
+
 fn resolve_auto_connect() -> Option<jvm::ServerAddress> {
     let host = std::env::var("REBORN_SERVER_HOST")
         .ok()
@@ -1670,6 +1712,30 @@ mod tests {
             server_id_override("REBORN_PLAY_SERVER_ID_TEST_ABSENTE"),
             None
         );
+    }
+
+    #[test]
+    fn auto_connect_forcee_puis_api_puis_build() {
+        let a = |h: &str, p: u16| {
+            Some(jvm::ServerAddress {
+                host: h.into(),
+                port: p,
+            })
+        };
+        let c = |x: Option<jvm::ServerAddress>| x.map(|a| (a.host, a.port));
+        assert_eq!(
+            c(choisir_auto_connect(a("pc", 1), a("api", 2), a("build", 3))),
+            Some(("pc".into(), 1))
+        );
+        assert_eq!(
+            c(choisir_auto_connect(None, a("api", 2), a("build", 3))),
+            Some(("api".into(), 2))
+        );
+        assert_eq!(
+            c(choisir_auto_connect(None, None, a("build", 3))),
+            Some(("build".into(), 3))
+        );
+        assert_eq!(c(choisir_auto_connect(None, None, None)), None);
     }
 
     #[test]
