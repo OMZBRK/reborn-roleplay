@@ -64,6 +64,45 @@ export interface PlaySession {
   /** Pour le launcher (bouton « Passer la douane ») ; le jeton fait foi côté serveur. */
   scope: PlayScope;
   aud: string | null;
+  /**
+   * Adresse de jeu du serveur visé (REBORN_SERVER_ADDRESSES), null si l'API ne
+   * la connaît pas : le launcher garde alors l'adresse inscrite à sa publication.
+   * Permet d'aiguiller tous les launchers (dev pré-prod, bascule en prod) depuis
+   * le VPS, sans republier le launcher.
+   */
+  adresse: AdresseServeur | null;
+}
+
+export interface AdresseServeur {
+  host: string;
+  port: number;
+}
+
+/**
+ * REBORN_SERVER_ADDRESSES : `dev=hote:port,prod=hote:port`. Entrée invalide
+ * ignorée et signalée. Jamais d'adresse dans le dépôt : la valeur vit dans
+ * `.env.prod`.
+ */
+export function lireAdressesServeurs(brut?: string): {
+  adresses: Map<string, AdresseServeur>;
+  avertissements: string[];
+} {
+  const adresses = new Map<string, AdresseServeur>();
+  const avertissements: string[] = [];
+  for (const part of (brut ?? '').split(',')) {
+    const entree = part.trim();
+    if (!entree) continue;
+    const m = /^([a-z0-9][a-z0-9-]{0,31})=([A-Za-z0-9.-]{1,253}):(\d{1,5})$/.exec(entree);
+    const port = m ? Number(m[3]) : 0;
+    if (!m || port < 1 || port > 65535) {
+      avertissements.push(
+        `REBORN_SERVER_ADDRESSES : entrée « ${entree.split('=')[0]}=… » ignorée (forme attendue : id=hote:port).`,
+      );
+      continue;
+    }
+    adresses.set(m[1], { host: m[2], port });
+  }
+  return { adresses, avertissements };
 }
 
 /** Identifiant de serveur : minuscules, chiffres et tirets, comme la clé `server-id` de Guardian. */
@@ -99,6 +138,8 @@ export class PlayService {
   private readonly douaneEnabled: boolean;
   /** Retard maximal après l'heure de convocation : même variable et mêmes bornes que DouaneService. */
   private readonly douaneRetardMaxMin: number;
+  /** Adresses de jeu par serveur (REBORN_SERVER_ADDRESSES). */
+  private readonly adresses: ReadonlyMap<string, AdresseServeur>;
 
   constructor(
     config: ConfigService,
@@ -137,9 +178,16 @@ export class PlayService {
       config.get<string>('DOUANE_RETARD_MAX_MIN'),
     );
 
+    const lu = lireAdressesServeurs(
+      config.get<string>('REBORN_SERVER_ADDRESSES'),
+    );
+    for (const a of lu.avertissements) this.logger.error(a);
+    this.adresses = lu.adresses;
+
     this.logger.log(
       `Jetons de jeu : serveur par défaut ${this.defaultServerId ?? 'aucun (pas de aud)'}` +
         ` ; serveurs connus : ${known.size ? [...known].join(', ') : 'aucun'}` +
+        ` ; adresses connues : ${this.adresses.size ? [...this.adresses.keys()].join(', ') : 'aucune (adresse du launcher)'}` +
         ` ; douane ${this.douaneEnabled ? `ACTIVE (H − ${AVANCE_ENTREE_MIN} min à H + ${this.douaneRetardMaxMin} min)` : 'coupée'}`,
     );
   }
@@ -220,6 +268,7 @@ export class PlayService {
       expiresAt: new Date(payload.exp * 1000).toISOString(),
       scope,
       aud: aud ?? null,
+      adresse: (aud && this.adresses.get(aud)) || null,
     };
   }
 

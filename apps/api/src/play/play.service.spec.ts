@@ -8,6 +8,7 @@ import { fenetreEntree } from '../douane/douane.regles';
 import { formatConvocation } from './douane-fenetre';
 import {
   DOUANE_KEY_LABEL,
+  lireAdressesServeurs,
   PlayService,
   type PlayTokenPayload,
 } from './play.service';
@@ -120,6 +121,22 @@ describe('PlayService.issuePlayToken — portée et serveur visé', () => {
     });
     expect(payload.exp - payload.iat).toBe(300);
     expect(res).toMatchObject({ scope: 'play', aud: 'prod' });
+  });
+
+  it('REBORN_SERVER_ADDRESSES : adresse du serveur visé jointe au jeton, null sans entrée', async () => {
+    compte({ role: 'WHITELISTED' });
+    const env = {
+      REBORN_SERVER_ID: 'dev',
+      REBORN_SERVER_IDS: 'prod,dev',
+      REBORN_SERVER_ADDRESSES: 'dev=dev.exemple.test:25606, prod=play.exemple.test:27106',
+    };
+    expect(await service(env).issuePlayToken('u1')).toMatchObject({
+      aud: 'dev',
+      adresse: { host: 'dev.exemple.test', port: 25606 },
+    });
+    expect(
+      (await service({ REBORN_SERVER_ID: 'prod' }).issuePlayToken('u1')).adresse,
+    ).toBeNull();
   });
 
   it('sans REBORN_SERVER_ID : aucun aud (ancien comportement)', async () => {
@@ -496,5 +513,16 @@ describe('douane-fenetre', () => {
     expect(formatConvocation(new Date('2026-10-31T20:30:00Z'))).toBe(
       'samedi 31 octobre à 21 h 30',
     );
+  });
+});
+
+describe('lireAdressesServeurs', () => {
+  it('lit id=hote:port, ignore et signale le reste', () => {
+    const r = lireAdressesServeurs('dev=a.b:25606,mauvais,prod=c:99999,Build=x:1');
+    expect([...r.adresses.entries()]).toEqual([['dev', { host: 'a.b', port: 25606 }]]);
+    expect(r.avertissements).toHaveLength(3);
+  });
+  it('vide : aucune adresse', () => {
+    expect(lireAdressesServeurs(undefined).adresses.size).toBe(0);
   });
 });

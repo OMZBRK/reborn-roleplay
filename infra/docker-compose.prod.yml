@@ -79,6 +79,9 @@ services:
       # qu'un launcher peut demander. Vides = pas de aud (ancien comportement).
       REBORN_SERVER_ID: ${REBORN_SERVER_ID:-}
       REBORN_SERVER_IDS: ${REBORN_SERVER_IDS:-}
+      # Adresses de jeu par serveur (id=hote:port, séparées par des virgules), jointes au jeton :
+      # le launcher y envoie le joueur. Vide = adresse inscrite dans le launcher.
+      REBORN_SERVER_ADDRESSES: ${REBORN_SERVER_ADDRESSES:-}
       # Émet les jetons « douane », pour tous les serveurs : true seulement à
       # l'étape 4 de la transition.
       REBORN_DOUANE_ENABLED: ${REBORN_DOUANE_ENABLED:-false}
