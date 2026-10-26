@@ -30,6 +30,7 @@ import { WhitelistPartDecisionDto } from '../staff/dto/staff.dto';
 import { TicketsService } from '../tickets/tickets.service';
 import { WhitelistMessagesService } from '../whitelist/whitelist-messages.service';
 import { WhitelistVoixService } from '../whitelist/whitelist-voix.service';
+import { MePersonnagesService } from '../me/me-personnages.service';
 import { AdminService } from './admin.service';
 import { AssignmentService } from './assignment.service';
 import { RoleService } from './role.service';
@@ -72,6 +73,7 @@ export class AdminController {
     private readonly roles: RoleService,
     private readonly oralSlots: OralSlotsService,
     private readonly voix: WhitelistVoixService,
+    private readonly personnages: MePersonnagesService,
   ) {}
 
   /** Pilotage : Comptes et Recrutement à null sans `pilotage.analyses`. */
@@ -338,6 +340,16 @@ export class AdminController {
   @ExigeCapacite('joueurs.voir')
   getPlayer(@Param('id', ParseUUIDPipe) id: string) {
     return this.admin.getPlayer(id);
+  }
+
+  /**
+   * Onglet Personnages de la fiche joueur : ses personnages synchronisés depuis
+   * le jeu (ShinobiCore → POST /game/characters/sync), tous serveurs.
+   */
+  @Get('players/:id/characters')
+  @ExigeCapacite('joueurs.voir')
+  personnagesJoueur(@Param('id', ParseUUIDPipe) id: string) {
+    return this.personnages.personnagesPourStaff(id);
   }
 
   /**

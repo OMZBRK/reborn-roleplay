@@ -75,3 +75,13 @@ export function uuidCourt(uuid: string): string {
   const u = uuid.replace(/-/g, '');
   return u.length > 10 ? `${u.slice(0, 4)}…${u.slice(-4)}` : u;
 }
+
+/** Temps de jeu : 38 → « 38 min » ; 2052 → « 34 h 12 » ; 720 → « 12 h » (comme le launcher). */
+export function tempsDeJeu(minutes: number): string {
+  const total = Math.max(0, Math.floor(minutes));
+  if (total < 60) return `${total} min`;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  const heures = h.toLocaleString('fr-FR');
+  return m === 0 ? `${heures} h` : `${heures} h ${String(m).padStart(2, '0')}`;
+}

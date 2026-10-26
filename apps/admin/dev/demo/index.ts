@@ -1035,6 +1035,17 @@ function router(methode: string, chemin: string, p: URLSearchParams, corps: Corp
         exiger('joueurs.ip');
         return { ip: null, pays: j.pays };
       }
+      if (d === 'characters') {
+        // Deux personnages synchronisés (dev, en vie et mort RP) pour l'onglet Personnages.
+        const base = { playerId: null, playerNumber: null, clan: null, sex: 'HOMME', age: 17, fromApplication: false };
+        return {
+          serveursLauncher: ['dev'],
+          characters: [
+            { ...base, serverId: 'dev', characterId: `${j.id}-1`, playerId: 42, playerNumber: '00042', firstName: 'Kaito', lastName: 'Arashi', clan: 'Uchiha', village: 'Konohagakure', type: 'NINJA', rank: 'GENIN_CONFIRME', state: 'ALIVE', playMinutes: 2052, playMinutesSince: new Date(Date.now() - 6 * 864e5).toISOString(), createdAt: new Date(Date.now() - 6 * 864e5).toISOString(), lastSeenAt: new Date(Date.now() - 3 * 36e5).toISOString(), fromApplication: true },
+            { ...base, serverId: 'dev', characterId: `${j.id}-2`, playerId: 57, playerNumber: '00057', firstName: 'Ren', lastName: 'Mori', village: 'Sunagakure', type: 'CIVIL', rank: null, state: 'DEAD', playMinutes: 380, playMinutesSince: new Date(Date.now() - 4 * 864e5).toISOString(), createdAt: new Date(Date.now() - 4 * 864e5).toISOString(), lastSeenAt: new Date(Date.now() - 2 * 864e5).toISOString() },
+          ],
+        };
+      }
       if (d === 'role' && methode === 'PATCH') {
         exiger('grades.changer');
         const motif = typeof corps?.motif === 'string' ? corps.motif.trim() : '';

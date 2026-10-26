@@ -119,6 +119,13 @@ export interface MesPersonnagesVue {
   characters: MonPersonnageVue[];
 }
 
+/** Onglet Personnages du panel : toutes les cartes du joueur, tous serveurs. */
+export interface PersonnagesStaffVue {
+  /** Serveurs montrés dans « Mes personnages » du launcher (REBORN_CHARACTERS_SERVER_IDS). */
+  serveursLauncher: string[];
+  characters: Array<MonPersonnageVue & { serverId: string }>;
+}
+
 export function etatPersonnage(p: {
   dead: boolean;
   deletedAt: Date | null;

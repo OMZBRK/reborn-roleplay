@@ -230,3 +230,27 @@ export function libelleServeur(id: string | null | undefined): string {
   if (!id) return '—';
   return SERVEURS[id] ?? id;
 }
+
+// ──────────────────────────── Personnages (jeu) ────────────────────────────
+
+/** Grades RP de ShinobiCore (character/Rank.java), mêmes libellés que le launcher. */
+const GRADES_RP: Record<string, string> = {
+  ACADEMICIEN: 'Académicien',
+  GENIN: 'Genin',
+  GENIN_CONFIRME: 'Genin confirmé',
+  CHUNIN: 'Chūnin',
+  KONIN: 'Konin',
+  TOKUBETSU_JONIN: 'Tokubetsu Jōnin',
+  JONIN: 'Jōnin',
+  COMMANDANT_JONIN: 'Commandant Jōnin',
+  KAGE: 'Kage',
+};
+
+/** « GENIN_CONFIRME » → « Genin confirmé » ; code inconnu mis en forme. */
+export function libelleGradeRp(code: string | null | undefined): string {
+  if (!code) return '—';
+  const connu = GRADES_RP[code.toUpperCase()];
+  if (connu) return connu;
+  const mots = code.toLowerCase().replace(/_/g, ' ').trim();
+  return mots ? mots.charAt(0).toUpperCase() + mots.slice(1) : '—';
+}

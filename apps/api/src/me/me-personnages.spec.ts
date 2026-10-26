@@ -228,6 +228,20 @@ describe('MePersonnagesService.mesPersonnages', () => {
     ]);
   });
 
+  it('panel (personnagesPourStaff) : tous les serveurs, chaque carte marquée de son serveur', async () => {
+    const dev = { ...ligne({ characterId: 'dev-1' }), serverId: 'dev' };
+    const { service, prisma } = monter(
+      { REBORN_CHARACTERS_SERVER_IDS: 'dev' },
+      [dev as PersonnagePourVue],
+    );
+    const r = await service.personnagesPourStaff('u-kaito');
+    const where = prisma.gameCharacter.findMany.mock.calls[0][0].where;
+    expect(where).not.toHaveProperty('serverId');
+    expect(where).toMatchObject({ OR: [{ userId: 'u-kaito' }, { userId: null, ownerMcUuid: UUID_MC }] });
+    expect(r.serveursLauncher).toEqual(['dev']);
+    expect(r.characters.map((c) => [c.characterId, c.serverId])).toEqual([['dev-1', 'dev']]);
+  });
+
   it('compte inconnu : liste vide, aucune lecture des personnages', async () => {
     const { service, prisma } = monter({}, [ligne()], null);
     expect(await service.mesPersonnages('u-x')).toEqual({ characters: [] });

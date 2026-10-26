@@ -20,11 +20,13 @@ import { Tabs } from '@/components/ui/Tabs';
 import { api } from '@/lib/api';
 import { STATUT_GLOBAL } from '@/lib/candidature';
 import { useDroits } from '@/lib/droits';
-import { dateHeure, dateJour, ilYa, pluriel, uuidCourt } from '@/lib/format';
+import { dateHeure, dateJour, ilYa, pluriel, tempsDeJeu, uuidCourt } from '@/lib/format';
 import {
   libelleAction,
   libelleCategorie,
   libelleGrade,
+  libelleGradeRp,
+  libelleServeur,
   libelleSource,
 } from '@/lib/libelles';
 import { STATUT_TICKET, statutCompte } from '@/lib/statuts';
@@ -33,18 +35,20 @@ import type {
   IpJoueur,
   LoginAnomaly,
   Paginated,
+  PersonnageJoueur,
+  PersonnagesJoueur,
   PlayerDetail,
 } from '@/lib/types';
 
 /**
  * Fiche joueur unique à onglets (PANEL_V2 §4.2) : carte d'identité fixe,
- * puis Aperçu · Candidature · Tickets · Historique · Sécurité. Les onglets
- * Personnages et Sanctions arrivent avec leurs données (synchro des
- * personnages, casier remonté du jeu) : ils ne s'affichent pas avant.
+ * puis Aperçu · Candidature · Personnages · Tickets · Historique · Sécurité.
+ * Personnages : synchro de ShinobiCore (tous serveurs). L'onglet Sanctions
+ * arrive avec le casier remonté du jeu : il ne s'affiche pas avant.
  * L'IP est masquée ; « Afficher » la lit à la demande et l'inscrit au journal.
  */
 
-type Onglet = 'apercu' | 'candidature' | 'tickets' | 'historique' | 'securite';
+type Onglet = 'apercu' | 'candidature' | 'personnages' | 'tickets' | 'historique' | 'securite';
 
 export default function FicheJoueurPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -68,10 +72,15 @@ function Fiche({ id }: { id: string }) {
     queryFn: () => api<PlayerDetail>(`/admin/players/${id}`),
     refetchInterval: 10_000,
   });
+  const persos = useQuery({
+    queryKey: ['admin', 'players', id, 'characters'],
+    queryFn: () => api<PersonnagesJoueur>(`/admin/players/${id}/characters`),
+  });
 
   const onglets: Array<{ cle: Onglet; label: string; n?: number; icone?: NomIcone }> = [
     { cle: 'apercu', label: 'Aperçu' },
     { cle: 'candidature', label: 'Candidature' },
+    { cle: 'personnages', label: 'Personnages', n: persos.data?.characters.length },
     { cle: 'tickets', label: 'Tickets', n: j?.tickets.length },
   ];
   if (peut('audit.voir')) onglets.push({ cle: 'historique', label: 'Historique' });
@@ -204,6 +213,14 @@ function Fiche({ id }: { id: string }) {
 
       {onglet === 'apercu' && <Apercu j={j} />}
       {onglet === 'candidature' && <OngletCandidature j={j} lienFiche={peut('candidatures.relire')} />}
+      {onglet === 'personnages' && (
+        <OngletPersonnages
+          data={persos.data}
+          chargement={persos.isLoading}
+          erreur={persos.error as Error | null}
+          onReessayer={() => void persos.refetch()}
+        />
+      )}
       {onglet === 'tickets' && (
         <OngletTickets
           j={j}
@@ -390,6 +407,95 @@ function OngletCandidature({ j, lienFiche }: { j: PlayerDetail; lienFiche: boole
         ]}
       />
     </Card>
+  );
+}
+
+// ──────────────────────────── Personnages ────────────────────────────
+
+const ETAT_PERSONNAGE: Record<PersonnageJoueur['state'], { label: string; ton: 'succes' | 'danger' | 'vide' }> = {
+  ALIVE: { label: 'En vie', ton: 'succes' },
+  DEAD: { label: 'Mort RP', ton: 'danger' },
+  DELETED: { label: 'Supprimé', ton: 'vide' },
+};
+
+function OngletPersonnages({
+  data,
+  chargement,
+  erreur,
+  onReessayer,
+}: {
+  data?: PersonnagesJoueur;
+  chargement: boolean;
+  erreur: Error | null;
+  onReessayer: () => void;
+}) {
+  const launcher = data?.serveursLauncher ?? [];
+  const colonnes: Colonne<PersonnageJoueur>[] = [
+    {
+      cle: 'nom',
+      titre: 'Personnage',
+      principal: true,
+      rendu: (p) => (
+        <span className="ellip block" title={p.characterId}>
+          {[p.firstName, p.lastName].filter(Boolean).join(' ')}
+          {p.playerNumber && <span className="muted"> · N° {p.playerNumber}</span>}
+          {p.fromApplication && <span className="muted"> · candidature</span>}
+        </span>
+      ),
+    },
+    {
+      cle: 'serveur',
+      titre: 'Serveur',
+      serre: true,
+      rendu: (p) => (
+        <Badge
+          ton={launcher.includes(p.serverId) ? 'info' : 'neutre'}
+          title={launcher.includes(p.serverId) ? 'Montré dans « Mes personnages » du launcher' : 'Pas montré dans le launcher'}
+        >
+          {libelleServeur(p.serverId)}
+        </Badge>
+      ),
+    },
+    {
+      cle: 'village',
+      titre: 'Village · clan',
+      cacherEtroit: true,
+      rendu: (p) => <span className="ellip block">{[p.village, p.clan].filter(Boolean).join(' · ') || '—'}</span>,
+    },
+    { cle: 'grade', titre: 'Grade', serre: true, rendu: (p) => (p.type === 'CIVIL' ? 'Civil' : libelleGradeRp(p.rank)) },
+    {
+      cle: 'etat',
+      titre: 'État',
+      serre: true,
+      rendu: (p) => <Badge ton={ETAT_PERSONNAGE[p.state].ton}>{ETAT_PERSONNAGE[p.state].label}</Badge>,
+    },
+    {
+      cle: 'temps',
+      titre: 'Temps de jeu',
+      serre: true,
+      align: 'droite',
+      rendu: (p) => <span title={`Compté depuis le ${dateJour(p.playMinutesSince)}`}>{tempsDeJeu(p.playMinutes)}</span>,
+    },
+    {
+      cle: 'vu',
+      titre: 'Dernière partie',
+      serre: true,
+      cacherEtroit: true,
+      rendu: (p) => (p.lastSeenAt ? <span title={dateHeure(p.lastSeenAt)}>{ilYa(p.lastSeenAt)}</span> : '—'),
+    },
+  ];
+  return (
+    <DataTable<PersonnageJoueur>
+      label="Personnages du joueur"
+      colonnes={colonnes}
+      lignes={data?.characters}
+      cle={(p) => `${p.serverId}:${p.characterId}`}
+      chargement={chargement}
+      erreur={erreur}
+      onReessayer={onReessayer}
+      vide={<EmptyState icone="user" titre="Aucun personnage synchronisé depuis le jeu." />}
+      pied={launcher.length > 0 ? `Launcher : ${launcher.map(libelleServeur).join(', ')}` : undefined}
+    />
   );
 }
 

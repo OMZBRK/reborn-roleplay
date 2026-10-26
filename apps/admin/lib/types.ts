@@ -678,3 +678,31 @@ export interface EtatServeur {
   latencyMs: number | null;
   fetchedAt: string;
 }
+
+/** Onglet Personnages de la fiche joueur (GET /admin/players/:id/characters). */
+export interface PersonnageJoueur {
+  serverId: string;
+  characterId: string;
+  playerId: number | null;
+  playerNumber: string | null;
+  firstName: string;
+  lastName: string | null;
+  clan: string | null;
+  village: string | null;
+  type: 'NINJA' | 'CIVIL';
+  rank: string | null;
+  sex: 'HOMME' | 'FEMME' | null;
+  age: number | null;
+  state: 'ALIVE' | 'DEAD' | 'DELETED';
+  playMinutes: number;
+  playMinutesSince: string;
+  createdAt: string | null;
+  lastSeenAt: string | null;
+  fromApplication: boolean;
+}
+
+export interface PersonnagesJoueur {
+  /** Serveurs montrés dans « Mes personnages » du launcher. */
+  serveursLauncher: string[];
+  characters: PersonnageJoueur[];
+}

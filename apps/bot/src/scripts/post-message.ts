@@ -115,7 +115,9 @@ function avecBanniere(p: ReturnType<typeof payloadCadre>, ref: string) {
   };
 }
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+// Délai REST porté à 2 min : les images partent en une requête, et 15 s (défaut) ne suffisent pas sur une
+// connexion montante lente (échec « AbortError » le 26/10).
+const client = new Client({ intents: [GatewayIntentBits.Guilds], rest: { timeout: 120_000 } });
 client.once(Events.ClientReady, async (ready) => {
   let code = 0;
   try {
