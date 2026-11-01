@@ -18,6 +18,14 @@
 - **Date de référence : 17 octobre 2026.** Sprint 1 prolongé (décision : le finir avant le Sprint 2).
 - **Game Plan Reborn : [`GAMEPLAN.md`](./GAMEPLAN.md), on avance point par point dans l'ordre RedLine** (§54 du Game
   Plan).
+  - **n° 17, lot 1 — codé le 01/11, non publié** (`reborn-hud` 0.4.194 + ShinobiCore + ShinobiRadio) : ancre de tête
+    (tout ce qui flotte suit la tête rendue, à terre et pendant les émotes), nom au regard au lieu du pseudo permanent,
+    bulle voix / frappe et `/me` **sans fond** posés sur la tête (masqués derrière un mur ou un joueur plus proche),
+    portées de Plasmo sur la touche H avec micro coloré, chuchoté imposé à terre, couper / rétablir la voix au Poste de
+    garde ([`technique/MOD_HUD.md`](./technique/MOD_HUD.md) §9-§10, [`technique/PLUGINS_REFERENCE.md`](./technique/PLUGINS_REFERENCE.md)
+    §4 quater.1). 🟢 À publier, puis tester à plusieurs sur le dev (config Plasmo à appliquer, `/vreload`). ❓ Douane :
+    `douane.voix.couper` passe-t-il par `vmute` ? Ensuite lots 2 à 5 (HUD bas-droite et OST, Échap et touches,
+    concentration, saut / Byakugan / arbres et murs).
   - **Recette du 17/10** (en jeu) : radio, boutiques, factions, cloche, volière et missives, marche sur l'eau, Test de
     la Feuille **validés** ; monnaie : bourse OK, **banque pas encore testée**
     ([`operations/RECETTE_GAMEPLAY.md`](./operations/RECETTE_GAMEPLAY.md) §0).
@@ -173,13 +181,13 @@ lieux placés « à l'œil », à corriger en jeu (`/carte set`).
 |---|---|---|
 | **Poste de garde** (panel staff en jeu) + Infirmerie | ✅ en prod (0.4.157 → 0.4.160) ; ⏳ casier dans l'API, synchro des grades staff panel → jeu | [`staff/GUIDE_STAFF_EN_JEU.md`](./staff/GUIDE_STAFF_EN_JEU.md) |
 | **Sélection / création de personnage en scène** | ✅ 0.4.167-0.4.168 ; ❓ palettes par clan ; vignettes de coiffures à agrandir | [`gameplay/PERSONNAGES.md`](./gameplay/PERSONNAGES.md) |
-| **Candidature v2, douane en jeu, « Mes personnages »** | 🟡 codé le 25/10, **non publié** : API (candidature v2, douane, routes signées du jeu, synchro des personnages), launcher 0.3.48, ShinobiCore (douane, verrous de création, synchro), reborn-hud 0.4.193 (douane, onglet Douane du Poste de garde), reborn-integrity 0.3.2, Guardian 0.2.0-dev (sur le dev depuis le 25/10) ; Q1 à Q13 tranchées ; ⏳ mise en ligne, douane à tester sur le dev (`REBORN_DOUANE_ENABLED` + comptes de test) | [`gameplay/CANDIDATURE_ET_DOUANE.md`](./gameplay/CANDIDATURE_ET_DOUANE.md) |
+| **Candidature v2, douane en jeu, « Mes personnages »** | ✅ en ligne et validée en jeu le 26/10 : launcher 0.3.48-0.3.49 (candidature v2, Mes personnages, serveur donné par l'API), API, panel v2, ShinobiCore + Guardian 0.2.0 sur le dev (douane active, `REBORN_SERVER_ID=dev`) ; ⏳ retirer les salons d'oral du Discord (lot L), douane à reporter sur la prod à la bascule | [`gameplay/CANDIDATURE_ET_DOUANE.md`](./gameplay/CANDIDATURE_ET_DOUANE.md) |
 | **Panel staff v2** (épuré, capacités par grade, devs et modélisateurs gardent fichiers, modèles et techniques) | ✅ en ligne depuis le 26/10 ; onglet Personnages de la fiche joueur codé le 26/10 (tous serveurs, non déployé) ; ❓ statistiques | [`design/PANEL_V2.md`](./design/PANEL_V2.md), [`technique/STATISTIQUES.md`](./technique/STATISTIQUES.md) |
 | **Missions / entraînements** | 💡 idées consolidées, pas de système en jeu (hors roadmap beta) | [`gameplay/MISSIONS.md`](./gameplay/MISSIONS.md) |
 | **Benchmark mods et serveurs RP** | ✅ étude du 12/10 (Nydo, Ninshu, Solve/FSC/Ketto/Zenkai) ; lots A→E proposés, ❓ décisions 11-16 ci-dessous | [`etudes/BENCHMARK_MODS_ET_SERVEURS.md`](./etudes/BENCHMARK_MODS_ET_SERVEURS.md) |
 | **Carte du monde, échoppe, Échap, sacoche** | ✅ ; ⏳ solde RBCoins réel et activations (boost Discord, stream…) ; liens X / YouTube à confirmer | [`technique/MOD_HUD.md`](./technique/MOD_HUD.md) |
 | **Météo client** (pluie, sable, brume) | ✅ 0.4.161-0.4.162 | `/meteo` |
-| **Launcher** | ✅ 0.3.47 (24/10 : vraies erreurs, journal du jeu, arrêt du jeu, zone de notification) ; 🟡 0.3.48 prête (candidature v2, « Mes personnages ») ; ❓ bouton « Copier le lien » OAuth et/ou signature de code (Norton bloque le launcher non signé) | [`operations/RELEASING.md`](./operations/RELEASING.md) |
+| **Launcher** | ✅ 0.3.49 (26/10 : candidature v2, « Mes personnages », serveur de connexion donné par l'API) ; ❓ bouton « Copier le lien » OAuth et/ou signature de code (Norton bloque le launcher non signé) | [`operations/RELEASING.md`](./operations/RELEASING.md) |
 | **Technique Creator** | 🟡 compilateur, éditeur panel, `requires:`, preview faits (Sprint 1 S1) | [`technique/AUDIT_TECHNIQUES_ET_CREATOR.md`](./technique/AUDIT_TECHNIQUES_ET_CREATOR.md) |
 | **Outillage 3D** (bbforge, plugins Blockbench) | 🟡 non commité | [`design/MODELES_3D.md`](./design/MODELES_3D.md) |
 | **Documentation** | ✅ restructurée le 12/10 | [`README.md`](./README.md) |
