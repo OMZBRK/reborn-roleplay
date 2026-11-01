@@ -18,11 +18,13 @@ import static fr.reborn.hud.staff.GardeArt.*;
 
 /**
  * Fiche compacte d'un joueur dans le volet (maquette A_02) : « < Joueurs », visage, nom RP, « N° · grade · pseudo »,
- * étiquettes ; état (pastille) et distance ; PV et chakra en barres fines ; ping, temps de jeu, ryo ; <b>huit actions
- * éclair</b> (icône + mot, grille 4 × 2, la huitième ouvre le menu « Plus » à gauche du volet) ; puis les <b>sections
- * repliées</b> Notes · Sanctions · Journal du joueur · Radio · Comptes liés (aperçu d'une ligne, clic = déplier).
+ * étiquettes ; état (pastille) et distance, puis la voix coupée s'il y a lieu (jusqu'à quand, motif) ; PV et chakra en
+ * barres fines ; ping, temps de jeu, ryo ; <b>huit actions éclair</b> (icône + mot, grille 4 × 2, la huitième ouvre le
+ * menu « Plus » à gauche du volet) ; puis les <b>sections repliées</b> Notes · Sanctions · Journal du joueur · Radio ·
+ * Comptes liés (aperçu d'une ligne, clic = déplier).
  * Raccourcis d'une lettre (fiche ouverte, aucun champ actif) : A aller, R ramener, O observer, G geler, S sacoche,
- * N écran noir, T noter, E écouter la radio, M annonce perso, B revenir, X sanctionner, Tab = « Plus ».
+ * N écran noir, T noter, E écouter la radio, V couper / rétablir la voix, M annonce perso, B revenir, X sanctionner,
+ * Tab = « Plus ».
  */
 final class GardeFiche {
 
@@ -116,9 +118,10 @@ final class GardeFiche {
         }
         y += 39;
 
-        // état, distance
-        Object[] et = StaffScreen.etatCourt(p);
-        String st = StaffScreen.str(p, "state");
+        // état, distance ; la voix coupée a sa ligne juste dessous (retirée de « state », où le serveur l'ajoute aussi)
+        voix(p);
+        String st = etatSansVoix;
+        Object[] et = StaffScreen.etatCourt(p, st);
         String etat = st.isEmpty() ? (String) et[0] : st;
         if (StaffScreen.bool(p, "modeStaff") || StaffScreen.bool(p, "modeAnim")) etat = (String) et[0];
         boolean enLigne = StaffScreen.bool(p, "online") || p.has("ping");
@@ -128,6 +131,13 @@ final class GardeFiche {
         float dw = dist.isEmpty() ? 0 : pz.texteD(dist, ix + iw, y + 4.5f, 12, GRIS_2, false);
         s.txt(enLigne ? etat : "Hors ligne", ix + 7, y + 4.5f, iw - 7 - dw - 6, 14, col, false);
         y += 13;
+        // voix coupée (31/10) : micro barré sous la pastille, « Voix coupée — jusqu'à 21:45 — motif » ; qui l'a coupée au survol
+        if (voixLigne != null) {
+            pz.icone("micro_off", ix - 1.5f, y - 0.5f, 7, MUET);
+            s.txt(voixLigne, ix + 7, y + 3, iw - 7, 12, MUET, false);
+            s.tip(ix - 2, y - 2, iw + 2, 10, voixBulle);
+            y += 11;
+        }
         // PV, chakra
         y = barre(pz, "PV", p, "hp", "hpMax", ROUGE, y);
         y = barre(pz, "Chakra", p, "chakra", "chakraMax", GLACE, y);
@@ -205,6 +215,25 @@ final class GardeFiche {
     }
 
     private static String milliers(int v) { return String.format("%,d", v).replace(',', ' ').replace(' ', ' '); }
+
+    /* ---------------------------------------------------------------- voix coupée (31/10) */
+
+    /** Textes de la voix coupée : recalculés à chaque fiche reçue (nouvel objet) ou minute, pas à chaque image. */
+    private JsonObject voixDe;
+    private long voixMinute = -1;
+    private String etatSansVoix = "", voixLigne, voixBulle;
+
+    private void voix(JsonObject p) {
+        long minute = System.currentTimeMillis() / 60_000L;
+        if (p == voixDe && minute == voixMinute) return;
+        voixDe = p;
+        voixMinute = minute;
+        voixLigne = GardeActions.voixEtat(p);
+        etatSansVoix = voixLigne != null ? GardeActions.sansVoix(StaffScreen.str(p, "state")) : StaffScreen.str(p, "state");
+        String par = StaffScreen.str(p, "voixPar");
+        voixBulle = voixLigne == null || par.isEmpty() ? voixLigne
+                : "Voix coupée par " + par + voixLigne.substring("Voix coupée".length());
+    }
 
     /** Distance au joueur s'il est chargé autour du staff. */
     private static String distance(String uuid) {
@@ -426,7 +455,7 @@ final class GardeFiche {
         for (JsonElement e : offs) {
             JsonObject o = e.getAsJsonObject();
             boolean locked = StaffScreen.bool(o, "locked");
-            int tone = locked ? GRIS_3 : switch (StaffScreen.str(o, "tone")) { case "warn" -> TERRE; case "mute" -> 0xFFE0884C; default -> ROUGE; };
+            int tone = locked ? GRIS_3 : switch (StaffScreen.str(o, "tone")) { case "warn" -> TERRE; case "mute" -> MUET; default -> ROUGE; };
             int h = 15;
             boolean hov = !locked && s.hover(x - 2, y, w + 2, h) && s.cliquable(y, h);
             if (hov) s.pz.fond(x - 2, y, x + w, y + h, NUIT_3);

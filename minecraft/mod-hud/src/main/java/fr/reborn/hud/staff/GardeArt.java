@@ -40,6 +40,8 @@ final class GardeArt {
     static final int CREME = 0xFFEEE4D2, GRIS = 0xFFA0948A, GRIS_2 = 0xFF706462, GRIS_3 = 0xFF4E4444;
     static final int OK = 0xFF80B68C, TERRE = 0xFFE2A04A, ROUGE = 0xFFE46676, GLACE = 0xFF8CBADE, NOIR_V = 0xFFA692D2,
             STAFF = 0xFFC8AC70, ANIM = 0xFFB48CD8;
+    /** Ton « mute » des sanctions, repris par la voix coupée (31/10). */
+    static final int MUET = 0xFFE0884C;
 
     /** Couleur d'une catégorie du journal (pastilles sobres). */
     static int categorie(String cat) {

@@ -1,46 +1,44 @@
 package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.menu.tablist.TablistData;
-import net.minecraft.client.renderer.entity.EntityRenderer;
-import net.minecraft.client.renderer.entity.state.EntityRenderState;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.client.renderer.entity.player.AvatarRenderer;
+import net.minecraft.world.entity.Avatar;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Masque le <b>pseudo Minecraft</b> flottant au-dessus des JOUEURS : on annule
- * l'extraction du nametag ({@code EntityRenderer#extractNameTags}) pour les
- * {@link Player}, laissant {@code EntityRenderState#nameTag} à {@code null} → rien
- * n'est rendu. La plaque de nom RP ({@link fr.reborn.hud.nameplate.Nameplates})
- * prend le relais avec « Prénom [Clan] » ou « Inconnu », visible seulement de près.
+ * Masque le <b>pseudo Minecraft</b> flottant au-dessus des JOUEURS quand les plaques Reborn le remplacent
+ * ({@link fr.reborn.hud.nameplate.Nameplates} : « Prénom Clan » ou « ??? », plaques de la douane). Gardé sur
+ * {@link TablistData#hasData()} (serveur Reborn) ou {@code DouaneClient.plaquesActives()} ; ailleurs, en solo, pseudos
+ * vanilla normaux. Seuls les {@link Player} : mannequins et entités à nom personnalisé gardent leur nom.
  *
- * <p>Gardé sur {@link TablistData#hasData()} : uniquement quand on est sur un
- * serveur Reborn (données RP présentes). Sur un autre serveur / en solo, les
- * pseudos vanilla restent normaux. N'affecte QUE les joueurs — les mobs/armor
- * stands à nom custom (dummy, cinématique…) gardent leur nametag.
- *
- * <p><b>On cible la surcharge à 5 args {@code final}</b>
- * {@code extractNameTags(Entity, EntityRenderState, float, double, double)} — c'est
- * le vrai point d'écriture de {@code state.nameTag} (elle appelle {@code shouldShowName}
- * + {@code getNameTag} puis {@code putfield nameTag}). La surcharge à 3 args est
- * <b>redéfinie par {@code LivingEntityRenderer}</b> (dont hérite {@code PlayerRenderer})
- * → l'injecter ne s'appliquait PAS aux joueurs. La version 5 args est {@code final}
- * (non redéfinissable) et atteinte pour les joueurs via l'appel {@code super} de
- * LivingEntityRenderer → couvre tous les avatars, y compris les joueurs.
+ * <p><b>Point visé (31/10)</b> : {@code AvatarRenderer#shouldShowName(Avatar, double)}, qui porte la décision pour
+ * tout avatar en 26.2 (ses ponts {@code shouldShowName(LivingEntity, double)} et {@code (Entity, double)} y renvoient).
+ * Il couvre les deux chemins qui écrivent un nom :
+ * <ul>
+ *   <li>vanilla : {@code EntityRenderer#extractNameTags(…, double, double)} (finale) n'écrit {@code nameTag} et son
+ *   point d'attache que si {@code shouldShowName} ; sans point d'attache, la ligne de score sous le nom n'est pas
+ *   dessinée non plus ({@code submitNameTag} sort sur une attache nulle) ;</li>
+ *   <li>EntityCulling (« noms à travers les murs », actif dans le modpack) : pour un joueur caché, il écrit lui-même
+ *   {@code nameTag} hors de {@code extractNameTags}, mais seulement si son invoker
+ *   {@code LivingEntityRenderer#shouldShowName} (qui aboutit ici) répond vrai.</li>
+ * </ul>
+ * L'ancienne version annulait {@code extractNameTags} en HEAD : elle sautait aussi
+ * {@code distanceToCameraSq = …} (première écriture de la méthode), d'où des ombres de joueurs jamais atténuées et
+ * calculées au-delà de 16 blocs, et l'icône de Plasmo Voice sans sa coupure à 64 blocs. La distance se calcule de
+ * nouveau. Emotecraft et Sodium Extra visent {@code LivingEntityRenderer#shouldShowName} (HEAD, réponse fausse
+ * uniquement) : appelé ensuite par {@code super}, sans conflit.
  */
-@Mixin(EntityRenderer.class)
+@Mixin(AvatarRenderer.class)
 public abstract class EntityNameTagHideMixin {
 
-    @Inject(
-        method = "extractNameTags(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;FDD)V",
-        at = @At("HEAD"), cancellable = true)
-    private void reborn$hidePlayerNameTag(Entity entity, EntityRenderState state, float partialTick,
-                                          double x, double z, CallbackInfo ci) {
+    @Inject(method = "shouldShowName(Lnet/minecraft/world/entity/Avatar;D)Z", at = @At("HEAD"), cancellable = true)
+    private void reborn$hidePlayerNameTag(Avatar entity, double distanceSq, CallbackInfoReturnable<Boolean> cir) {
         if (entity instanceof Player && (TablistData.hasData() || fr.reborn.hud.douane.DouaneClient.plaquesActives())) {
-            ci.cancel();
+            cir.setReturnValue(false);
         }
     }
 }

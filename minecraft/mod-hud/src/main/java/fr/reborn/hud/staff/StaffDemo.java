@@ -14,9 +14,9 @@ import java.util.Map;
 
 /**
  * Serveur simulé du Poste de garde, pour le banc d'essai seulement ({@link StaffDebug}, {@code REBORN_STAFF_DEBUG}) :
- * répond aux demandes {@code journal}, {@code notes}, {@code note_add}, {@code note_del}, {@code act},
- * {@code annonce}, {@code seisme} et {@code modestaff} exactement comme le décrit le protocole
- * (PLUGINS_REFERENCE §4 bis), à partir d'un journal d'exemple de ~200 entrées sur toutes les catégories.
+ * répond aux demandes {@code open}, {@code journal}, {@code notes}, {@code note_add}, {@code note_del}, {@code act}
+ * (voix coupée comprise, 31/10), {@code annonce}, {@code seisme} et {@code modestaff} exactement comme le décrit le
+ * protocole (PLUGINS_REFERENCE §4 bis), à partir d'un journal d'exemple de ~200 entrées sur toutes les catégories.
  * Jamais actif en production ({@link StaffClient#demo} n'est posé que par le banc).
  */
 final class StaffDemo {
@@ -43,6 +43,8 @@ final class StaffDemo {
     static void handle(JsonObject o) {
         String a = StaffScreen.str(o, "a");
         switch (a) {
+            // menu R › Staff (« Fiche », « Couper la voix… ») : le serveur répond « open » (l'instantané est déjà injecté)
+            case "open" -> StaffClient.debugReceive("{\"t\":\"open\"}");
             case "journal" -> StaffClient.debugReceive(journal(o).toString());
             case "notes" -> StaffClient.debugReceive(notes(StaffScreen.str(o, "pid")).toString());
             case "note_add" -> {
@@ -318,6 +320,32 @@ final class StaffDemo {
             case "announce" -> "Annonce personnelle envoyée.";
             case "perso_reset" -> "Personnage remis à zéro.";
             case "perso_suppr" -> "Personnage supprimé.";
+            // mêmes refus et mêmes champs que StaffPanel (voixCoupee, voixFin, voixMotif, voixPar ; « state » complété)
+            case "voix_couper" -> {
+                int min = StaffScreen.num(o, "d");
+                String motif = StaffScreen.str(o, "m").trim();
+                if (min != 5 && min != 15 && min != 30 && min != 60 && min != 1440) yield "Durée invalide : 5 min, 15 min, 30 min, 1 h ou 1 jour.";
+                if (motif.length() < 3) yield "Motif obligatoire (3 caractères au moins).";
+                String duree = min < 60 ? min + " min" : min < 1440 ? min / 60 + " h" : "1 jour";
+                if (p != null) {
+                    p.addProperty("voixCoupee", true);
+                    p.addProperty("voixFin", System.currentTimeMillis() + min * 60_000L);
+                    p.addProperty("voixMotif", motif);
+                    p.addProperty("voixPar", "toi");
+                    String st = GardeActions.sansVoix(StaffScreen.str(p, "state"));
+                    p.addProperty("state", (st.isEmpty() ? "" : st + " · ") + "Voix coupée · " + min + " min");
+                }
+                yield "Voix de " + StaffScreen.name(p) + " coupée (" + duree + ").";
+            }
+            case "voix_retablir" -> {
+                if (p == null || !GardeActions.voixCoupee(p)) yield "La voix de " + StaffScreen.name(p) + " n'était pas coupée.";
+                p.addProperty("voixCoupee", false);
+                p.addProperty("voixFin", 0L);
+                p.addProperty("voixMotif", "");
+                p.addProperty("voixPar", "");
+                p.addProperty("state", GardeActions.sansVoix(StaffScreen.str(p, "state")));
+                yield "Voix de " + StaffScreen.name(p) + " rétablie.";
+            }
             default -> "Action « " + op + " » envoyée.";
         };
         if (p != null) {

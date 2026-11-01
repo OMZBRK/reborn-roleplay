@@ -3,10 +3,16 @@ package fr.reborn.hud.staff;
 import com.google.gson.JsonObject;
 import fr.reborn.hud.menu.RebornSounds;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Catalogue des actions du Poste de garde sur un joueur (fiche, icônes au survol d'une ligne, menu « Plus » et clic
@@ -23,6 +29,7 @@ final class GardeActions {
                 case "freeze" -> gele(p) ? "Dégeler" : label;
                 case "blind" -> StaffScreen.bool(p, "noir") ? "Lever l'écran noir" : label;
                 case "watch" -> StaffScreen.bool(p, "watching") ? "Fin d'observation" : label;
+                case "voix" -> voixCoupee(p) ? "Rétablir la voix" : label;
                 default -> label;
             };
         }
@@ -36,6 +43,8 @@ final class GardeActions {
     static final Action NOIR = new Action("blind", "Écran noir", "noir", 'N', 2, "ecran noir blind aveugler");
     static final Action NOTER = new Action("note", "Noter", "noter", 'T', 1, "noter note etiquette tag");
     static final Action RADIO = new Action("radio", "Écouter la radio…", "radio", 'E', 1, "ecouter radio escouade");
+    /** Couper la voix (31/10, mute de Plasmo Voice : proximité et radio) ; bascule en « Rétablir la voix ». */
+    static final Action VOIX = new Action("voix", "Couper la voix…", "micro_off", 'V', 2, "voix vocal micro muet couper retablir rendre vmute");
     static final Action ANNONCE = new Action("announce", "Annonce perso…", "annonce", 'M', 1, "annonce message convoquer");
     static final Action EMOTE = new Action("emote", "Forcer une emote…", "emote", (char) 0, 2, "emote forcer animation");
     static final Action TENUE = new Action("outfit", "Imposer une tenue…", "tenue", (char) 0, 2, "tenue habit imposer");
@@ -52,17 +61,57 @@ final class GardeActions {
     /** Les huit actions éclair de la fiche (grille 4 × 2, la huitième case est « Plus »). */
     static final Action[] GRILLE = {ALLER, RAMENER, OBSERVER, GELER, SACOCHE, NOIR, NOTER};
     /** Menu « Plus » (null = séparateur). */
-    static final Action[] PLUS = {RADIO, ANNONCE, EMOTE, TENUE, REVEIL, ATA, REVENIR, RENVOYER, null, SANCTION, null,
+    static final Action[] PLUS = {RADIO, VOIX, ANNONCE, EMOTE, TENUE, REVEIL, ATA, REVENIR, RENVOYER, null, SANCTION, null,
             SEISME, RESET, SUPPR};
     /** Icônes au survol d'une ligne de la liste (de gauche à droite ; « Plus » ajouté à la fin). */
     static final Action[] SURVOL = {ALLER, RAMENER, GELER};
 
-    static final Action[] TOUTES = {ALLER, RAMENER, OBSERVER, GELER, SACOCHE, NOIR, NOTER, RADIO, ANNONCE, EMOTE, TENUE,
-            REVEIL, ATA, REVENIR, RENVOYER, SANCTION, SEISME, RESET, SUPPR};
+    static final Action[] TOUTES = {ALLER, RAMENER, OBSERVER, GELER, SACOCHE, NOIR, NOTER, RADIO, VOIX, ANNONCE, EMOTE,
+            TENUE, REVEIL, ATA, REVENIR, RENVOYER, SANCTION, SEISME, RESET, SUPPR};
 
     private GardeActions() {}
 
     static boolean gele(JsonObject p) { return StaffScreen.bool(p, "gele") || StaffScreen.bool(p, "frozen"); }
+
+    /* ================================================================ voix coupée (31/10, PLUGINS_REFERENCE §4 quater.1) */
+
+    /** Voix coupée par le staff (mute de Plasmo Voice, champ {@code voixCoupee} de la fiche et de la liste). */
+    static boolean voixCoupee(JsonObject p) { return StaffScreen.bool(p, "voixCoupee"); }
+
+    /**
+     * « Voix coupée — jusqu'à 21:45 — motif » à l'heure du poste du staff (« jusqu'à demain 21:45 », « jusqu'au 02/11
+     * à 21:45 » ; « sans fin » pour un {@code /vmute} permanent, {@code voixFin} = -1) ; null si la voix est libre.
+     */
+    static String voixEtat(JsonObject p) {
+        if (!voixCoupee(p)) return null;
+        long fin = StaffScreen.lng(p, "voixFin");
+        StringBuilder b = new StringBuilder("Voix coupée");
+        if (fin < 0) b.append(" — sans fin");
+        else if (fin > 0) b.append(" — ").append(jusqua(fin));
+        String motif = StaffScreen.str(p, "voixMotif").trim();
+        if (!motif.isEmpty()) b.append(" — ").append(motif);
+        return b.toString();
+    }
+
+    private static String jusqua(long fin) {
+        ZonedDateTime f = Instant.ofEpochMilli(fin).atZone(ZoneId.systemDefault());
+        long jours = ChronoUnit.DAYS.between(LocalDate.now(f.getZone()), f.toLocalDate());
+        String hm = String.format(Locale.ROOT, "%02d:%02d", f.getHour(), f.getMinute());
+        if (jours <= 0) return "jusqu'à " + hm;
+        if (jours == 1) return "jusqu'à demain " + hm;
+        return String.format(Locale.ROOT, "jusqu'au %02d/%02d à %s", f.getDayOfMonth(), f.getMonthValue(), hm);
+    }
+
+    /** Morceau « Voix coupée · 12 min » / « · sans fin » que le serveur ajoute à {@code state} (EtatTexte). */
+    private static final Pattern VOIX_ETAT = Pattern.compile("(^| · )Voix coupée( · (sans fin|\\d+ min))?");
+
+    /** {@code state} sans la voix coupée : la fiche lui donne sa propre ligne, sous l'état. */
+    static String sansVoix(String st) {
+        if (st == null) return "";
+        if (!st.contains("Voix coupée")) return st;
+        String r = VOIX_ETAT.matcher(st).replaceAll("");
+        return r.startsWith(" · ") ? r.substring(3) : r;
+    }
 
     /** Menu du clic droit sur une ligne : la fiche, les actions éclair, puis celles du menu « Plus ». */
     static List<Action> menuLigne() {
@@ -83,6 +132,9 @@ final class GardeActions {
         if ((a == RESET || a == SUPPR || a == NOTER) && StaffScreen.str(p, "pid").isEmpty() && a != NOTER)
             return "Pas de personnage actif.";
         if (a == NOTER && StaffScreen.str(p, "pid").isEmpty()) return "Pas de N° : aucun personnage actif.";
+        // rétablir marche hors ligne (le mute de Plasmo est rangé par UUID) ; couper exige le joueur en jeu
+        if (a == VOIX && p != null && !voixCoupee(p) && p.has("online") && !StaffScreen.bool(p, "online"))
+            return "Hors ligne : la voix ne se coupe qu'en jeu.";
         return null;
     }
 
@@ -157,8 +209,33 @@ final class GardeActions {
             case "perso_reset", "perso_suppr" -> s.ficheFormulaire(p, f -> s.fiche.persos.lourdParPid(p,
                     "perso_suppr".equals(a.id()) ? "suppr" : "reset"));
             case "radio" -> s.ficheFormulaire(p, f -> GardeFormulaire.ecouteRadio(f, p));
+            // mute de Plasmo Voice (31/10) : rien n'est enregistré, seul le motif va au journal
+            case "voix" -> {
+                if (voixCoupee(p)) { envoyer(s, "voix_retablir", p, Map.of()); return; }
+                s.ficheFormulaire(p, f -> f.ouvrir("micro_off", "Couper la voix — " + nom, "Il n'est plus entendu (proximité et radio). Le tchat reste ouvert.",
+                        "Couper la voix", false, null, List.of(
+                                GardeFormulaire.Champ.texte("m", "Motif (obligatoire)", "Cris et insultes en vocal…", true),
+                                GardeFormulaire.Champ.choix("d", "Durée", new String[][]{{"5", "5 min"}, {"15", "15 min"}, {"30", "30 min"},
+                                        {"60", "1 h"}, {"1440", "1 jour"}}, 1)),
+                        List.of("Inscrit au journal, visible des autres staffs.", "Rien n'est enregistré de sa voix."),
+                        v -> envoyer(s, "voix_couper", p, v)));
+            }
             case "sanction" -> s.ficheSanctions(uuid);
             default -> { }
+        }
+    }
+
+    /**
+     * Action demandée hors du Poste de garde (menu R › Staff), lancée par {@link StaffClient} à l'arrivée de la fiche :
+     * comme {@link #lancer}, sans bascule. Le menu R suit Plasmo, qui peut avoir un temps de retard sur la fiche :
+     * « Couper la voix… » sur une voix déjà coupée ne la rétablit pas, la fiche montre la coupure et un mot le dit.
+     */
+    static void lancerDemandee(StaffScreen s, String id, JsonObject p) {
+        for (Action a : TOUTES) {
+            if (!a.id().equals(id)) continue;
+            if (a == VOIX && voixCoupee(p)) { StaffClient.toast("Sa voix est déjà coupée."); return; }
+            lancer(s, a, p);
+            return;
         }
     }
 
@@ -172,7 +249,8 @@ final class GardeActions {
         if (p.has("_alerte")) o.addProperty("alerte", StaffScreen.str(p, "_alerte"));
         for (Map.Entry<String, String> e : v.entrySet()) {
             if (e.getValue() == null || e.getValue().isEmpty()) continue;
-            if ("s".equals(e.getKey()) || "v".equals(e.getKey()) && e.getValue().chars().allMatch(Character::isDigit)) {
+            // s (secondes) et d (minutes, voix_couper) en entiers ; v seulement s'il est numérique
+            if ("s".equals(e.getKey()) || "d".equals(e.getKey()) || "v".equals(e.getKey()) && e.getValue().chars().allMatch(Character::isDigit)) {
                 try { o.addProperty(e.getKey(), Integer.parseInt(e.getValue())); continue; } catch (NumberFormatException ignored) { }
             }
             o.addProperty(e.getKey(), e.getValue());

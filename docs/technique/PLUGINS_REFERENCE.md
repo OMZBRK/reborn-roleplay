@@ -37,7 +37,9 @@ Les addons ne parlent pas à la classe `ShinobiCore` : ils passent par les **ser
 `HudService`, `ItemGiveService`, `MobilityService`, `ProgressionLadder`, `StatsService`, `CastAttribution`,
 `TechniqueRegistry`, `XpService`, `JournalService` (journal universel, 14/10 : `entree(cat, action).acteur(…).cible(…).detail(…).lieu(…).ecrire()`), `InventoryService` (sacoche : palier de surcharge, `weapon(p)`, `give`, verrou —
 13/10 ; `cosmetique(p, slot)` / `poserCosmetique(p, slot, objet)`, 14/10, pour la radio) ; `KoService#isDowned` (à terre,
-14/10 : `isKo && !isDowned` = inconscient) ; ShinobiCombat publie `EnduranceService` et `StunService` (étourdi). Annotation `@Stable` = point d'extension sûr, `@Internal` = réservé au
+14/10 : `isKo && !isDowned` = inconscient) ; ShinobiCombat publie `EnduranceService` et `StunService` (étourdi) ;
+ShinobiRadio publie `VoixService` (31/10 : couper / rétablir la voix par le mute de Plasmo Voice, lu en différé par le
+Poste de garde — §4 quater). Annotation `@Stable` = point d'extension sûr, `@Internal` = réservé au
 Core.
 
 ---
@@ -58,7 +60,7 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/grade` | — | tous / gradés / staff | `shinobicore.use` | Voir son grade ; promouvoir ou rétrograder selon son propre grade |
 | `/meditation` | `meditate`, `med` | tous ; `aura <joueur> …` : `shinobicore.staff` | `shinobicore.use` | S'asseoir, régénérer du chakra, avancer le repos ATA ; `aura` : affiche la couleur de l'aura du personnage ; staff seulement (19/10, futur article RBCoins) : `aura [joueur] <#RRGGBB\|defaut>` |
 | `/testfeuille` | `feuille`, `leaftest` | tous | `shinobicore.use` | Test de la feuille : révèle la nature de chakra |
-| `/me` | `action`, `act` | tous | `shinobicore.use` | Action RP avec le nom du personnage |
+| `/me` | `action`, `act` | tous | `shinobicore.use` | Action RP avec le nom du personnage : ligne de tchat pour tous, bulle au-dessus de la tête pour les proches (`reborn:me`, §4) |
 | `/rencontrer` | `meet`, `introduce` | tous | `shinobicore.use` | Se présenter à la personne regardée |
 | `/amitier` | `friend`, `amis` | tous | `shinobicore.use` | Demande d'amitié |
 | `/etat` | `état` | tous | `shinobicore.use` | État ressenti de son propre personnage |
@@ -281,6 +283,7 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `reborn:map` | ⇄ | `map.MapChannel` | `map/MapPayload` | Carte du monde |
 | `reborn:meteo` | S → C | `meteo.MeteoCommand` | `meteo/MeteoPayload` | Météo visuelle : `byte type` (0 clair, 1 pluie, 2 sable, 3 brume, **4 blizzard, 5 tempête de sable** — 15/10) + `float intensité` 0..1 ; renvoyé à chaque changement de la météo **effective** du joueur (zones). Un mod antérieur ignore 4 et 5 (clair) ; le mod récent ignore d'éventuels octets en plus |
 | `reborn:typing` | ⇄ | `chat.TypingManager` | `chat/TypingPayload` | Indicateur « en train d'écrire » |
+| `reborn:me` | S → C | `character.command.MeCommand` | `chat/MePayload` (31/10) | Bulle du `/me` au-dessus de la tête : un message par destinataire (proches qui voient l'auteur), détail ci-dessous |
 | `reborn:emote` | ⇄ | `emote.EmoteManager` | `emote/EmotePayload` | Jouer une emote (visible par les proches) |
 | `reborn:emotepack` | S → C | `EmoteManager` | `emote/EmotePackPayload` | Distribution des fichiers d'emotes au JOIN |
 | `reborn:parchemin` | ⇄ | `shinobiabilities.parchemin.LibraryService`, `techniques.ConcentrationGame` | `parchemin/ParcheminPayload` | Bibliothèques, lecture, séances, concentration (`conc`) |
@@ -299,6 +302,28 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `reborn:plaques` | S → C | `staff.outils.ModeStaff` | `staff/PlaquesStaff` | Plaques staff au-dessus des têtes, en mode staff (§4 bis.5) |
 | `reborn:douane` | ⇄ | `douane.DouaneCanal` | lot E (à venir) | Douane : ligne d'attente, écran neutre, appel, question, Bienvenue, résultat, plaques (candidat) ; onglet Douane du Poste de garde (examinateur) (§4 decies.4 à .6) |
 | `reborn:radio` | S → C | `shinobiradio.Canal` (ShinobiRadio) | `radio/RadioClient` | Radio en escouades : état, qui parle, invitation, écoute staff (§4 quater) |
+
+**`reborn:me`** (S → C, 31/10) — la bulle du `/me`, dessinée par le mod calée sur la tête. JSON UTF-8 brut, **un message
+par destinataire** (le nom est résolu pour chacun) :
+
+```json
+{"v":1,"t":"me","id":4182,"u":"<uuid auteur>","nom":"Kazuki Uchiha","inconnu":false,"ton":"C0392B",
+ "texte":"serre le poing et fixe l'horizon.","ms":6500,"r":16,"n":17}
+```
+
+| Champ | Contenu |
+|---|---|
+| `id` / `u` | Identifiant réseau de l'entité de l'auteur (`getEntityId`) / UUID du compte, en repli |
+| `nom`, `inconnu`, `ton` | Comme la ligne de tchat de **ce** spectateur : nom connu, surnom, ou `????` ; `inconnu` = vrai pour `????` ; `ton` = couleur `RRGGBB` de la ligne (couleur du clan si le vrai nom est connu, **gris** si surnom, inconnu ou **masqué** — un masque ne trahit plus le clan, ni ici ni au tchat, y compris pour un spectateur **sans personnage actif** (staff, sélection) : le masque est testé avant cette branche, dans `MeCommand`, `AutoMe` et `CharacterDisplay.styledNameFor`, comme dans la liste des joueurs) |
+| `texte` | L'action, 256 caractères au plus, codes `§` et caractères de contrôle retirés |
+| `ms` | Durée d'affichage : `min(12000, 2000 + 150 × longueur)` |
+| `r` | Portée en blocs (`me.bulle.portee`, 16) : le mod l'estompe dès `r − 4` |
+| `n` | Numéro croissant : un nouveau `/me` remplace ou empile le précédent |
+
+Destinataires : l'auteur et les joueurs qui le suivent (`getTrackedBy`), qui le voient (`canSee`), à `r` blocs au plus,
+et dont le mod écoute `reborn:me`. Les clients **sans** ce canal (pas de mod, mod trop ancien) gardent l'ancienne bulle
+flottante (`TextDisplay` de `CharacterEmote`) ; les clients du mod n'en reçoivent jamais, sinon la bulle s'afficherait deux
+fois. La ligne de tchat du `/me` part toujours à tous, sans portée. Les gestes automatiques (`AutoMe`) n'ont pas de bulle.
 
 ---
 
@@ -327,7 +352,8 @@ ni coupé). Une **source de diffusion** par émetteur sur la **ligne `radio`** (
 icône masquée), destinataires = porteurs connectés d'une oreillette de l'escouade, non inconscients, + staff à l'écoute ;
 à terre ou porté, des trames de 20 ms sautent en rafales de 80 ms (`voix.hache-trames-perdues`). En plus, **chuchoté** :
 la trame part sur une source joueur de la ligne `proximity`, distance `voix.chuchote-blocs` (4), sauf vers ceux qui
-l'entendent déjà à la radio. Début / fin de chaque prise de parole → `parle` / `tait` et journal.
+l'entendent déjà à la radio ; icône de Plasmo masquée sur cette source (31/10 : la seule bulle au-dessus de la tête est
+celle du mod). Début / fin de chaque prise de parole → `parle` / `tait` et journal.
 
 **Plasmo Voice, client (`voice/RadioVoix`)** : l'activation `radio` reçue du serveur est forcée en push-to-talk et prend
 la touche Reborn « Radio : parler » (B) ; son icône d'activation est masquée (`HudActivationRenderEvent`) ; les
@@ -344,6 +370,79 @@ la touche Reborn « Radio : parler » (B) ; son icône d'activation est masquée
 l'emplacement cosmétique `BOUCLE`. Données (PDC `shinobiradio:*`) : `numero` (jamais réutilisé), `escouade`, `proprio`
 (personnage), `proprio_compte`, `proprio_nom`, `coupee`. Lore : « Oreillette radio · N° 12 · Coupée — à réparer chez un
 artisan » (jamais le nom de l'escouade). Visuel : pack Nexo `reborn:item/oreillette` (`minecraft/mod-hud/tools/gen_oreillette_nexo.py`).
+
+### 4 quater.1 Voix de proximité — coupure staff, chuchoté à terre, réglages de Plasmo (31/10)
+
+> Décisions du 31/10 : les portées chuchoter / parler / crier sont **celles de Plasmo Voice** (sa config, aucun code
+> Reborn) ; à terre = chuchoté seulement ; le staff coupe et rétablit la voix (durée, motif, journal, **jamais le
+> contenu**) ; une seule bulle au-dessus de la tête, celle du mod. ShinobiRadio porte ces règles : c'est le seul plugin
+> Reborn qui dépend de Plasmo. **ShinobiCore et ShinobiRadio se déploient ensemble.** Un ShinobiRadio neuf sur un Core
+> antérieur au 31/10 (sans `VoixService`) se charge quand même (correctifs du 31/10 au soir) : `VoixPlasmo` n'est créée
+> qu'après vérification, la coupure staff est seulement désactivée (avertissement au démarrage), la radio et le chuchoté
+> à terre restent.
+
+**Service `api/VoixService`** (ShinobiCore, `@Stable`), implémenté par `shinobiradio.VoixPlasmo` sur le
+`MuteManager` de Plasmo et publié dans le `ServicesManager` ; le Poste de garde le lit en différé (absent : nouvel essai
+toutes les 10 s) :
+
+| Méthode | Rôle |
+|---|---|
+| `disponible()` | Plasmo prêt (addon initialisé) ; faux : refus « Voix indisponible (Plasmo absent) » |
+| `couper(cible, staff, minutes, motif)` | `mute(…, MINUTE, motif, silent = true)` : proximité **et** radio coupées, rangé par Plasmo (`voice_mutes.json`), fin automatique (vérifiée toutes les 5 s). **Cible en ligne** (Plasmo l'exige). **Refus si la voix est déjà coupée** : `MuteManager.mute` écrase la coupure en cours sans la lire (un `/vmute` sans fin, la coupure d'un jour d'un autre staff ou celle de la douane seraient raccourcis en silence). Renvoie la fin (epoch ms) ou `-1` (refus) |
+| `retablir(cible)` | `unmute(cible, silent = true)`, hors ligne compris ; faux si la voix n'était pas coupée |
+| `etat(cible)` | `Coupure(finEpochMs, motif, par)` ou `null` si libre ; une coupure **permanente** (`/vmute` sans durée) a `finEpochMs = VoixService.PERMANENTE` (`Long.MAX_VALUE`) : elle n'est jamais lue « libre » |
+
+Opérations du Poste de garde : `act` `voix_couper` / `voix_retablir` (§4 bis.2). Comme Plasmo est en `silent`, le joueur
+est prévenu par une notification Reborn (« Voix coupée · 15 min · par le staff », « Voix rétablie »). Les
+`/vmute` / `/vunmute` tapés dans Plasmo et les fins automatiques sont journalisés par `VoixPlasmo` (événements
+`PlayerVoiceMutedEvent` / `PlayerVoiceUnmutedEvent`, repassés sur le thread principal), sans doublon pour les coupures
+lancées par le Poste de garde : `STAFF` `VOIX_COUPEE` (« 30 min — motif · /vmute (Plasmo) ») et `VOIX_RETABLIE`
+(« fin automatique (…) » ou « /vunmute (Plasmo) », acteur `CONSOLE`). À la fin automatique d'une coupure silencieuse, le
+joueur reçoit « Voix rétablie ». Les coupures et levées de la **douane** (commandes console `douane.voix.couper` /
+`rendre` si elles passent par `vmute` / `vunmute` : muteur nul, cible tenue par la douane, `DouaneManager.restreint`)
+vont au journal `SYSTEME` (« sans fin — douane (commande console) »), pas `STAFF` : ce ne sont pas des décisions du staff.
+Le Poste de garde refuse de couper ou de rétablir la voix d'un joueur tenu par la douane (« En douane : sa voix est gérée
+par la douane. ») : la rétablir le laisserait parler au hall fermé, la couper écraserait la coupure sans fin de la douane.
+À faire plus tard si on le souhaite : faire couper la douane par `VoixService` (motif « douane ») plutôt que par commande
+console.
+
+**Chuchoté forcé à terre** (`shinobiradio.VoixATerre`) : abonné Plasmo `ServerSourceAudioPacketEvent` en priorité
+`HIGHEST`, filtré sur l'activation de **proximité** (`PlayerActivationInfo` dont le paquet porte
+`VoiceActivation.PROXIMITY_ID` : le chuchoté de la radio et les autres activations ne sont pas touchés). Selon la capacité
+`VOCAL` d'`etats.yml` (instantané thread-safe tenu sur le thread principal à chaque `EtatChangedEvent`, à la déconnexion
+et chaque seconde) :
+- `VOCAL = 1` (à terre, inconscient) : la distance de l'événement (choix des auditeurs) **et** celle du paquet
+  (atténuation côté client) sont ramenées à `voix.a-terre-blocs` — `0` (défaut) = la **plus petite portée** de
+  `[voice.proximity] distances` de Plasmo (8 avec les réglages ci-dessous ; 8 si introuvable, et 8 — N au plus — en
+  mode plage `[-1, N]`), relue à chaque `/vreload` ;
+- `VOCAL = 0` (mort RP, corps contrôlé ou vide, cinématique) : la trame ne part pas (événement annulé) ;
+- les paquets de fin de parole ne sont pas touchés (sans distance ; les brider laisserait des sources ouvertes chez ceux qui
+  entendaient avant la chute).
+
+Le mod dispose du même signal (`reborn:etat` `cap.voc = 1`) pour l'indicateur de portée de l'icône micro (vert =
+chuchoté).
+
+**Réglages de Plasmo recommandés** — à appliquer par l'utilisateur dans le `config.toml` du plugin Plasmo Voice du
+serveur (sous Paper, `plugins/PlasmoVoice/config.toml` : **chemin à vérifier sur le serveur** ; sous Fabric c'est
+`config/plasmovoice/server/config.toml`), puis `/vreload` (pas besoin de redémarrer ni de se reconnecter) :
+
+```toml
+[voice.proximity]
+distances = [8, 24, 64]          # chuchoter (vert), parler (jaune), crier (rouge)
+default_distance = 24
+
+[voice.player_icon]
+visibility = ["HIDE_SOURCE_ICON", "HIDE_SERVER_MUTED", "HIDE_CLIENT_MUTED"]
+```
+
+- **Portées** : le volume côté client suit un gain **cubique** (`(1 − d / portée)³`, `exponential_distance_gain` par
+  défaut) — on entend bien jusqu'à environ 40 % de la portée (≈ 22 % du volume à 40 %, 12,5 % à mi-portée). D'où des
+  portées nominales larges : chuchoté bien audible jusqu'à ~3 blocs, voix ~10, cri ~25. La portée par défaut doit
+  figurer dans la liste (sinon Plasmo prend celle du milieu), et le serveur ramène toute portée hors liste à la valeur
+  par défaut.
+- **Icônes** : `HIDE_SOURCE_ICON` retire la bulle « parle » de Plasmo (le mod dessine la sienne, calée sur la tête) ;
+  `HIDE_SERVER_MUTED` retire l'icône « muet » qu'une coupure du staff mettrait au-dessus du joueur, visible de tous ;
+  `HIDE_CLIENT_MUTED` retire celle d'un joueur qu'on a rendu muet chez soi (menu de Plasmo).
 
 ---
 
@@ -889,7 +988,10 @@ affiche l'action telle quelle si elle ne la connaît pas) :
   `RAMENE`, `RETOUR`, `RENVOYE`, `GEL`, `DEGEL`, `GEL_RECONNEXION`, `VOIR_SAC`, `ECRAN_NOIR`, `ECRAN_NOIR_FIN`,
   `SEISME`, `ANNONCE_GLOBALE`, `ANNONCE_PERSO`, `TENUE_IMPOSEE`, `TENUE_LEVEE`, `EMOTE_FORCEE`, `NOTE_AJOUT`,
   `NOTE_SUPPRESSION`, `PERSO_RESET(_DEMANDE)`, `PERSO_SUPPRIME` / `PERSO_SUPPR_DEMANDE`, `MODE_STAFF`,
-  `JOURNAL_CONSULTE`, `INVENTAIRE_AUTRUI`, et les entrées du Poste de garde (`<KIND>_<TYPE>`, ex. `SANCTION_BAN_1J`,
+  `JOURNAL_CONSULTE`, `INVENTAIRE_AUTRUI`, `VOIX_COUPEE` / `VOIX_RETABLIE` (31/10 : « 15 min — motif », « restait
+  12 min », ou depuis Plasmo « /vmute », « /vunmute », « fin automatique » ; celles de la douane vont en `SYSTEME` ;
+  jamais le contenu vocal — §4 quater.1), et
+  les entrées du Poste de garde (`<KIND>_<TYPE>`, ex. `SANCTION_BAN_1J`,
   `KO_REVEIL_FORCE`, `GRADE_PROMOTION`, `MONDE_ZONE_CREEE`).
 - `COMMANDE` / `INTERACTION` / `CHAT` : `COMMANDE` (commande d'un joueur ; les commandes RP — `/corps`, `/soigner`,
   `/duel`, `/rencontrer`… — vont en `INTERACTION`, `/me`, `/msg`… en `CHAT`), `MESSAGE` (tchat), `CHAT_STAFF`,
@@ -903,7 +1005,7 @@ affiche l'action telle quelle si elle ne la connaît pas) :
 | `notes` | Helper | `pid` (ou `t`) | `notes` |
 | `note_add` | Helper | `pid` (ou `t`), `texte` (≤ 500 car.), `etiquette` (facultatif, ≤ 24 car. : « surveillé », « event », « avertissement »…) | `notes` + `toast` |
 | `note_del` | auteur, ou Admin | `pid` (ou `t`), `id` | `notes` + `toast` |
-| `act` | selon `op` | `t` **ou** `pid`, `op`, et selon `op` : `m` (message), `s` (secondes), `v` (valeur), `r` (rayon) | `toast` + `profile` |
+| `act` | selon `op` | `t` **ou** `pid`, `op`, et selon `op` : `m` (message), `s` (secondes), `v` (valeur), `r` (rayon), `d` (durée en minutes, `voix_couper`) | `toast` + `profile` |
 | `annonce` | Modérateur | `m` (message), `titre` (facultatif), `s` (durée d'affichage, défaut 8) | `toast` |
 | `seisme` | Admin | `r` (rayon en blocs autour du staff ; 0 = tout le serveur), `f` (force 1-10, défaut 5), `s` (durée, défaut 4), `m` (message facultatif) | `toast` |
 | `modestaff` | Helper | — (bascule) | `toast` + `snap` (`modeStaff`) + `mode` |
@@ -933,6 +1035,8 @@ validation, déjà lue par le serveur).
 | `announce` | Helper | annonce personnelle à la cible ; `m`, `s` |
 | `emote` | Modérateur | forcer une emote ; `v` = id de l'emote, `stop` pour arrêter |
 | `outfit` | Modérateur | forcer une tenue (emplacement cosmétique `TENUE`) ; `v` = id Nexo de la tenue, `main` = l'objet que le staff a en main, `retirer` pour rendre la sienne |
+| `voix_couper` | Modérateur | 31/10 : couper la voix (proximité **et** radio, mute de Plasmo Voice via `VoixService`) ; `d` = minutes, **5, 15, 30, 60 ou 1440** ; `m` = motif **obligatoire** (3 caractères au moins, 160 au plus) ; cible **en ligne**. Journal `STAFF` `VOIX_COUPEE` (« 15 min — motif ») + journal du Poste de garde ; le joueur reçoit « Voix coupée · 15 min · par le staff ». Refus « Voix indisponible (Plasmo absent) » sans ShinobiRadio / Plasmo ; refus « La voix de X est déjà coupée (sans fin / encore N min) : rétablis-la d'abord. » si une coupure est en cours (Plasmo l'écraserait sans rien dire ; la fiche est renvoyée, le mod bascule sur « Rétablir ») ; refus « En douane : sa voix est gérée par la douane. » pour un candidat ou un joueur tenu par la douane — §4 quater.1 |
+| `voix_retablir` | Modérateur | 31/10 : rétablir la voix, **hors ligne compris** ; `m` facultatif. Journal `STAFF` `VOIX_RETABLIE` (« restait 12 min — motif ») ; le joueur en ligne reçoit « Voix rétablie ». Refus en douane (comme `voix_couper`) |
 
 **`op` de `perso_act`** (15/10 ; le serveur revérifie le grade et les valeurs ; champ vide = inchangé ; tout est journalisé
 `STAFF` avec « avant → après » et le motif) :
@@ -1000,7 +1104,10 @@ tâche de fond, puis répond ; dans ce cas `acteur` / `cible` peuvent n'avoir qu
   `{kind, pid, perso, par, quoi, time, moi}` — `par` = « Toi » pour le spectateur, `quoi` = « y est allé », « l'a
   ignorée », « a validé / refusé la mise à mort », « l'a observé », « a répondu »).
 - `person` (chaque joueur de `players`, `alerts`) : `notes` (nombre), `etiquettes` (tableau des étiquettes des notes),
-  `gele` (bool), `noir` (bool), `modeStaff` (bool), `modeAnim` (bool, 14/10).
+  `gele` (bool), `noir` (bool), `modeStaff` (bool), `modeAnim` (bool, 14/10) ; 31/10 : `voixCoupee` (bool),
+  `voixFin` (epoch ms ; **-1 = sans fin**, `/vmute` permanent ; 0 = libre), `voixMotif`, `voixPar` (pseudo du staff,
+  vide si console). L'état du joueur (`state`, fiche et plaques du mode staff) ajoute « Voix coupée » (fiche :
+  « Voix coupée · 12 min » ou « · sans fin »).
 
 `cherche` (S → C, 14/10) :
 
@@ -1113,6 +1220,7 @@ l'animateur, ligne « X passe en mode animation » au chat staff. Exclusif avec 
 | `rarete` | `par-id` : id Nexo / de modèle → COMMUN, PEU_COMMUN, RARE, EPIQUE, LEGENDAIRE | idem §7 |
 | `duel` | `actif`, `distance-proposition`, `distance-max`, `duree-max-secondes`, `expiration-secondes`, `cooldown-secondes`, `cooldown-couple-secondes`, `compte-a-rebours`, `techniques`, `teleport-max-blocs`, `grace-secondes`, `annonce.actif`, `annonce.rayon` | idem §4.1 |
 | `medic` | `paume.*`, `bandage.*` | idem |
+| `me` | `bulle.portee` (16, blocs) : portée de la bulle du `/me` au-dessus de la tête (canal `reborn:me`, 31/10) ; la ligne de tchat n'a pas de portée | §4 |
 | `meditation` | régénération, rayon d'annulation (× modificateur `meditation`) ; `halo` (18/10, v2) : `enabled`, `portee`, `couleur-defaut` (`#8CFFC2`, si le joueur n'a rien choisi ; l'ancienne clé `couleur` est ignorée), `par-nature` + `natures.<nature>`, `particules-vanilla` (anciennes particules, défaut `false`) | — |
 | `modificateurs` | `sync-secondes` ; `types.<id>` : `nom`, `famille`, `bonus`, `icone`, `empilement`, `plafond`, `persistance`, `au-ko`, `visible`, `journal`, `duree-secondes`, `valeur`, `effets`, `refuse`, `ensuite` (types livrés : `regeneration`, `satiete_prolongee`, `endurance`, `meditation`, `pilule_soldat`, `fatigue`, `poison`, `pilule_recharge`) | [`ETATS_JOUEUR.md`](./ETATS_JOUEUR.md) §4.4 |
 | `nourriture` | `actif` ; `satiete.*` (départ 80, perte 0,0125 %/s, `activite.*`, technique, vitesse du sprint, combat, AFK) ; `regeneration.*` (seuil 90, 0,25 %/s, pause 30 s, plafond ATA 30) ; `faim.affame-seuil` (15, 19/10 :
@@ -1150,9 +1258,11 @@ remplace `satiete.affame` = 20, désormais ignorée ; alerte seule, **aucun malu
   `final-stage`, `aura`, `union`, `stage-power`, `messages`.
 - **ShinobiRadio** : `escouade` (`taille-max` 8, `distance` 3, `invitation-secondes` 10, `dissolution-jours` 30,
   `nom-max` 24), `oreillette` (`ids` [oreillette], `emplacement` BOUCLE, `id-nexo` oreillette), `voix`
-  (`chuchote-blocs` 4, `activation-poids` 20, `ligne-poids` 20, `volume-defaut` 1,0, `hache-trames-perdues` 0,35,
-  `porte-hache` vrai), `staff` (`ecoute-minutes-defaut` 10, `ecoute-minutes-max` 60, `coupure-minutes-defaut` 30),
-  `journal` (`emissions` vrai, `emission-min-secondes` 1).
+  (`chuchote-blocs` 4 — chuchoté autour de qui parle **à la radio** ; `a-terre-blocs` 0 — 31/10, rayon du chuchoté
+  forcé **à terre** sur la voix de proximité, 0 = plus petite portée de Plasmo, §4 quater.1 ; `activation-poids` 20,
+  `ligne-poids` 20, `volume-defaut` 1,0, `hache-trames-perdues` 0,35, `porte-hache` vrai), `staff`
+  (`ecoute-minutes-defaut` 10, `ecoute-minutes-max` 60, `coupure-minutes-defaut` 30), `journal` (`emissions` vrai,
+  `emission-min-secondes` 1).
 
 ### 5.4 RebornGuardian — `config.yml`, jeton de jeu, mode fermé (25/10, version 0.2.0)
 

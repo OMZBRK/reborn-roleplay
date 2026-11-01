@@ -6,7 +6,9 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.reborn.shinobicore.ShinobiCore;
+import com.reborn.shinobicore.api.VoixService;
 import com.reborn.shinobicore.character.ShinobiCharacter;
+import com.reborn.shinobicore.inventory.Notifs;
 import com.reborn.shinobicore.ko.KoState;
 import com.reborn.shinobicore.ko.ata.AtaManager;
 import io.papermc.paper.event.player.AsyncChatEvent;
@@ -81,6 +83,11 @@ public final class StaffPanel implements Listener, PluginMessageListener {
         return o != null && o.gels().gele(id);
     }
 
+    /** Durées proposées pour couper la voix (minutes) : 5 min, 15 min, 30 min, 1 h, 1 jour. */
+    private static final Set<Integer> DUREES_VOIX = Set.of(5, 15, 30, 60, 1440);
+    /** Prochain essai de lecture de {@link VoixService} (epoch ms) tant qu'il est absent. */
+    private long voixCherche;
+
     public StaffPanel(ShinobiCore plugin) {
         this.plugin = plugin;
         this.store = new StaffStore(plugin);
@@ -116,6 +123,25 @@ public final class StaffPanel implements Listener, PluginMessageListener {
         return p.getListeningPluginChannels().contains(CHANNEL);
     }
 
+    /**
+     * Couper / rétablir la voix (31/10) : service publié par ShinobiRadio (Plasmo Voice), lu en différé comme
+     * {@code EtatServiceImpl.stun()} — ShinobiRadio s'active après nous. Relu à chaque appel (un ShinobiRadio rechargé
+     * publie une nouvelle instance) ; absent, nouvel essai dans 10 s. Null = pas de coupure de la voix possible.
+     */
+    public VoixService voix() {
+        long now = System.currentTimeMillis();
+        if (now < voixCherche) return null;
+        VoixService v = Bukkit.getServicesManager().load(VoixService.class);
+        if (v == null) voixCherche = now + 10_000L;
+        return v;
+    }
+
+    /** La coupure de la voix en cours (null = voix libre, ou service absent). */
+    private VoixService.Coupure coupure(UUID id) {
+        VoixService v = voix();
+        return v == null ? null : v.etat(id);
+    }
+
     void send(Player p, JsonObject o) {
         p.sendPluginMessage(plugin, CHANNEL, gson.toJson(o).getBytes(StandardCharsets.UTF_8));
     }
@@ -125,6 +151,13 @@ public final class StaffPanel implements Listener, PluginMessageListener {
         o.addProperty("t", "toast");
         o.addProperty("m", msg);
         if (modded(p)) send(p, o); else p.sendMessage("§6[Garde] §f" + msg);
+    }
+
+    /** Prévient le joueur visé : pile de notifications du mod (aucun kanji), sinon une ligne au tchat. */
+    private void prevenir(Player p, String ton, String gras, String texte) {
+        if (p == null || !p.isOnline()) return;
+        if (Notifs.aLeMod(p)) Notifs.msg(p, ton, null, gras, texte);
+        else p.sendMessage((ton.equals("refus") ? "§c" : "§6") + gras + (texte == null ? "" : " §7· " + texte));
     }
 
     /** Demande au client d'ouvrir l'écran (commande /garde). */
@@ -393,6 +426,12 @@ public final class StaffPanel implements Listener, PluginMessageListener {
         j.addProperty("noir", outils != null && outils.effets().enNoir(id));
         j.addProperty("modeStaff", outils != null && outils.mode().actif(id));
         j.addProperty("modeAnim", outils != null && outils.animation().actif(id));
+        // Voix coupée (31/10, Plasmo Voice via ShinobiRadio) : voixFin = epoch ms, -1 = sans fin, 0 = libre.
+        VoixService.Coupure voix = coupure(id);
+        j.addProperty("voixCoupee", voix != null);
+        j.addProperty("voixFin", voix == null ? 0L : voix.permanente() ? -1L : voix.finEpochMs());
+        j.addProperty("voixMotif", voix == null || voix.motif() == null ? "" : voix.motif());
+        j.addProperty("voixPar", voix == null || voix.par() == null ? "" : store.nameOf(voix.par()));
         return j;
     }
 
@@ -515,8 +554,13 @@ public final class StaffPanel implements Listener, PluginMessageListener {
             default -> StaffGrades.MODO;
         };
         if (grade < need) { toast(staff, "Ton grade ne permet pas cette action (" + StaffGrades.name(need) + " requis)."); return; }
-        if (outils == null && !op.equals("watch") && !op.equals("revive") && !op.equals("lift_ata")) { toast(staff, "Outils staff indisponibles."); return; }
-        if (t == null && !op.equals("unfreeze") && !op.equals("freeze") && !op.equals("back")) { toast(staff, who + " n'est pas en ligne."); return; }
+        boolean voixOp = op.equals("voix_couper") || op.equals("voix_retablir");   // passe par ShinobiRadio, pas les outils
+        if (outils == null && !voixOp && !op.equals("watch") && !op.equals("revive") && !op.equals("lift_ata")) { toast(staff, "Outils staff indisponibles."); return; }
+        // Candidat ou joueur tenu par la douane : elle coupe et rend sa voix elle-même (douane.voix.*) ; la rétablir ici le
+        // laisserait parler au hall fermé (la douane le croit toujours muet), la couper écraserait sa coupure sans fin.
+        if (voixOp && plugin.douane() != null && plugin.douane().restreint(id)) { toast(staff, "En douane : sa voix est gérée par la douane."); return; }
+        // Rétablir la voix marche hors ligne (le mute de Plasmo est rangé par UUID) ; la couper exige la cible en ligne.
+        if (t == null && !op.equals("unfreeze") && !op.equals("freeze") && !op.equals("back") && !op.equals("voix_retablir")) { toast(staff, who + " n'est pas en ligne."); return; }
         switch (op) {
             case "tp" -> {
                 outils.aller(staff, t);
@@ -618,6 +662,48 @@ public final class StaffPanel implements Listener, PluginMessageListener {
                     if (it == null) { toast(staff, "Tenue introuvable : " + v); return; }
                     toast(staff, outils.tenues().imposer(staff, t, it, v) ? "Tenue imposée à " + who + "." : who + " n'a pas de personnage actif.");
                 }
+            }
+            case "voix_couper" -> {
+                // Plasmo Voice (ShinobiRadio) : proximité et radio coupées, en silence côté Plasmo — on prévient nous-mêmes.
+                VoixService v = voix();
+                if (v == null || !v.disponible()) { toast(staff, "Voix indisponible (Plasmo absent)."); return; }
+                // Plasmo écrase une coupure en cours sans rien dire : un /vmute sans fin, la coupure d'un jour d'un autre
+                // staff seraient raccourcis en silence (fiche périmée, deux staffs sur la même alerte). On refuse.
+                VoixService.Coupure deja = v.etat(id);
+                if (deja != null) {
+                    toast(staff, "La voix de " + who + " est déjà coupée (" + (deja.permanente() ? "sans fin"
+                            : "encore " + Math.max(1, (deja.resteMs() + 59_999L) / 60_000L) + " min") + ") : rétablis-la d'abord.");
+                    sendProfile(staff, id);
+                    return;
+                }
+                int min = intDe(in, "d", 0);
+                if (!DUREES_VOIX.contains(min)) { toast(staff, "Durée invalide : 5 min, 15 min, 30 min, 1 h ou 1 jour."); return; }
+                String motif = str(in, "m").replaceAll("\\p{Cntrl}", " ").trim();
+                if (motif.length() < 3) { toast(staff, "Motif obligatoire (3 caractères au moins)."); return; }
+                if (motif.length() > 160) motif = motif.substring(0, 160).trim();
+                if (v.couper(id, staff.getUniqueId(), min, motif) < 0) { toast(staff, "Impossible de couper la voix de " + who + "."); return; }
+                // Jamais de contenu vocal au journal : qui, sur qui, combien de temps, pourquoi.
+                com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.STAFF,
+                        "VOIX_COUPEE").acteur(staff).cible(t).detail(min + " min — " + motif).ecrire();
+                log(staff, "staff", "Voix coupée", who + " · " + min + " min");
+                prevenir(t, "refus", "Voix coupée", Offenses.duration(min) + " · par le staff");
+                toast(staff, "Voix de " + who + " coupée (" + Offenses.duration(min) + ").");
+            }
+            case "voix_retablir" -> {
+                VoixService v = voix();
+                if (v == null || !v.disponible()) { toast(staff, "Voix indisponible (Plasmo absent)."); return; }
+                VoixService.Coupure avant = v.etat(id);
+                if (!v.retablir(id)) { toast(staff, "La voix de " + who + " n'était pas coupée."); return; }
+                String reste = avant == null ? "" : avant.permanente() ? "était sans fin"
+                        : "restait " + Math.max(1, (avant.resteMs() + 59_999L) / 60_000L) + " min";
+                String motif = str(in, "m").replaceAll("\\p{Cntrl}", " ").trim();
+                if (motif.length() > 160) motif = motif.substring(0, 160).trim();
+                var e = com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.STAFF,
+                        "VOIX_RETABLIE").acteur(staff);
+                (t != null ? e.cible(t) : e.cible(id)).detail(reste + (motif.isEmpty() ? "" : (reste.isEmpty() ? "" : " — ") + motif)).ecrire();
+                log(staff, "staff", "Voix rétablie", who);
+                if (t != null) prevenir(t, "info", "Voix rétablie", "par le staff");
+                toast(staff, "Voix de " + who + " rétablie.");
             }
             default -> { return; }
         }

@@ -17,6 +17,8 @@ final class RadioConfig {
     final String emplacement;
     final String idNexo;
     final int chuchoteBlocs;
+    /** Chuchoté forcé à terre (31/10) : rayon en blocs ; 0 = la plus petite portée de proximité de Plasmo Voice. */
+    final int aTerreBlocs;
     final int activationPoids;
     final int lignePoids;
     final double volumeDefaut;
@@ -40,6 +42,7 @@ final class RadioConfig {
         emplacement = c.getString("oreillette.emplacement", "BOUCLE").toUpperCase(Locale.ROOT);
         idNexo = c.getString("oreillette.id-nexo", "oreillette");
         chuchoteBlocs = Math.max(0, c.getInt("voix.chuchote-blocs", 4));
+        aTerreBlocs = Math.max(0, Math.min(256, c.getInt("voix.a-terre-blocs", 0)));
         activationPoids = c.getInt("voix.activation-poids", 20);
         lignePoids = c.getInt("voix.ligne-poids", 20);
         volumeDefaut = Math.max(0, Math.min(1, c.getDouble("voix.volume-defaut", 1.0)));

@@ -3,6 +3,7 @@ package fr.reborn.hud.staff;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import fr.reborn.hud.nameplate.CalqueTete;
 import fr.reborn.hud.ui.DaKit;
 import fr.reborn.hud.ui.LotGui;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -14,14 +15,14 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.phys.Vec3;
-import org.joml.Matrix4f;
-import org.joml.Vector4f;
+import net.minecraft.util.Mth;
+import org.joml.Vector3f;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -30,17 +31,27 @@ import java.util.UUID;
  * §4 bis.5) : une ligne petite et fine « 00042 · Nom RP · état » au-dessus de la plaque de nom RP, voile nuit léger,
  * mince jauge de PV d'1 px dessous ; petit losange d'or devant un staff, « gelé » en bleu glacier. Taille fixe à l'écran (unités
  * menu), fondu avec la distance (le serveur n'envoie que les joueurs à ≤ 64 blocs). Rien n'est envoyé aux joueurs.
+ * Ancrée (31/10) sur la tête réellement rendue ({@code TeteAncre}), en haut de la pile de {@link CalqueTete} : jamais
+ * sur le nom, la bulle ou les /me ; visible à travers les murs comme avant (outil staff).
+ *
+ * <p>Rien n'est alloué par image : la table des plaques est remplacée en bloc à chaque message (jamais modifiée
+ * ensuite, lue telle quelle par le rendu) et les textes d'une plaque sont composés une fois, à sa réception.
  */
 public final class PlaquesStaff {
 
     record Plaque(String pid, String perso, String pseudo, String etat, int pv, int pvMax, boolean staff, boolean gele,
                   boolean modeStaff) { }
 
-    private static final Map<UUID, Plaque> PLAQUES = new HashMap<>();
+    /** Une plaque et ses textes, composés à la réception (N°, nom, état, et la largeur de la ligne en unités menu). */
+    private record Dessin(Plaque p, Component cPid, Component cNom, Component cEtat, float largeur) { }
+
+    /** Plaques reçues, par joueur : table remplacée en bloc (thread client), jamais modifiée une fois publiée. */
+    private static volatile Map<UUID, Dessin> PLAQUES = Map.of();
     private static volatile long recuAt;
     private static final int GLACE = 0xFF9CC8E0, GRIS = 0xFFB4A88E, ETAT = 0xFFE8A0A2;
-    private static final Matrix4f VP = new Matrix4f();
-    private static final Vector4f CLIP = new Vector4f();
+    private static final Vector3f ANCRE = new Vector3f();
+    /** Séparateur « · » des plaques (composé au premier message). */
+    private static Component sep;
 
     /** Banc : affiche aussi la plaque du joueur local (vue de face, 3e personne). */
     static boolean debugSoi;
@@ -50,7 +61,7 @@ public final class PlaquesStaff {
     static void init() {
         PayloadTypeRegistry.clientboundPlay().register(CanalJson.PLAQUES, CanalJson.codec(CanalJson.PLAQUES));
         ClientPlayNetworking.registerGlobalReceiver(CanalJson.PLAQUES, (p, c) -> c.client().execute(() -> recevoir(p.json())));
-        ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> { synchronized (PLAQUES) { PLAQUES.clear(); } });
+        ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> PLAQUES = Map.of());
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("reborn-hud", "staff-plaques"), PlaquesStaff::render);
     }
 
@@ -58,70 +69,84 @@ public final class PlaquesStaff {
         JsonObject o;
         try { o = JsonParser.parseString(raw).getAsJsonObject(); } catch (RuntimeException e) { return; }
         if (!"plaques".equals(StaffScreen.str(o, "t"))) return;
-        synchronized (PLAQUES) {
-            PLAQUES.clear();
-            if (!StaffScreen.bool(o, "on")) return;
-            for (JsonElement e : StaffScreen.arr(o, "joueurs")) {
-                JsonObject j = e.getAsJsonObject();
-                try {
-                    PLAQUES.put(UUID.fromString(StaffScreen.str(j, "uuid")), new Plaque(StaffScreen.str(j, "pid"),
-                            StaffScreen.str(j, "perso"), StaffScreen.str(j, "pseudo"), StaffScreen.str(j, "etat"),
-                            StaffScreen.num(j, "pv"), StaffScreen.num(j, "pvMax"), StaffScreen.bool(j, "staff"),
-                            StaffScreen.bool(j, "gele"), StaffScreen.bool(j, "modeStaff")));
-                } catch (IllegalArgumentException ignored) { }
-            }
+        if (!StaffScreen.bool(o, "on")) {
+            PLAQUES = Map.of();
+            return;
         }
+        Font f = Minecraft.getInstance().font;
+        Map<UUID, Dessin> m = new HashMap<>();
+        for (JsonElement e : StaffScreen.arr(o, "joueurs")) {
+            JsonObject j = e.getAsJsonObject();
+            try {
+                m.put(UUID.fromString(StaffScreen.str(j, "uuid")), dessin(f, new Plaque(StaffScreen.str(j, "pid"),
+                        StaffScreen.str(j, "perso"), StaffScreen.str(j, "pseudo"), StaffScreen.str(j, "etat"),
+                        StaffScreen.num(j, "pv"), StaffScreen.num(j, "pvMax"), StaffScreen.bool(j, "staff"),
+                        StaffScreen.bool(j, "gele"), StaffScreen.bool(j, "modeStaff"))));
+            } catch (IllegalArgumentException ignored) { }
+        }
+        PLAQUES = m;
         recuAt = System.currentTimeMillis();
     }
 
-    private static void render(GuiGraphicsExtractor g, DeltaTracker dt) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || mc.player == null || mc.gui.hud.isHidden()) return;
-        Map<UUID, Plaque> copie;
-        synchronized (PLAQUES) {
-            if (PLAQUES.isEmpty()) return;
-            copie = new HashMap<>(PLAQUES);
-        }
-        if (System.currentTimeMillis() - recuAt > 5000 && !debugSoi) return;   // plus de nouvelles : mode staff coupé
-        Camera cam = mc.gameRenderer.mainCamera();
-        if (cam == null || !cam.isInitialized()) return;
-        float pt = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
-        Vec3 camPos = cam.position();
-        Matrix4f vp = cam.getViewRotationProjectionMatrix(VP);
-        var win = mc.getWindow();
-        int km = DaKit.echelleMenu();
-        int sw = win.getWidth() / km, sh = win.getHeight() / km;
-        Font f = mc.font;
-        DaKit.unites(g, km);
-        for (Player e : mc.level.players()) {
-            if (e == mc.player && !debugSoi) continue;
-            Plaque p = copie.get(e.getUUID());
-            if (p == null) continue;
-            Vec3 tete = e.getEyePosition(pt).add(0.0, 1.02, 0.0);
-            Vector4f c = vp.transform(CLIP.set((float) (tete.x - camPos.x), (float) (tete.y - camPos.y),
-                    (float) (tete.z - camPos.z), 1f));
-            if (c.w() <= 0.05f) continue;
-            float nx = c.x() / c.w(), ny = c.y() / c.w();
-            if (nx < -1.1f || nx > 1.1f || ny < -1.1f || ny > 1.1f) continue;
-            float x = (nx * 0.5f + 0.5f) * sw, y = (1f - (ny * 0.5f + 0.5f)) * sh;
-            double dist = mc.player.getPosition(pt).distanceTo(e.getPosition(pt));
-            float a = (float) Math.max(0.45, 1.0 - dist / 96.0);
-            plaque(g, f, p, x, y, a);
-        }
-        DaKit.finUnites(g);
-    }
-
-    /** Une plaque centrée en x, bas en y (unités menu). */
-    static void plaque(GuiGraphicsExtractor g, Font f, Plaque p, float x, float y, float a) {
+    /** Textes d'une plaque (N°, nom, état) et largeur de sa ligne, composés une fois. */
+    private static Dessin dessin(Font f, Plaque p) {
+        if (sep == null) sep = DaKit.inter("  ·  ");
         String nom = p.perso().isBlank() ? p.pseudo() : p.perso();
         Component cPid = DaKit.interGras(p.pid().isBlank() ? "—" : p.pid());
         Component cNom = DaKit.inter(DaKit.ellipse(f, nom, 110));
         Component cEtat = p.gele() ? DaKit.inter("gelé" + (p.etat().isBlank() ? "" : " · " + p.etat()))
                 : p.etat().isBlank() ? null : DaKit.inter(DaKit.ellipse(f, p.etat(), 90));
-        Component sep = DaKit.inter("  ·  ");
         float wS = DaKit.largeur7(f, sep);
         float w = (p.staff() ? 9 : 0) + DaKit.largeur7(f, cPid) + wS + DaKit.largeur7(f, cNom)
                 + (cEtat != null ? wS + DaKit.largeur7(f, cEtat) : 0);
+        return new Dessin(p, cPid, cNom, cEtat, w);
+    }
+
+    private static void render(GuiGraphicsExtractor g, DeltaTracker dt) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null || mc.player == null || mc.gui.hud.isHidden()) return;
+        Map<UUID, Dessin> plaques = PLAQUES;
+        if (plaques.isEmpty()) return;
+        if (System.currentTimeMillis() - recuAt > 5000 && !debugSoi) return;   // plus de nouvelles : mode staff coupé
+        Camera cam = mc.gameRenderer.mainCamera();
+        if (cam == null || !cam.isInitialized()) return;
+        float pt = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
+        var win = mc.getWindow();
+        int km = DaKit.echelleMenu();
+        int gs = Math.max(1, win.getGuiScale());
+        Font f = mc.font;
+        // position interpolée du joueur local (celle de getPosition(pt)), une fois pour toutes les plaques
+        double ox = Mth.lerp(pt, mc.player.xo, mc.player.getX()), oy = Mth.lerp(pt, mc.player.yo, mc.player.getY()),
+            oz = Mth.lerp(pt, mc.player.zo, mc.player.getZ());
+        DaKit.unites(g, km);
+        List<AbstractClientPlayer> joueurs = mc.level.players();
+        for (int i = 0, n = joueurs.size(); i < n; i++) {
+            AbstractClientPlayer e = joueurs.get(i);
+            if (e == mc.player && !debugSoi) continue;
+            Dessin d = plaques.get(e.getUUID());
+            if (d == null) continue;
+            Plaque p = d.p();
+            // Tête rendue (à terre, allongé, émotes) projetée comme le monde, en pixels physiques ; la plaque se pose en
+            // haut de la pile de CalqueTete (au-dessus du nom, de la bulle et des /me), bas visible sur le bas de sa couche.
+            if (!CalqueTete.ancrePx(e, ANCRE)) continue;
+            int bas = p.pvMax() > 0 ? 1 : -1;   // jauge de PV : 1 unité sous y ; sans jauge, le voile s'arrête 1 unité au-dessus
+            CalqueTete.occuper(e, CalqueTete.STAFF, (p.pvMax() > 0 ? 12f : 10f) * km / gs);
+            float yBas = ANCRE.y - Math.round(CalqueTete.base(e, CalqueTete.STAFF) * gs);
+            float x = ANCRE.x / km, y = yBas / km - bas;
+            double dx = ox - Mth.lerp(pt, e.xo, e.getX()), dy = oy - Mth.lerp(pt, e.yo, e.getY()),
+                dz = oz - Mth.lerp(pt, e.zo, e.getZ());
+            double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            float a = (float) Math.max(0.45, 1.0 - dist / 96.0);
+            plaque(g, f, d, x, y, a);
+        }
+        DaKit.finUnites(g);
+    }
+
+    /** Une plaque centrée en x, bas en y (unités menu). */
+    private static void plaque(GuiGraphicsExtractor g, Font f, Dessin d, float x, float y, float a) {
+        Plaque p = d.p();
+        Component cPid = d.cPid(), cNom = d.cNom(), cEtat = d.cEtat();
+        float w = d.largeur();
         float x0 = x - w / 2f;
         int yb = Math.round(y), ym = yb - 6;
         LotGui l = LotGui.ouvrir(g);
@@ -157,14 +182,15 @@ public final class PlaquesStaff {
 
     static void debugEffacer() {
         debugSoi = false;
-        synchronized (PLAQUES) { PLAQUES.clear(); }
+        PLAQUES = Map.of();
     }
 
     static void debugSoi(UUID moi) {
         debugSoi = true;
-        synchronized (PLAQUES) {
-            PLAQUES.put(moi, new Plaque("00042", "Kazuki Uchiha", "Raiden_FR", "À terre · ATA", 7, 20, false, true, false));
-        }
+        Map<UUID, Dessin> m = new HashMap<>(PLAQUES);
+        m.put(moi, dessin(Minecraft.getInstance().font,
+                new Plaque("00042", "Kazuki Uchiha", "Raiden_FR", "À terre · ATA", 7, 20, false, true, false)));
+        PLAQUES = m;
         recuAt = System.currentTimeMillis();
     }
 }

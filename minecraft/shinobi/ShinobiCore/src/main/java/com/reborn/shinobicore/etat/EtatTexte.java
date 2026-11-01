@@ -17,7 +17,7 @@ import java.util.UUID;
  * <b>Un seul constructeur</b> du résumé d'état lisible (docs/technique/ETATS_JOUEUR.md §2.4 n° 13, §7.4) : plaques du
  * mode staff ({@code ModeStaff.etat}) et fiche du Poste de garde ({@code StaffPanel.stateOf}) disaient deux vérités.
  * Désormais : l'état principal résolu par le service, puis ce que le staff veut voir en plus (ATA et repos, duel,
- * prison, gel, muet, écran noir, animation).
+ * prison, gel, muet, voix coupée, écran noir, animation).
  */
 public final class EtatTexte {
 
@@ -55,6 +55,11 @@ public final class EtatTexte {
         if (o != null && o.gels().gele(id)) parts.add("Gelé");
         if (detail && plugin.staffPanel() != null && plugin.staffPanel().mutedUntil(id) > System.currentTimeMillis())
             parts.add("Muet");
+        // Voix coupée par le staff (31/10, Plasmo Voice via ShinobiRadio) : plaques et fiche.
+        var voix = plugin.staffPanel() != null ? plugin.staffPanel().voix() : null;
+        var coupure = voix != null ? voix.etat(id) : null;
+        if (coupure != null) parts.add(!detail ? "Voix coupée" : coupure.permanente() ? "Voix coupée · sans fin"
+                : "Voix coupée · " + (coupure.resteMs() / 60_000 + 1) + " min");
         if (o != null && o.effets().enNoir(id)) parts.add("Écran noir");
         if (o != null && o.animation().actif(id)) parts.add("Animation");
         if (c == null && enLigne) parts.add("Sans personnage");

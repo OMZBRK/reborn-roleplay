@@ -701,8 +701,10 @@ public class StaffScreen extends Screen {
     }
 
     /** État court affiché à droite d'une ligne et sa couleur. */
-    static Object[] etatCourt(JsonObject p) {
-        String st = str(p, "state");
+    static Object[] etatCourt(JsonObject p) { return etatCourt(p, str(p, "state")); }
+
+    /** Idem à partir d'un {@code state} donné (la fiche passe le sien sans la voix coupée, qui a sa propre ligne). */
+    static Object[] etatCourt(JsonObject p, String st) {
         String premier = st.isEmpty() ? "" : st.split(" · ")[0];
         if (bool(p, "modeAnim")) return new Object[]{"Animation", ANIM};
         if (bool(p, "modeStaff")) return new Object[]{"Mode staff", STAFF};
@@ -711,19 +713,22 @@ public class StaffScreen extends Screen {
         if (bool(p, "noir")) return new Object[]{"Écran noir", NOIR_V};
         if (bool(p, "gele")) return new Object[]{"Gelé", GLACE};
         if (premier.contains("Duel")) return new Object[]{"En duel", TERRE};
+        if (premier.startsWith("Voix coupée")) return new Object[]{"Voix coupée", MUET};
         if (!premier.isEmpty()) return new Object[]{premier, GRIS};
         return new Object[]{"En forme", OK};
     }
 
-    /** Marqueurs de la seconde ligne : étiquettes, notes, gel. */
+    /** Marqueurs de la seconde ligne : étiquettes, notes, gel, voix coupée. */
     static Object[] marques(JsonObject p) {
         List<String> m = new ArrayList<>();
         for (JsonElement e : arr(p, "etiquettes")) m.add(e.getAsString());
         int n = num(p, "notes");
         if (n > 0) m.add(n + " note" + (n > 1 ? "s" : ""));
         if (bool(p, "gele") && !etatCourt(p)[0].equals("Gelé")) m.add("gelé");
+        if (GardeActions.voixCoupee(p) && !etatCourt(p)[0].equals("Voix coupée")) m.add("voix coupée");
         String s = String.join(" · ", m);
-        int col = s.contains("surveill") ? TERRE : s.contains("avertissement") ? ROUGE : s.equals("gelé") ? GLACE : GRIS;
+        int col = s.contains("surveill") ? TERRE : s.contains("avertissement") ? ROUGE : s.equals("gelé") ? GLACE
+                : s.equals("voix coupée") ? MUET : GRIS;
         return new Object[]{s, col};
     }
 

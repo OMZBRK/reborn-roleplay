@@ -23,6 +23,10 @@ import java.util.List;
  * log. Pairs with the broadcast line; the bubble is the visual cue, the
  * chat line is the searchable record.
  *
+ * <p><b>Repli seulement (31/10)</b> : les clients du mod reborn-hud reçoivent la bulle par le canal {@code reborn:me}
+ * (dessinée calée sur la tête, voir {@code MeCommand}) ; {@code MeCommand} ne met dans les groupes que les clients
+ * qui n'écoutent pas ce canal.
+ *
  * <h2>Per-viewer groups</h2>
  * Because the server is an RP environment and characters default to
  * {@code ????} until introduced, the bubble text depends on <em>who is

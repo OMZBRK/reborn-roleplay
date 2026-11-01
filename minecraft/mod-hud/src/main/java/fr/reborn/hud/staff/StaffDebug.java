@@ -23,6 +23,11 @@ import java.util.Set;
  *   <li>{@code =<cas>,<cas>…} : ces cas seuls, aux trois tailles.</li>
  * </ul>
  * Captures {@code run/screenshots/garde_<taille>_<nn>_<cas>.png}. Les demandes partent vers {@link StaffDemo}.
+ *
+ * <p>Voix coupée (31/10) : {@code fiche_voix} passe par le chemin du menu R ({@code StaffClient.ouvrirFiche(id, "voix")} :
+ * ouverture, fiche, puis formulaire), {@code fiche_voix_coupee} valide le formulaire (fiche « Voix coupée — jusqu'à… »,
+ * réponse du serveur simulé, menu « Plus » sur « Rétablir la voix ») ; {@code dense_fiche} montre une coupure sans fin
+ * au motif trop long.
  */
 public final class StaffDebug {
 
@@ -39,7 +44,8 @@ public final class StaffDebug {
             "outils", "annonces", "annonce_confirm", "seisme", "chat", "commandes", "modes",
             "blesses", "zones", "zones_nouvelle", "hopitaux", "reglages",
             "dense_joueurs", "dense_fiche", "dense_alertes",
-            "hud_annonce", "hud_annonce_perso", "hud_noir", "hud_plaques", "hud_mode"};
+            "hud_annonce", "hud_annonce_perso", "hud_noir", "hud_plaques", "hud_mode",
+            "fiche_voix", "fiche_voix_coupee"};
 
     private static final int STEP = 30;
     private static final List<Shot> SHOTS = new ArrayList<>();
@@ -127,7 +133,9 @@ public final class StaffDebug {
             case "recherche_hors_ligne" -> g.debugSearch("sora");
             case "fiche", "fiche_plus", "fiche_radio", "fiche_notes", "fiche_sanctions", "sanction", "fiche_comptes",
                  "action_noir", "action_suppr", "persos", "persos_detail", "persos_identite", "persos_grade", "persos_mort",
-                 "persos_suppr", "persos_creer", "persos_emplacement", "persos_refus" -> g.debugProfile(me);
+                 "persos_suppr", "persos_creer", "persos_emplacement", "persos_refus", "fiche_voix_coupee" -> g.debugProfile(me);
+            // chemin du menu R › Staff › « Couper la voix… » : open → fiche → formulaire lancé à l'arrivée de la fiche
+            case "fiche_voix" -> StaffClient.ouvrirFiche(java.util.UUID.fromString(me), "voix");
             case "persos_hors_ligne" -> {
                 g.debugProfile(StaffDemo.HORS_LIGNE);
                 g.fiche.cible = horsLigne();
@@ -181,6 +189,13 @@ public final class StaffDebug {
                 g.formulaire.debugValeur(0, "Vous perdez connaissance…");
             }
             case "action_suppr" -> GardeActions.lancer(g, GardeActions.SUPPR, StaffClient.profile());
+            case "fiche_voix" -> g.formulaire.debugValeur(0, "Cris et insultes en vocal au marché");
+            case "fiche_voix_coupee" -> {
+                GardeActions.lancer(g, GardeActions.VOIX, StaffClient.profile());
+                g.formulaire.debugValeur(0, "Cris et insultes en vocal au marché");
+                g.formulaire.entree();   // act voix_couper → StaffDemo : fiche « Voix coupée — jusqu'à… » + réponse
+                g.debugMenuPlus();       // l'action bascule en « Rétablir la voix »
+            }
             case "persos", "persos_detail", "persos_identite", "persos_grade", "persos_mort", "persos_suppr", "persos_creer",
                  "persos_emplacement", "persos_refus", "persos_hors_ligne" -> {
                 JsonObject p = "persos_hors_ligne".equals(cas) ? horsLigne() : StaffClient.profile();
@@ -298,9 +313,14 @@ public final class StaffDebug {
             p.addProperty("perso", "Kazuki Uchiha-Senju no Mikoto");
             p.addProperty("name", "xX_Raiden_FR_Officiel_Xx");
             p.addProperty("rank", "Jōnin spécial");
-            p.addProperty("state", "ATA pleine · repos 3/20 · gelé par Hiro");
+            p.addProperty("state", "ATA pleine · repos 3/20 · gelé par Hiro · Voix coupée · sans fin");
             p.addProperty("ryo", 1234567);
             p.addProperty("playtime", 98765);
+            // voix coupée sans fin (/vmute permanent) au motif trop long : la ligne se coupe, le survol donne tout
+            p.addProperty("voixCoupee", true);
+            p.addProperty("voixFin", -1L);
+            p.addProperty("voixMotif", "Cris et insultes répétés en vocal sur la place du marché malgré deux avertissements");
+            p.addProperty("voixPar", "Hiro");
         }
         return p.toString();
     }

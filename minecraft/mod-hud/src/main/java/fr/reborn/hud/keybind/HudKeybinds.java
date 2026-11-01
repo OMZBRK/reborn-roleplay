@@ -13,9 +13,10 @@ import java.util.List;
 
 /**
  * Les touches Reborn (carte réduite du 15/10, docs/technique/MOD_HUD.md §2) : K fiche, M carte, R interaction,
- * F ramasser, Z dégainer, B radio (maintenir = parler, appui bref = écran de l'escouade), Entrée / Retour, « . »
- * animations (démarches et émotes), Alt gauche regard libre, F1 cinéma, P photo (la galerie s'ouvre depuis le mode
- * photo), G dash, C parade ; F7 (staff) est dans {@code StaffClient}, N (OST) dans mod-ost. La <b>vue</b> est la
+ * F ramasser, Z dégainer, B radio (maintenir = parler, appui bref = écran de l'escouade), H portée de la voix (31/10),
+ * Entrée / Retour, « . » animations (démarches et émotes), Alt gauche regard libre, F1 cinéma, P photo (la galerie
+ * s'ouvre depuis le mode photo), G dash, C parade ; F7 (staff) est dans {@code StaffClient}, N (OST) dans mod-ost.
+ * La <b>vue</b> est la
  * touche vanilla « Changer de vue » (F5) : en caméra Reborn elle bascule épaule ↔ 1ʳᵉ personne. Éditeur de HUD et
  * viseur : Échap → Interface ; caméra : Réglages → Caméra ; personnage : Échap (carte d'identité) ; course de chakra :
  * touche X seule (le triple appui sur le sprint est retiré le 16/10).
@@ -63,6 +64,19 @@ public final class HudKeybinds {
      * {@link #RADIO_BREF_MS} ms) = écran de l'escouade. Rebindable.
      */
     public static KeyMapping RADIO_PARLER;
+
+    /**
+     * Portée de la voix (31/10) : fait tourner les portées de proximité du serveur Plasmo Voice, <b>un cran plus bas</b>
+     * à chaque appui (normale → chuchotée → criée → normale : chuchoter tient en un appui, et baisser la voix ne passe
+     * plus par la plus grande portée), annoncées en bas à droite ; la couleur du micro suit. À terre : refusée
+     * (chuchoter seulement) ; voix refusée par l'état (mort RP, cinématique…) : refusée, avec la raison du serveur. Défaut <b>H</b>, libre : Minecraft 26.2 n'y met que F3 + H (infobulles
+     * avancées, raccourci de débogage : géré, il ne déclenche pas les autres touches) ; même lettre au même endroit en
+     * AZERTY, QWERTY et QWERTZ (aucune migration ; les autres, I, O, U, sont sous la main droite, et O est la liste d'amis
+     * de 26.2) ; hors des touches Reborn, F7 et N compris (H n'est plus l'éditeur de HUD depuis le 15/10), de Plasmo
+     * Voice (Alt gauche parler, M micro, V menu) et des mods du modpack vérifiés dans leurs jars (Emotecraft,
+     * EntityCulling ; First-person : F6). À portée de l'index gauche depuis ZQSD / WASD. Rebindable.
+     */
+    public static KeyMapping VOIX_PORTEE;
 
     /** Mode interaction (R) : lu par les invites (« [R] Tendre … », nourriture). */
     public static KeyMapping INTERACTION;
@@ -173,6 +187,45 @@ public final class HudKeybinds {
         if (bref && libre) mc.setScreenAndShow(new fr.reborn.hud.radio.RadioScreen());
     }
 
+    /**
+     * Touche « Portée de la voix » : un cran plus bas parmi les portées du serveur Plasmo Voice, annoncé en bas à droite
+     * (« Voix : chuchotée / normale / criée », « Voix : N blocs » au-delà de trois portées), micro à la couleur de la
+     * portée. À terre (chuchoté imposé) : refus posé à côté du micro à terre, les notifications étant masquées ; en
+     * notification sinon. Voix refusée par l'état (capacité {@code voc} = 0) : « Voix coupée — » et la raison du serveur.
+     */
+    private static void voixPortee() {
+        int r = fr.reborn.hud.voice.VoiceState.changerPortee();
+        switch (r) {
+            case fr.reborn.hud.voice.VoiceState.REFUS_COUPEE -> {
+                String raison = fr.reborn.hud.etat.EtatClient.raison("voc");
+                boolean dite = raison != null && !raison.isBlank();
+                if (fr.reborn.hud.ko.KoMasqueHud.masque()) {
+                    fr.reborn.hud.ko.MicroATerreHud.refus(dite ? raison : "Voix coupée");
+                } else {
+                    fr.reborn.hud.notif.NotifHud.voix(fr.reborn.hud.runtime.VitalsHud.MIC_GRIS, "Voix coupée",
+                        dite ? "— " + raison : null);
+                }
+            }
+            case fr.reborn.hud.voice.VoiceState.REFUS_A_TERRE -> {
+                if (fr.reborn.hud.ko.KoMasqueHud.masque()) fr.reborn.hud.ko.MicroATerreHud.refus();
+                else fr.reborn.hud.notif.NotifHud.voix(fr.reborn.hud.runtime.VitalsHud.MIC_VERT, null,
+                    "À terre, tu ne peux que chuchoter");
+            }
+            case fr.reborn.hud.voice.VoiceState.REFUS_PORTEE_FIXE -> fr.reborn.hud.notif.NotifHud.voix(
+                fr.reborn.hud.runtime.VitalsHud.couleurPortee(fr.reborn.hud.voice.VoiceState.portee()), "Voix",
+                ": une seule portée ici");
+            case fr.reborn.hud.voice.VoiceState.REFUS_INDISPONIBLE -> fr.reborn.hud.notif.NotifHud.voix(
+                fr.reborn.hud.runtime.VitalsHud.MIC_GRIS, "Voix", ": indisponible");
+            default -> {
+                int rang = fr.reborn.hud.voice.VoiceState.portee();
+                String quoi = fr.reborn.hud.voice.VoiceState.nombrePortees() > 3 ? r + " blocs"
+                    : rang == fr.reborn.hud.voice.VoiceState.CHUCHOTE ? "chuchotée"
+                    : rang == fr.reborn.hud.voice.VoiceState.CRIEE ? "criée" : "normale";
+                fr.reborn.hud.notif.NotifHud.voix(fr.reborn.hud.runtime.VitalsHud.couleurPortee(rang), "Voix", ": " + quoi);
+            }
+        }
+    }
+
     public static void registerClient() {
         // S'assure que les prefs (dont tablistHold) sont chargées avant lecture.
         fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.ensureLoaded();
@@ -188,6 +241,8 @@ public final class HudKeybinds {
         PICKUP = bind("key.reborn-hud.ramasser", GLFW.GLFW_KEY_F);
         DEGAINER = bind("key.reborn-hud.degainer", GLFW.GLFW_KEY_Z);
         RADIO_PARLER = bind("key.reborn-hud.radio_parler", GLFW.GLFW_KEY_B);
+        // Portée de la voix (31/10) : H, libre dans Minecraft, Plasmo Voice et le modpack (cf. VOIX_PORTEE).
+        VOIX_PORTEE = bind("key.reborn-hud.voix_portee", GLFW.GLFW_KEY_H);
         // Entrée / Retour arrière, libres en jeu (le tchat a ses propres touches quand il est ouvert).
         DUEL_ACCEPT = bind("key.reborn-hud.duel_accept", GLFW.GLFW_KEY_ENTER);
         DUEL_REFUSE = bind("key.reborn-hud.duel_refuse", GLFW.GLFW_KEY_BACKSPACE);
@@ -243,6 +298,9 @@ public final class HudKeybinds {
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            // État de la voix (portée, parle, micro coupé, qui parle autour) relu une fois par tick : le HUD le lit à
+            // chaque image sans rappeler Plasmo Voice ; avant la touche de portée, qui part de cet état.
+            fr.reborn.hud.voice.VoiceState.tick(client);
             // wasPressed() drain le queue d'events — false sur les frames
             // sans transition pressed.
             while (INTERACTION.consumeClick()) {
@@ -303,6 +361,10 @@ public final class HudKeybinds {
                 else fr.reborn.hud.nourriture.NourritureClient.refuser();
             }
             tickRadio(Minecraft.getInstance());
+            while (VOIX_PORTEE.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.gui.screen() == null && mc.player != null) voixPortee();
+            }
             while (MAP.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.gui.screen() == null && mc.player != null) {

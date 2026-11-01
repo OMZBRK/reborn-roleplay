@@ -3,6 +3,7 @@ package fr.reborn.hud.nourriture;
 import fr.reborn.hud.duel.DuelClient;
 import fr.reborn.hud.keybind.HudKeybinds;
 import fr.reborn.hud.menu.inventory.SlotItem;
+import fr.reborn.hud.nameplate.CalqueTete;
 import fr.reborn.hud.ui.DaKit;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -11,6 +12,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
+import org.joml.Vector3f;
 
 /**
  * HUD de la nourriture au-dessus de la barre d'action — règle 9 de la DA (subtil, épuré, petit ; aucun kanji) :
@@ -23,6 +25,9 @@ import net.minecraft.world.item.ItemStack;
  *   <li><b>Je tends</b> : une ligne grise.</li>
  * </ul>
  * Dessiné en unités menu ({@link DaKit#echelleMenu}) : même taille à l'écran quelle que soit l'échelle du HUD.
+ *
+ * <p>Aucune allocation par image (MOD_HUD §6) : chaque texte est composé une fois puis gardé tant que ce dont il dépend
+ * ne change pas (l'objet en main, l'offre, l'action, la seconde affichée, la touche liée), comparé sans rien allouer.
  */
 public final class NourritureHud {
 
@@ -32,6 +37,29 @@ public final class NourritureHud {
 
     private static ItemStack iconeOffre;
     private static Object cleIcone;
+
+    // ── textes gardés (thread de rendu) ─────────────────────────
+    /** Mots fixes, composés au premier usage. */
+    private static Component cTendre, cPrendre, cRefuser, cSep;
+    /** Touches affichées : « [R] » de l'invite (ArcadePix), « F » et « Retour » de l'offre. */
+    private static final Touche TOUCHE_R = new Touche("R", true), TOUCHE_F = new Touche("F", false),
+        TOUCHE_RETOUR = new Touche("Retour", false);
+    /** Invite : objet en main et son nom (identités) → nom affiché. */
+    private static ItemStack objetCle;
+    private static Component objetNomCle, cObjet;
+    /** Préparer / manger : action, étape (0 pause, 1 fourneau, 2 marche, 3 repas), seconde, froid / assis. */
+    private static NourritureClient.Action actionCle;
+    private static int actionEtape = -1, actionN, actionDrapeaux;
+    private static Component cTitre, cDetail;
+    /** On me tend : offre → nom, « te tend … », état ; seconde restante → « · N s ». */
+    private static NourritureClient.Offre offreCle;
+    private static Component cOffreNom, cOffreSuite, cOffreEtat;
+    private static int offreN = -1;
+    private static Component cOffreTemps;
+    /** Je tends : attente et seconde restante → la ligne grise. */
+    private static NourritureClient.Attente attenteCle;
+    private static int attenteN = -1;
+    private static Component cAttente;
 
     private NourritureHud() {}
 
@@ -58,8 +86,15 @@ public final class NourritureHud {
         if (act != null) action(g, f, act, sw / 2f, yFilet, now);
         float bas = act != null ? yFilet - 16 : barre - 8;
         if (offre && !DuelClient.hasInvite() && fr.reborn.hud.ko.CorpsClient.demande() == null) offre(g, f, NourritureClient.offre, sw / 2f, bas, now);
-        else if (att != null) DaKit.inter7o(g, f, DaKit.inter("Tu tends " + att.quoi() + " à " + att.a() + " — "
-            + (int) Math.ceil(att.reste(now)) + " s"), sw / 2f, bas - 6, DaKit.alpha(GRIS, 0.9f), 1);
+        else if (att != null) {
+            int s = (int) Math.ceil(att.reste(now));
+            if (att != attenteCle || s != attenteN || cAttente == null) {
+                attenteCle = att;
+                attenteN = s;
+                cAttente = DaKit.inter("Tu tends " + att.quoi() + " à " + att.a() + " — " + s + " s");
+            }
+            DaKit.inter7o(g, f, cAttente, sw / 2f, bas - 6, DaKit.alpha(GRIS, 0.9f), 1);
+        }
         DaKit.finUnites(g);
     }
 
@@ -69,6 +104,7 @@ public final class NourritureHud {
     public static net.minecraft.world.entity.Entity debugCible;
 
     private static final Identifier TOUCHE = DaKit.tex("inventaire", "touche"), VOILE_C = DaKit.tex("inventaire", "voile_centre");
+    private static final Vector3f ANCRE = new Vector3f();
 
     /**
      * Plat (ou ration, panier, bol) en main et quelqu'un tout près dans le viseur : « [R] Tendre Ramen shōyu » au-dessus
@@ -81,19 +117,29 @@ public final class NourritureHud {
         if (e == null || e.distanceTo(mc.player) > 3.5f) return;
         ItemStack main = mc.player.getMainHandItem();
         if (main.isEmpty() || (debugCible == null && !nourriture(main))) return;
-        float pt = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
-        double[] px = fr.reborn.hud.sol.RamasserClient.projeter(mc, e.getPosition(pt).add(0, e.getBbHeight() + 0.35, 0));
-        if (px == null) return;
+        // Tête rendue (à terre, allongé compris), projetée comme le monde, en pixels physiques ; l'invite se pose en haut
+        // de la pile de CalqueTete, au-dessus du nom qui s'allume au regard (ils se recouvraient).
+        if (!CalqueTete.ancrePx(e, ANCRE)) return;
         int km = DaKit.echelleMenu();
+        int gs = Math.max(1, mc.getWindow().getGuiScale());
+        CalqueTete.occuper(e, CalqueTete.INVITE, 13f * km / gs);
+        float yBas = ANCRE.y - Math.round(CalqueTete.base(e, CalqueTete.INVITE) * gs);
         Font f = mc.font;
-        float cx = (float) (px[0] / km), ym = (float) (px[1] / km) - 6;
-        Component cT = DaKit.interGras("Tendre"), cN = DaKit.inter(DaKit.ellipse(f, main.getHoverName().getString(), 120));
+        float cx = ANCRE.x / km, ym = yBas / km - 7;   // contenu de ym − 6 à ym + 6 : bas visible 1 unité au-dessus de la couche
+        if (cTendre == null) cTendre = DaKit.interGras("Tendre");
+        Component nomMain = main.getHoverName();   // le composant rangé dans l'objet : rien n'est alloué
+        if (main != objetCle || nomMain != objetNomCle || cObjet == null) {
+            objetCle = main;
+            objetNomCle = nomMain;
+            cObjet = DaKit.inter(DaKit.ellipse(f, nomMain.getString(), 120));
+        }
+        Component cT = cTendre, cN = cObjet;
         float w = 11 + 4 + DaKit.largeur8(f, cT) + 3 + DaKit.largeur8(f, cN);
         float x0 = cx - w / 2f;
         DaKit.unites(g, km);
         DaKit.etire(g, VOILE_C, Math.round(x0) - 12, Math.round(ym) - 9, Math.round(w) + 24, 18, 64, 16, DaKit.blanc(1f));
         DaKit.blit(g, TOUCHE, Math.round(x0), Math.round(ym) - 6, 0, 0, 11, 11, 11, 11, DaKit.blanc(1f));
-        DaKit.arcFin(g, f, DaKit.arcade(touche(HudKeybinds.INTERACTION, "R")), x0 + 5.5f, ym - 2.5f, DaKit.CREME, 1, false);
+        DaKit.arcFin(g, f, TOUCHE_R.de(HudKeybinds.INTERACTION), x0 + 5.5f, ym - 2.5f, DaKit.CREME, 1, false);
         float x = x0 + 15;
         x += DaKit.inter8(g, f, cT, x, ym, DaKit.CREME, 0) + 3;
         x += DaKit.inter8(g, f, cN, x, ym, CREME_DOUX, 0);
@@ -119,15 +165,28 @@ public final class NourritureHud {
         int pause = a.pause(now);
         boolean pausee = pause > 0, marche = a.repas && a.vitesse == 0 && !pausee;
         float av = a.avance(now);
-        String titre, detail;
-        if (pausee) { titre = "Repas en pause"; detail = "reprend dans " + pause + " s"; }
-        else if (!a.repas) { titre = a.nom; detail = "au fourneau · " + Math.max(0, (int) Math.ceil(a.duree * (1 - av))) + " s"; }
-        else if (marche) { titre = a.nom; detail = "marche pour manger"; }
-        else {
-            titre = a.nom;
-            detail = (a.froid ? "froid · " : "") + a.secondesRestantes(now) + " s" + (a.vitesse >= 2 ? " · assis" : "");
+        int etape, n;
+        if (pausee) { etape = 0; n = pause; }
+        else if (!a.repas) { etape = 1; n = Math.max(0, (int) Math.ceil(a.duree * (1 - av))); }
+        else if (marche) { etape = 2; n = 0; }
+        else { etape = 3; n = a.secondesRestantes(now); }
+        int drapeaux = (a.froid ? 1 : 0) | (a.vitesse >= 2 ? 2 : 0);
+        if (a != actionCle || etape != actionEtape || n != actionN || drapeaux != actionDrapeaux || cTitre == null) {
+            actionCle = a;
+            actionEtape = etape;
+            actionN = n;
+            actionDrapeaux = drapeaux;
+            String titre, detail;
+            switch (etape) {
+                case 0 -> { titre = "Repas en pause"; detail = "reprend dans " + n + " s"; }
+                case 1 -> { titre = a.nom; detail = "au fourneau · " + n + " s"; }
+                case 2 -> { titre = a.nom; detail = "marche pour manger"; }
+                default -> { titre = a.nom; detail = (a.froid ? "froid · " : "") + n + " s" + (a.vitesse >= 2 ? " · assis" : ""); }
+            }
+            cTitre = DaKit.interGras(titre);
+            cDetail = DaKit.inter(detail);
         }
-        Component ct = DaKit.interGras(titre), cd = DaKit.inter(detail);
+        Component ct = cTitre, cd = cDetail;
         float wt = DaKit.largeur8(f, ct), wd = DaKit.largeur7(f, cd);
         float tot = 11 + 4 + wt + 4 + wd;
         float x = cx - tot / 2f, ym = y - 7;
@@ -150,13 +209,27 @@ public final class NourritureHud {
     private static void offre(GuiGraphicsExtractor g, Font f, NourritureClient.Offre o, float cx, float bas, long now) {
         float a = Math.min(1f, (now - o.a()) / 250f);
         float left = o.reste(now);
-        Component nom = DaKit.interGras(DaKit.ellipse(f, o.de(), 110));
-        Component suite = DaKit.inter(" te tend " + o.quoi());
-        Component etat = o.etat() == null ? null : DaKit.inter(" — " + o.etat());
+        if (o != offreCle || cOffreNom == null) {
+            offreCle = o;
+            cOffreNom = DaKit.interGras(DaKit.ellipse(f, o.de(), 110));
+            cOffreSuite = DaKit.inter(" te tend " + o.quoi());
+            cOffreEtat = o.etat() == null ? null : DaKit.inter(" — " + o.etat());
+        }
+        Component nom = cOffreNom, suite = cOffreSuite, etat = cOffreEtat;
         float w1 = 11 + 4 + DaKit.largeur8(f, nom) + DaKit.largeur8(f, suite) + (etat == null ? 0 : DaKit.largeur8(f, etat));
-        Component kP = DaKit.inter(touche(HudKeybinds.PICKUP, "F")), mP = DaKit.interGras(" prendre");
-        Component kR = DaKit.inter(touche(HudKeybinds.DUEL_REFUSE, "Retour")), mR = DaKit.inter(" refuser");
-        Component sep = DaKit.inter("  ·  "), tps = DaKit.inter("  ·  " + Math.max(0, (int) Math.ceil(left)) + " s");
+        if (cPrendre == null) {
+            cPrendre = DaKit.interGras(" prendre");
+            cRefuser = DaKit.inter(" refuser");
+            cSep = DaKit.inter("  ·  ");
+        }
+        int s = Math.max(0, (int) Math.ceil(left));
+        if (s != offreN || cOffreTemps == null) {
+            offreN = s;
+            cOffreTemps = DaKit.inter("  ·  " + s + " s");
+        }
+        Component kP = TOUCHE_F.de(HudKeybinds.PICKUP), mP = cPrendre;
+        Component kR = TOUCHE_RETOUR.de(HudKeybinds.DUEL_REFUSE), mR = cRefuser;
+        Component sep = cSep, tps = cOffreTemps;
         float wP = DaKit.largeur7(f, kP) + DaKit.largeur7(f, mP), wR = DaKit.largeur7(f, kR) + DaKit.largeur7(f, mR);
         float w2 = wP + DaKit.largeur7(f, sep) + wR + DaKit.largeur7(f, tps);
         int w = Math.round(Math.max(w1, w2));
@@ -225,5 +298,31 @@ public final class NourritureHud {
         if ("key.keyboard.unknown".equals(save)) return "—";
         String s = km.getTranslatedKeyMessage().getString();
         return s.length() > 8 ? s.substring(0, 8) : s.toUpperCase(java.util.Locale.ROOT);
+    }
+
+    /**
+     * Nom d'une touche ({@link #touche}) composé une fois, recomposé seulement quand sa liaison change ({@code saveString}
+     * rend le nom rangé dans la touche : rien n'est alloué pour comparer).
+     */
+    private static final class Touche {
+        private final String def;
+        private final boolean arcade;
+        private String cle;
+        private Component c;
+
+        Touche(String def, boolean arcade) {
+            this.def = def;
+            this.arcade = arcade;
+        }
+
+        Component de(KeyMapping km) {
+            String s = km == null ? null : km.saveString();
+            if (c == null || !java.util.Objects.equals(s, cle)) {
+                cle = s;
+                String t = touche(km, def);
+                c = arcade ? DaKit.arcade(t) : DaKit.inter(t);
+            }
+            return c;
+        }
     }
 }

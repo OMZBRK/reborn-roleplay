@@ -48,6 +48,9 @@ public final class NotifHud {
         int marqueCol;
         /** Picto d'effet ({@code textures/gui/effets/<nom>.png}, nourriture) à la place du carré. */
         String picto;
+        /** Micro teinté (ligne « Voix », touche « Portée de la voix ») à la place du carré. */
+        boolean micro;
+        int microTeinte;
         float largeur = -1;
 
         Ligne(String cle, long now) {
@@ -122,6 +125,24 @@ public final class NotifHud {
         }
     }
 
+    /**
+     * Ligne « Voix » (touche « Portée de la voix », 31/10) : le petit micro à la couleur de la portée (vert / or / rouge,
+     * gris si indisponible) au lieu de la marque, un mot en gras, la suite (« Voix » « : chuchotée »). Une seule ligne de
+     * voix : un nouvel appui remplace la précédente (en bas, fondu d'entrée), elles ne s'empilent pas.
+     */
+    public static void voix(int teinte, String gras, String texte) {
+        long now = System.currentTimeMillis();
+        synchronized (LIGNES) {
+            for (int i = LIGNES.size() - 1; i >= 0; i--) if ("voix".equals(LIGNES.get(i).cle)) LIGNES.remove(i);
+            Ligne l = new Ligne("voix", now);
+            l.micro = true;
+            l.microTeinte = teinte;
+            if (gras != null) l.morceaux.add(new Morceau(DaKit.interGras(gras), DaKit.CREME));
+            if (texte != null) l.morceaux.add(new Morceau(DaKit.inter(texte), CREME_DOUX));
+            ajouter(l);
+        }
+    }
+
     private static void composerObjet(Ligne l, boolean gain, String nom, Rarete r, String suite) {
         l.morceaux.clear();
         l.largeur = -1;
@@ -175,7 +196,7 @@ public final class NotifHud {
             for (Morceau m : l.morceaux) w += DaKit.largeur7(f, m.c()) + 2;
             l.largeur = w;
         }
-        float W = l.largeur + (l.icone != null || l.picto != null ? 10 : l.marque ? 6 : 0) + 13;
+        float W = l.largeur + (l.icone != null || l.picto != null || l.micro ? 10 : l.marque ? 6 : 0) + 13;
         int x0 = Math.round(xr - W);
         DaKit.etire(g, VOILE, x0, Math.round(ym) - 6, Math.round(W), 12, 64, 16, DaKit.blanc(a));
         // filet d'or d'1 px écran, à droite
@@ -199,6 +220,10 @@ public final class NotifHud {
             g.pose().popMatrix();
         } else if (l.picto != null) {
             fr.reborn.hud.nourriture.EffetsIcones.poser(g, l.picto, x - 10, ym - 4.5f, 9, DaKit.blanc(a));
+        } else if (l.micro) {
+            // l'icône micro des vitals (16 px) à 8 unités : nette à l'échelle menu 2
+            g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, fr.reborn.hud.runtime.VitalsHud.micClair(),
+                Math.round(x - 9), Math.round(ym - 4), 0f, 0f, 8, 8, 16, 16, 16, 16, DaKit.alpha(l.microTeinte, a));
         } else if (l.marque) {
             int k2 = DaKit.echelleGui();
             DaKit.debutPx(g);

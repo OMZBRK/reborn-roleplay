@@ -4,7 +4,9 @@ import com.reborn.shinobicore.api.CharacterService;
 import com.reborn.shinobicore.api.InventoryService;
 import com.reborn.shinobicore.api.JournalService;
 import com.reborn.shinobicore.api.KoService;
+import com.reborn.shinobicore.api.VoixService;
 import com.reborn.shinobicore.api.event.CharacterSwitchEvent;
+import com.reborn.shinobicore.api.event.EtatChangedEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.event.EventHandler;
@@ -12,6 +14,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.ServicesManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -27,8 +30,12 @@ import su.plo.voice.api.server.PlasmoVoiceServer;
  * proximité, ligne de sources « radio » à volume séparé, chuchoté à 4 blocs. Staff : écoute journalisée (motif,
  * durée), coupure, retrait. Journal universel de ShinobiCore (catégorie RADIO) : des faits, jamais la voix.
  *
+ * <p>Seul plugin Reborn qui dépend de Plasmo Voice, il porte aussi deux règles de la voix de proximité (31/10) : la
+ * <b>coupure de la voix par le staff</b> ({@link VoixPlasmo}, publiée comme {@code VoixService} pour le Poste de garde
+ * de ShinobiCore) et le <b>chuchoté forcé à terre</b> ({@link VoixATerre}).
+ *
  * <p>Dépend de ShinobiCore (services {@code CharacterService}, {@code KoService}, {@code InventoryService},
- * {@code JournalService}) et de PlasmoVoice (plugin serveur {@code spigot-2.1.17}).
+ * {@code JournalService}, {@code EtatService}) et de PlasmoVoice (plugin serveur {@code spigot-2.1.17}).
  */
 public final class ShinobiRadio extends JavaPlugin implements Listener {
 
@@ -38,10 +45,29 @@ public final class ShinobiRadio extends JavaPlugin implements Listener {
     private Escouades escouades;
     private Canal canal;
     private BukkitTask tache;
+    private BukkitTask tacheATerre;
     private volatile VoixRadio voix;
+    /**
+     * Coupure de la voix par le staff ({@link VoixPlasmo}, mute de Plasmo), publiée comme {@link VoixService} ;
+     * {@code null} avec un ShinobiCore antérieur au 31/10 (sans {@code VoixService}) : seule la coupure staff manque, la
+     * radio reste. Typée {@link Coupures}, jamais {@code VoixPlasmo} (voir l'interface).
+     */
+    private Coupures coupures;
+    /** Chuchoté forcé à terre (voix de proximité de Plasmo). */
+    private final VoixATerre aTerre = new VoixATerre(this);
 
     @Override
     public void onLoad() {
+        // Créée ici, derrière une vérification, et non en initialiseur de champ : VoixPlasmo implémente VoixService ; avec
+        // un ShinobiCore trop ancien, le constructeur du plugin échouait (NoClassDefFoundError) et Paper rejetait toute la
+        // radio. Avant le chargement de l'addon : Plasmo l'initialise (et la branche) avant notre onEnable.
+        try {
+            Class.forName("com.reborn.shinobicore.api.VoixService", false, getClassLoader());
+            coupures = new VoixPlasmo(this);
+        } catch (ClassNotFoundException | LinkageError e) {
+            coupures = null;
+            getLogger().warning("ShinobiCore sans VoixService (trop ancien) : coupure staff de la voix désactivée, la radio reste.");
+        }
         // Plasmo Voice charge ses addons au démarrage : l'addon doit être déclaré AVANT l'activation des plugins.
         addon = new RadioAddon(this);
         try {
@@ -80,13 +106,26 @@ public final class ShinobiRadio extends JavaPlugin implements Listener {
         }
         getServer().getPluginManager().registerEvents(this, this);
         tache = Bukkit.getScheduler().runTaskTimer(this, radio::tick, 20L, 5L);
+
+        // Voix de proximité (31/10) : coupure staff lue en différé par le Poste de garde, chuchoté forcé à terre.
+        if (coupures != null) s.register(VoixService.class, (VoixService) coupures, this, ServicePriority.Normal);
+        aTerre.regler(cfg.aTerreBlocs);
+        aTerre.rafraichir();
+        tacheATerre = Bukkit.getScheduler().runTaskTimer(this, aTerre::rafraichir, 20L, 20L);
+
         getLogger().info("ShinobiRadio activé — " + escouades.toutes().size() + " escouade(s)"
-                + (voix != null ? ", voix radio prête." : ", voix radio en attente de Plasmo Voice."));
+                + (voix != null ? ", voix radio prête" : ", voix radio en attente de Plasmo Voice")
+                + " ; chuchoté à terre : " + (cfg.aTerreBlocs > 0 ? cfg.aTerreBlocs + " blocs."
+                : "plus petite portée de Plasmo (" + aTerre.rayon() + " blocs)."));
     }
 
     @Override
     public void onDisable() {
         if (tache != null) tache.cancel();
+        if (tacheATerre != null) tacheATerre.cancel();
+        // Plus de règle de voix tant que le plugin est arrêté (le service, lui, est retiré par Bukkit).
+        if (coupures != null) coupures.debrancher();
+        aTerre.debrancher();
         if (escouades != null) escouades.sauver();
         if (canal != null) canal.fermer();
     }
@@ -97,6 +136,24 @@ public final class ShinobiRadio extends JavaPlugin implements Listener {
     }
 
     Radio radio() { return radio; }
+
+    /** La coupure staff de la voix, ou {@code null} (ShinobiCore trop ancien). */
+    Coupures coupures() { return coupures; }
+
+    /**
+     * Ce que la radio attend de la coupure staff ({@link VoixPlasmo}) : la brancher dans Plasmo et l'en retirer. Le
+     * champ et l'accesseur ont ce type, pas {@code VoixPlasmo} : Bukkit lit par réflexion les méthodes de ce
+     * {@code Listener} ({@code registerEvents}), ce qui charge les types de leurs signatures — VoixPlasmo, qui implémente
+     * {@code VoixService}, y ferait tomber l'enregistrement des événements avec un ShinobiCore trop ancien (vérifié au
+     * banc, chargeur sans {@code VoixService}).
+     */
+    interface Coupures {
+        void brancher(PlasmoVoiceServer v, RadioAddon a);
+
+        void debrancher();
+    }
+
+    VoixATerre aTerre() { return aTerre; }
 
     RadioConfig cfg() {
         if (cfg == null) cfg = new RadioConfig(getConfig());
@@ -113,6 +170,13 @@ public final class ShinobiRadio extends JavaPlugin implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent e) {
         if (radio != null) radio.quitte(e.getPlayer());
+        aTerre.oublier(e.getPlayer().getUniqueId());
+    }
+
+    /** Vocal limité ou rendu (à terre, inconscient, mort RP…) : l'instantané du chuchoté forcé suit tout de suite. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onEtat(EtatChangedEvent e) {
+        aTerre.etat(e.player(), e.apres());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

@@ -40,8 +40,8 @@ public final class FpsDebug {
     /** Éléments coupés le temps d'une mesure (enveloppés une fois au début). */
     private static final java.util.Set<String> COUPES = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private static final List<String> ELEMENTS = List.of("cecite", "duel", "interaction", "vitals", "tablist-hold",
-        "head-bubbles", "nameplates", "combat", "combat-endurance", "cooldowns", "byakugan_activation", "ko", "volonte",
-        "escouade", "nourriture", "fouille", "ramasser", "notifs", "concentration", "allure", "boussole",
+        "head-bubbles", "nameplates", "me-bulles", "combat", "combat-endurance", "cooldowns", "byakugan_activation", "ko", "volonte",
+        "micro-a-terre", "escouade", "nourriture", "fouille", "ramasser", "notifs", "concentration", "allure", "boussole",
         "communication_bande", "faction_invit", "chargement_fondu", "effets", "capture-preview", "staff-effets",
         "staff-plaques");
 

@@ -24,15 +24,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *   direction de déplacement, d'où « ma tête bouge quand même / elle
  *   s'actualise quand je cours ».</li>
  *   <li><b>À l'arrêt</b> : la tête suit la caméra. Le corps ne bouge pas tant
- *   que le débattement reste sous {@link #REBORN_MAX_HEAD_YAW}° ; au-delà il est
- *   tiré, exactement comme le {@code tickHeadTurn} vanilla — c'est ce que les
- *   AUTRES joueurs voient (voir la note réseau ci-dessous), donc local et
- *   distant restent d'accord.</li>
+ *   que le débattement reste sous la borne vanilla
+ *   ({@code getMaxHeadRotationRelativeToBody} : 50°, 15° en parade au bouclier,
+ *   lue par {@link LivingEntityTeteAccessor}) ; au-delà il est tiré juste à la
+ *   borne, exactement comme le {@code tickHeadTurn} que les AUTRES clients
+ *   appliquent à notre avatar (voir la note réseau ci-dessous) : la vue de soi
+ *   en 3e personne et celle des autres restent d'accord. Jusqu'au 31/10 on
+ *   bornait à 75° « comme vanilla » : faux en 26.2 (50°).</li>
  *   <li><b>En déplacement (mode base)</b> : le corps suit la caméra (souris).
  *   {@code KeyboardInputMixin} pose déjà yaw/bodyYaw vers la caméra, mais la
  *   logique vanilla de {@code LivingEntity#aiStep} re-tourne ensuite
  *   {@code yBodyRot} vers la direction de déplacement — d'où « le perso ne suit
- *   la caméra que quand je clique ». On ré-applique donc l'orientation au TAIL.</li>
+ *   la caméra que quand je clique ». On ré-applique donc l'orientation au TAIL.
+ *   <i>Écart assumé</i> (choix de l'utilisateur) : les autres clients, eux,
+ *   tournent le corps vers la direction de déplacement (au plus 50° du regard)
+ *   quand on se déplace en crabe ou en diagonale.</li>
  * </ul>
  *
  * <p><b>Note réseau (pourquoi les autres ne voyaient pas la tête tourner).</b>
@@ -51,13 +57,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(LocalPlayer.class)
 public abstract class LocalPlayerBodyMixin {
-
-    /** Débattement max de la tête par rapport au corps. Valeur <b>alignée sur le
-     *  clamp vanilla</b> de {@code LivingEntity#tickHeadTurn} (75°), qui est ce
-     *  que les clients distants appliquent sur notre avatar : toute autre valeur
-     *  ferait décrocher le rendu local du rendu vu par les autres. */
-    @Unique
-    private static final float REBORN_MAX_HEAD_YAW = 75.0f;
 
     /** Free-look en cours au tick précédent (détection du front montant). */
     @Unique
@@ -104,11 +103,13 @@ public abstract class LocalPlayerBodyMixin {
 
         // ── À l'arrêt : la TÊTE suit le regard, le corps traîne au-delà du clamp ──
         if (!moving) {
+            // Borne vanilla de l'avatar (50°, 15° en parade au bouclier) : celle des clients distants.
+            float max = ((LivingEntityTeteAccessor) self).reborn$debattementTeteMax();
             float offset = Mth.wrapDegrees(yaw - self.yBodyRot);
-            if (Math.abs(offset) > REBORN_MAX_HEAD_YAW) {
+            if (Math.abs(offset) > max) {
                 // Le corps est tiré juste ce qu'il faut pour rester dans le débattement
                 // (même règle que les clients distants → rendu identique partout).
-                self.setYBodyRot(yaw - Mth.clamp(offset, -REBORN_MAX_HEAD_YAW, REBORN_MAX_HEAD_YAW));
+                self.setYBodyRot(yaw - Mth.clamp(offset, -max, max));
             }
             self.setYHeadRot(yaw);
             return;

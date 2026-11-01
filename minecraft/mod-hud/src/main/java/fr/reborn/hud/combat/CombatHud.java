@@ -1,15 +1,15 @@
 package fr.reborn.hud.combat;
 
+import fr.reborn.hud.anchor.TeteAncre;
 import fr.reborn.hud.menu.RebornFont;
+import fr.reborn.hud.ui.DaKit;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.phys.Vec3;
-import org.joml.Matrix4f;
-import org.joml.Vector4f;
+import org.joml.Vector3f;
 
 import java.util.List;
 
@@ -23,7 +23,7 @@ import java.util.List;
  *       juste dépensé, bleu acier en garde, pulsation rouge à vide.</li>
  *   <li><b>Combo</b> : petit total cumulé à droite du viseur.</li>
  * </ul>
- * Projection monde→écran reprise du pattern {@code SpeechBubbles} (aucun rendu 3D).
+ * Projection monde→écran par {@link TeteAncre} (tête rendue, projection identique au monde ; aucun rendu 3D).
  */
 public final class CombatHud {
 
@@ -42,10 +42,20 @@ public final class CombatHud {
     /** Banc d'essai : force la garde (pas d'entrée serveur en solo). */
     static boolean debugGuard = false;
 
-    // Instances scratch réutilisées par frame pour la projection monde→écran :
-    // évite une alloc Matrix4f + un Vector4f par indicateur/frame. ThreadLocal par sûreté.
-    private static final ThreadLocal<Matrix4f> VP = ThreadLocal.withInitial(Matrix4f::new);
-    private static final ThreadLocal<Vector4f> CLIP = ThreadLocal.withInitial(Vector4f::new);
+    /**
+     * Chiffres de dégâts : marge au-dessus du sommet de la tête rendue (blocs). 0,413 redonne l'ancien « œil + 0,7 »
+     * d'un joueur debout ; la tête est désormais suivie à terre, allongée et en émote.
+     */
+    private static final float MARGE_DEGATS = 0.413f;
+    /** Ancre réutilisée (thread de rendu) : aucune allocation par indicateur. */
+    private static final Vector3f ANCRE = new Vector3f();
+    /**
+     * Textes composés une fois (MOD_HUD §6, aucune allocation par image) : chiffres de dégâts de 0 à 999 (au premier
+     * usage de chaque valeur), total du combo (recomposé quand il change) et le mot « COMBO ».
+     */
+    private static final Component[] DEGATS = new Component[1000];
+    private static Component cCombo, cComboTotal;
+    private static int comboTotal;
 
     /** LUT d'angles par géométrie (rOut,rIn) pour l'anneau : atan2 + test de bande
      *  constants à géométrie fixe (NaN = hors bande) → 1 calcul/géométrie, pas par frame. */
@@ -66,25 +76,18 @@ public final class CombatHud {
         // ── Damage indicators (projetés au-dessus des cibles) ──
         Camera cam = mc.gameRenderer.mainCamera();
         if (cam != null && cam.isInitialized()) {
-            Vec3 camPos = cam.position();
-            Matrix4f vp = cam.getViewRotationProjectionMatrix(VP.get());
             List<CombatState.DamageIndicator> live = st.liveIndicators(now);
-            for (CombatState.DamageIndicator ind : live) {
+            for (int i = 0, n = live.size(); i < n; i++) {
+                CombatState.DamageIndicator ind = live.get(i);
                 Entity e = mc.level.getEntity(ind.entityId);
                 if (e == null) continue;
                 float age = (now - ind.spawnMs) / (float) CombatState.DMG_LIFE_MS; // 0..1
-                Vec3 head = e.getEyePosition(1f).add(0.0, 0.7, 0.0);
-                Vector4f clip = vp.transform(CLIP.get().set(
-                    (float) (head.x - camPos.x),
-                    (float) (head.y - camPos.y),
-                    (float) (head.z - camPos.z), 1f));
-                if (clip.w() <= 0.05f) continue;
-                float ndcX = clip.x() / clip.w();
-                float ndcY = clip.y() / clip.w();
-                if (ndcX < -1.15f || ndcX > 1.15f || ndcY < -1.15f || ndcY > 1.15f) continue;
-                int sx = Math.round((ndcX * 0.5f + 0.5f) * gw + ind.dx);
+                // Tête rendue et interpolée (TeteAncre : à terre, allongé, émotes ; hauteur des yeux pour un mob),
+                // projetée comme le monde, calée au pixel physique : plus de saccades au tick.
+                if (!TeteAncre.ecran(e, MARGE_DEGATS, ANCRE)) continue;
+                float sx = ANCRE.x + ind.dx;
                 float rise = (1f - (1f - age) * (1f - age)) * 12f;           // ease-out
-                int sy = Math.round((1f - (ndcY * 0.5f + 0.5f)) * gh + ind.dy - rise);
+                float sy = ANCRE.y + ind.dy - rise;
                 float pop = age < 0.12f ? 1f + (1f - age / 0.12f) * (1f - age / 0.12f) * 0.55f : 1f;
                 float alpha = age < 0.7f ? 1f : Math.max(0f, 1f - (age - 0.7f) / 0.3f);
                 drawDamage(ctx, font, sx, sy, (int) Math.round(ind.amount), pop, alpha, age);
@@ -167,17 +170,29 @@ public final class CombatHud {
 
     /** Total du combo : petit chiffre or, « combo » en ivoire dessous, simple ombre d'encre. */
     private static void drawCombo(GuiGraphicsExtractor ctx, Font font, int x, int y, int total, float a) {
-        Component c = RebornFont.bold(String.valueOf(total));
+        if (cComboTotal == null || total != comboTotal) {
+            comboTotal = total;
+            cComboTotal = RebornFont.bold(String.valueOf(total));
+        }
+        if (cCombo == null) cCombo = RebornFont.body("COMBO");
         ctx.pose().pushMatrix();
         ctx.pose().translate(x, y);
         ctx.pose().scale(0.85f, 0.85f);
-        shadowed(ctx, font, c, 0, 0, applyAlpha(GOLD_HI, a), applyAlpha(INK, a * 0.7f));
+        shadowed(ctx, font, cComboTotal, 0, 0, applyAlpha(GOLD_HI, a), applyAlpha(INK, a * 0.7f));
         ctx.pose().popMatrix();
         ctx.pose().pushMatrix();
         ctx.pose().translate(x, y + 8);
         ctx.pose().scale(0.5f, 0.5f);
-        shadowed(ctx, font, RebornFont.body("COMBO"), 0, 0, applyAlpha(IVORY, a * 0.8f), applyAlpha(INK, a * 0.6f));
+        shadowed(ctx, font, cCombo, 0, 0, applyAlpha(IVORY, a * 0.8f), applyAlpha(INK, a * 0.6f));
         ctx.pose().popMatrix();
+    }
+
+    /** Chiffre de dégâts composé une fois par valeur (0 à 999 ; au-delà, composé à la demande). */
+    private static Component degats(int v) {
+        if (v < 0 || v >= DEGATS.length) return RebornFont.bold(String.valueOf(v));
+        Component c = DEGATS[v];
+        if (c == null) DEGATS[v] = c = RebornFont.bold(String.valueOf(v));
+        return c;
     }
 
     /** Texte avec une ombre d'encre décalée d'un pixel (discret, sans contour). */
@@ -190,17 +205,17 @@ public final class CombatHud {
      * Chiffre de dégâts, discret : ivoire (coup léger), or (moyen), laque (lourd), à peine plus grand d'un palier à
      * l'autre. Ombre d'encre, léger pop à l'impact.
      */
-    private static void drawDamage(GuiGraphicsExtractor ctx, Font font, int cx, int cy,
+    private static void drawDamage(GuiGraphicsExtractor ctx, Font font, float cx, float cy,
                                    int amount, float scale, float alpha, float age) {
         if (alpha <= 0f) return;
         int tier = amount >= 15 ? 2 : amount >= 8 ? 1 : 0;
         float s = (1f + (scale - 1f) * 0.5f) * (tier == 2 ? 1.05f : tier == 1 ? 0.9f : 0.75f);
         float a = alpha * 0.9f;
-        Component t = RebornFont.bold(String.valueOf(amount));
+        Component t = degats(amount);
         int w = font.width(t);
         int fill = tier == 2 ? 0xFFE0414F : tier == 1 ? GOLD_HI : IVORY;
         ctx.pose().pushMatrix();
-        ctx.pose().translate(cx - (w * s) / 2f, cy);
+        ctx.pose().translate(DaKit.cale(cx - (w * s) / 2f), DaKit.cale(cy));   // calé au pixel physique
         ctx.pose().scale(s, s);
         shadowed(ctx, font, t, 0, 0, applyAlpha(fill, a), applyAlpha(INK, a * 0.75f));
         ctx.pose().popMatrix();

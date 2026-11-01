@@ -19,8 +19,11 @@ import org.bukkit.entity.Player;
  * <p>Resolution rules (in order):
  * <ol>
  *   <li>Subject is {@code null} → empty component (defensive fallback).</li>
- *   <li>Viewer is {@code null} (console, staff, observer) → show real name.</li>
  *   <li>Viewer IS the subject → show real name (you know yourself).</li>
+ *   <li>Masque porté (GAMEPLAN §14, 24/10) → {@code ????} in gray, pour tous : amis compris, et aussi un spectateur
+ *       sans personnage actif (staff, sélection) — comme la liste des joueurs, où le staff ne fait pas exception.</li>
+ *   <li>Viewer is {@code null} (staff or observer without an active character) → show real name. The console never
+ *       comes here: it reads {@link #styledName} directly.</li>
  *   <li>Viewer's contact book lists the subject → render the stored
  *       display text; clan colour if it's the real name, neutral gray
  *       if it's a nickname (so the viewer can't reverse-engineer the
@@ -84,14 +87,16 @@ public final class CharacterDisplay {
      * {@code viewer}. See the class javadoc for the resolution rules.
      *
      * <p>Both params accept {@code null}: a null subject returns
-     * {@link Component#empty()}; a null viewer is treated as "knows
-     * everyone" (console / staff narration fallback).
+     * {@link Component#empty()}; a null viewer (no active character) is
+     * treated as "knows everyone" — except under a mask, which hides the
+     * identity from everyone (correctif du 31/10 : le masque est testé avant ;
+     * un staff sans personnage lisait encore le vrai nom et la couleur du clan).
      */
     public static Component styledNameFor(ShinobiCharacter subject, ShinobiCharacter viewer) {
         if (subject == null) return Component.empty();
+        if (viewer != null && subject.id().equals(viewer.id())) return styledName(subject);
+        if (Masques.porte(subject.ownerId())) return unknown();   // masque porté : inconnu pour tous (§14), sans personnage compris
         if (viewer == null) return styledName(subject);
-        if (subject.id().equals(viewer.id())) return styledName(subject);
-        if (Masques.porte(subject.ownerId())) return unknown();   // masque porté : inconnu pour tous (§14)
 
         ShinobiCharacter.KnownName known = viewer.knownNameOf(subject.id());
         if (known == null) return unknown();

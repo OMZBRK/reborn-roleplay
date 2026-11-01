@@ -12,7 +12,8 @@ import java.util.List;
  * À terre (agonie) et inconscient : <b>plus de HUD</b> (retour du 14/10) — viseur, barre d'action, cœurs, faim,
  * armure, air, expérience, effets, barre de boss, tableau, message d'action, et le HUD Reborn de jeu (vitals RP,
  * endurance, recharges, concentration, allure, notifications, ramassage, interaction, duel). Restent : le tchat (on
- * chuchote, on lit les /me), les titres, la liste des joueurs, les bulles et les noms, et l'info du KO ({@link KoHud}).
+ * chuchote, on lit les /me), les titres, la liste des joueurs, les bulles et les noms, l'info du KO ({@link KoHud}) et
+ * le micro seul, vert, à sa place dans les vitals ({@link MicroATerreHud} : la voix passe en chuchoté, 31/10).
  * Le contour de sélection de bloc disparaît aussi. En douleur, le HUD reste normal.
  *
  * <p>Chaque élément est enveloppé une fois, au démarrage du client (après l'enregistrement de tous les éléments du

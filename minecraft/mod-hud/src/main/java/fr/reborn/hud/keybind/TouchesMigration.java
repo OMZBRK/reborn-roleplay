@@ -40,13 +40,21 @@ import java.util.function.IntFunction;
  * Animations → la touche gravée « ; . » (US « , », affichée « ; », « . » n'existant qu'avec Maj), Dégainer reste sur la
  * même position (affichée « W ») car « z » est Avancer (ZQSD). QWERTZ : Dégainer → « z » (US « Y »). QWERTY : rien. Les
  * touches non imprimables (Ctrl, Maj, Alt, F1…, Entrée) ne dépendent pas de la disposition.
+ *
+ * <p><b>Version 3 — « Portée de la voix » sur H</b> (31/10) : la règle de la version 2 s'applique à cette seule touche
+ * chez les joueurs déjà migrés (en AZERTY, QWERTZ et QWERTY, H s'affiche « H » : rien ne bouge). H n'est <b>jamais
+ * prise</b> à une autre liaison : si le joueur l'a déjà donnée à autre chose, le conflit reste (Minecraft le montre dans
+ * les Commandes) et il est noté au journal ({@link #verifierPortee}). Aucune autre touche Reborn n'a H par défaut, et
+ * la version 2 ne pose une touche que sur une touche libre (la portée passe avant la parade dans la carte) ; seul un
+ * joueur en BÉPO migré avant le 31/10 peut avoir la parade sur la touche US H (elle y affiche « c ») : la portée lui
+ * cède alors la place (aucune touche, à lier dans Réglages → Contrôles).
  */
 public final class TouchesMigration {
 
     private static final Logger LOG = LoggerFactory.getLogger("reborn-hud/touches");
 
     /** Version de la carte des touches ; on la monte si une nouvelle migration s'ajoute. */
-    public static final int VERSION = 2;
+    public static final int VERSION = 3;
 
     private TouchesMigration() {}
 
@@ -71,14 +79,49 @@ public final class TouchesMigration {
         prefs.ensureLoaded();
         if (prefs.touchesVersion >= VERSION || mc.options == null) return;
         int changees = 0;
+        IntFunction<String> nom = k -> GLFW.glfwGetKeyName(k, 0);
         if (prefs.touchesVersion < 1) changees += anciensDefauts();
-        changees += clavier(mc, k -> GLFW.glfwGetKeyName(k, 0));
+        // version 2 : toutes les touches Reborn ; déjà faite, seulement la touche arrivée depuis (version 3)
+        if (prefs.touchesVersion < 2) changees += clavier(mc, nom);
+        else if (HudKeybinds.VOIX_PORTEE != null) changees += clavier(nom, List.of(HudKeybinds.VOIX_PORTEE));
+        changees += verifierPortee(mc);
         if (changees > 0) {
             KeyMapping.resetMapping();
             mc.options.save();
         }
         prefs.touchesVersion = VERSION;
         prefs.save();
+    }
+
+    /**
+     * Version 3 : la touche « Portée de la voix » ne prend jamais sa touche à une autre liaison. Une touche d'un autre mod
+     * ou de Minecraft déjà sur H (le joueur l'y a mise) y reste : Minecraft affiche le conflit dans les Commandes, le
+     * joueur choisit ; c'est noté au journal. Aucune autre touche Reborn n'a H par défaut ; la seule qui puisse s'y
+     * trouver est une touche déplacée par la version 2 avant que la portée existe (en BÉPO, la touche US H affiche « c » :
+     * la parade y est passée le 15/10). Dans ce cas la portée, restée sur son défaut, cède : elle passe sur « aucune »
+     * (à lier dans Réglages → Contrôles) plutôt que de déclencher deux touches Reborn à la fois. Renvoie 1 si elle a cédé.
+     */
+    private static int verifierPortee(Minecraft mc) {
+        KeyMapping voix = HudKeybinds.VOIX_PORTEE;
+        if (voix == null) return 0;
+        InputConstants.Key k = KeyMappingHelper.getBoundKeyOf(voix);
+        if (k.equals(InputConstants.UNKNOWN)) return 0;
+        boolean reborn = false;
+        for (KeyMapping km : mc.options.keyMappings) {
+            if (km == voix || KeyMapping.Category.DEBUG.equals(km.getCategory())) continue;
+            if (!KeyMappingHelper.getBoundKeyOf(km).equals(k)) continue;
+            if (HudKeybinds.REBORN_KEYS.contains(km)) {
+                reborn = true;
+                LOG.info("portée de la voix : {} déjà prise par la touche Reborn {}", k.getName(), km.getName());
+            } else {
+                LOG.info("portée de la voix : {} déjà prise par {}, laissée au joueur (Minecraft affiche le conflit)",
+                    k.getName(), km.getName());
+            }
+        }
+        if (!reborn || !voix.isDefault()) return 0;
+        voix.setKey(InputConstants.UNKNOWN);
+        LOG.info("portée de la voix : {} -> aucune (à lier dans Réglages → Contrôles)", k.getName());
+        return 1;
     }
 
     /** Version 1 : anciens défauts → nouvelle carte. */
@@ -104,10 +147,15 @@ public final class TouchesMigration {
 
     /** Version 2 : les touches Reborn restées sur leur défaut passent sur la touche qui affiche la même lettre. */
     static int clavier(Minecraft mc, IntFunction<String> nom) {
-        LOG.info("clavier : Q affiche « {} », « ; » affiche « {} », Y affiche « {} »",
-            nom.apply(GLFW.GLFW_KEY_Q), nom.apply(GLFW.GLFW_KEY_SEMICOLON), nom.apply(GLFW.GLFW_KEY_Y));
         List<KeyMapping> cles = new ArrayList<>(HudKeybinds.REBORN_KEYS);
         cles.add(KeyMapping.get("key.reborn-ost.open_menu"));
+        return clavier(nom, cles);
+    }
+
+    /** Règle de la version 2 sur les touches {@code cles} (une touche personnalisée n'est jamais touchée). */
+    private static int clavier(IntFunction<String> nom, List<KeyMapping> cles) {
+        LOG.info("clavier : Q affiche « {} », « ; » affiche « {} », Y affiche « {} »",
+            nom.apply(GLFW.GLFW_KEY_Q), nom.apply(GLFW.GLFW_KEY_SEMICOLON), nom.apply(GLFW.GLFW_KEY_Y));
         int changees = 0;
         for (KeyMapping km : cles) {
             if (km == null || !km.isDefault()) continue;                 // personnalisée : jamais touchée

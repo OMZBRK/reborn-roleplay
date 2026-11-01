@@ -77,14 +77,17 @@ public final class AutoMe {
 
     /** Same colour-picking rule as {@code MeCommand} — clan colour
      *  when the viewer knows the real identity, gray for nicknames
-     *  / strangers. */
+     *  / strangers, et gris pour tous les autres sous un masque (§14 :
+     *  le nom affiche ????, la couleur du clan ne doit pas le trahir). */
     private static NamedTextColor toneFor(ShinobiCharacter senderChar,
                                           ShinobiCharacter viewerChar) {
         if (senderChar == null) return NamedTextColor.GRAY;
-        if (viewerChar == null) return Clan.colourFor(senderChar.clan());
-        if (viewerChar.id().equals(senderChar.id())) {
+        if (viewerChar != null && viewerChar.id().equals(senderChar.id())) {
             return Clan.colourFor(senderChar.clan());
         }
+        // masque avant le spectateur sans personnage (staff, sélection) : il lisait encore la couleur du clan
+        if (Masques.porte(senderChar.ownerId())) return NamedTextColor.GRAY;
+        if (viewerChar == null) return Clan.colourFor(senderChar.clan());
         ShinobiCharacter.KnownName known = viewerChar.knownNameOf(senderChar.id());
         if (known == null) return NamedTextColor.GRAY;
         return known.isNickname() ? NamedTextColor.GRAY

@@ -25,6 +25,10 @@ oreillette:
 voix:
   # Rayon (blocs) où l'on est entendu en chuchoté, voix normale, quand on parle à la radio.
   chuchote-blocs: 4
+  # À terre ou inconscient (vocal limité, 31/10) : la voix de proximité de Plasmo est ramenée à ce rayon (blocs).
+  # 0 = la plus petite portée de proximité de Plasmo Voice ([voice.proximity] distances), 8 si elle est introuvable.
+  # Vocal refusé par etats.yml (mort RP, corps contrôlé ou vide, cinématique) : la voix de proximité ne part plus.
+  a-terre-blocs: 0
   # Poids de l'activation « radio » (traitée avant la proximité) et de la ligne de sources « radio » (curseur de volume).
   activation-poids: 20
   ligne-poids: 20

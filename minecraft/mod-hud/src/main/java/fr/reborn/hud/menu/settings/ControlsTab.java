@@ -39,6 +39,7 @@ public class ControlsTab extends SectionedTab {
 
     private static String aide(KeyMapping km) {
         if (km == HudKeybinds.RADIO_PARLER) return "Maintenir : parler à l'escouade · appui bref : écran de l'escouade";
+        if (km == HudKeybinds.VOIX_PORTEE) return "Baisse d'un cran : criée (rouge) → normale (jaune) → chuchotée (vert)";
         if (km == HudKeybinds.ANIMATIONS) return "Démarches et émotes";
         if (km == HudKeybinds.PHOTO) return "La galerie s'ouvre depuis le mode photo";
         if (km == HudKeybinds.COURSE_CHAKRA) return "Un appui la lance, un autre l'arrête (aussi : 3 appuis sur le sprint)";

@@ -20,9 +20,9 @@ import java.util.UUID;
 /**
  * Banc d'essai du menu R (GAMEPLAN §14, 24/10), <b>inactif en production</b> ({@code REBORN_INTERACTION_DEBUG=1}, monde
  * solo de dev, jamais de serveur) : menu d'une personne consciente (porter et fouiller avec son accord, volume de sa
- * voix, sous-menu Staff réservé au staff), demandes reçues (« veut te porter », « veut te fouiller »), porté de plein gré
- * (« Espace · descendre »), fouille consentie en lecture seule, plaque d'un inconnu masqué →
- * {@code run/screenshots/interaction_*.png}, puis ferme le jeu.
+ * voix, sous-menu Staff réservé au staff : « Couper la voix… », puis « Rétablir la voix » quand Plasmo la dit coupée,
+ * 31/10), demandes reçues (« veut te porter », « veut te fouiller »), porté de plein gré (« Espace · descendre »), fouille
+ * consentie en lecture seule, plaque d'un inconnu masqué → {@code run/screenshots/interaction_*.png}, puis ferme le jeu.
  *
  * <p>Le monde est remis en état : mannequin retiré, mode de jeu, heure, météo et pack de dev rendus à la fin.
  */
@@ -90,27 +90,34 @@ public final class InteractionDebug {
                 im.debugOpen(NOM, InteractionMenus.forPlayer(NOM), indexDe("Staff"));
             }
             case 136 -> shot(mc, "interaction_03_menu_staff");
-            case 138 -> {
+            case 137 -> {
+                // voix coupée par le staff, telle que Plasmo la diffuse : l'entrée devient « Rétablir la voix »
+                VoiceState.DEBUG_MICROS.put(uuid(), VoiceState.MICRO_MUET);
+                im.debugOpen(NOM, InteractionMenus.forPlayer(NOM), indexDe("Staff"));
+            }
+            case 148 -> shot(mc, "interaction_03b_menu_staff_retablir");
+            case 150 -> {
                 im.debugClose();
                 TablistData.DEBUG_STAFF = null;
+                VoiceState.DEBUG_MICROS.remove(uuid());
                 CorpsClient.debugReceive("{\"t\":\"demande\",\"de\":\"" + uuid() + "\",\"nom\":\"Ren Hyūga\",\"quoi\":\"porter\",\"s\":15}");
             }
-            case 160 -> shot(mc, "interaction_04_demande_porter");
-            case 162 -> CorpsClient.debugReceive("{\"t\":\"demande\",\"de\":\"" + uuid() + "\",\"nom\":\"Ren Hyūga\",\"quoi\":\"fouiller\",\"s\":15}");
-            case 184 -> shot(mc, "interaction_05_demande_fouiller");
-            case 186 -> {
+            case 172 -> shot(mc, "interaction_04_demande_porter");
+            case 174 -> CorpsClient.debugReceive("{\"t\":\"demande\",\"de\":\"" + uuid() + "\",\"nom\":\"Ren Hyūga\",\"quoi\":\"fouiller\",\"s\":15}");
+            case 196 -> shot(mc, "interaction_05_demande_fouiller");
+            case 198 -> {
                 CorpsClient.debugEffacerDemande();
                 CorpsClient.debugReceive("{\"t\":\"bodies\",\"b\":[],\"dl\":[],\"me\":{\"c\":1,\"v\":1}}");
             }
-            case 196 -> shot(mc, "interaction_06_porte_descendre");
-            case 198 -> {
+            case 208 -> shot(mc, "interaction_06_porte_descendre");
+            case 210 -> {
                 CorpsClient.debugReceive("{\"t\":\"bodies\",\"b\":[],\"dl\":[],\"me\":{}}");
                 MonnaieClient.debugEnvoi = m -> { };
                 Entity m = mannequin(mc);   // la personne fouillée s'affiche à gauche de l'écran
                 MonnaieClient.recevoir(FOUILLE.replace("$UUID", (m != null ? m.getUUID() : uuid()).toString()));
             }
-            case 214 -> shot(mc, "interaction_07_fouille_lecture_seule");
-            case 216 -> {
+            case 226 -> shot(mc, "interaction_07_fouille_lecture_seule");
+            case 228 -> {
                 mc.setScreenAndShow(null);
                 MonnaieClient.debugEnvoi = null;
                 Nameplates.debugAvatars = true;
@@ -118,18 +125,19 @@ public final class InteractionDebug {
                 fr.reborn.hud.camera.RebornCamera.INSTANCE.setMode(fr.reborn.hud.camera.RebornCamera.Mode.FIRST);
                 regarder(mc);
             }
-            case 228 -> shot(mc, "interaction_08_plaque_connu");
-            case 230 -> {
+            case 240 -> shot(mc, "interaction_08_plaque_connu");
+            case 242 -> {
                 diffuser(mc, "{\"MASQUE\":{\"mat\":\"minecraft:paper\",\"model\":\"reborn:masque_hannya\"}}");
                 Nameplates.debugInconnu = true;
                 regarder(mc);
             }
-            case 246 -> shot(mc, "interaction_09_masque_inconnu");
-            case 250 -> {
+            case 258 -> shot(mc, "interaction_09_masque_inconnu");
+            case 262 -> {
                 Nameplates.debugAvatars = Nameplates.debugInconnu = false;
                 if (camAvant != null) fr.reborn.hud.camera.RebornCamera.INSTANCE.setMode(camAvant);
                 RemoteCosmetics.clearAll();
                 VoiceState.DEBUG_VOLUMES.clear();
+                VoiceState.DEBUG_MICROS.remove(uuid());
                 c.sendCommand("kill @e[type=minecraft:mannequin,distance=..40]");
                 if (heure >= 0) c.sendCommand("time set " + heure);
                 c.sendCommand(pluie ? "weather rain" : "weather clear");

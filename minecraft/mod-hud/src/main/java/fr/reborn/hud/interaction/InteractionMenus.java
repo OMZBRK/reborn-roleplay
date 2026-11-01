@@ -180,7 +180,8 @@ public final class InteractionMenus {
     /**
      * Personne consciente. Porter et fouiller se <b>demandent</b> (GAMEPLAN §14, 24/10) : l'autre accepte (Entrée) ou
      * refuse (Retour) ; on la porte jusqu'à ce qu'elle descende (Espace) ; la fouille est en lecture seule. Le serveur
-     * revérifie tout (états, distance) et journalise. Le sous-menu Staff n'apparaît qu'au staff.
+     * revérifie tout (états, distance) et journalise. Le sous-menu Staff n'apparaît qu'au staff (fiche, aller, ramener,
+     * geler, couper ou rétablir la voix).
      */
     private static List<InteractionItem> conscient(String name, java.util.UUID id) {
         // NB : les commandes ShinobiCore /rencontrer /amitier /osculter ciblent
@@ -220,9 +221,21 @@ public final class InteractionMenus {
             InteractionItem.action("Fiche (Poste de garde)", () -> fr.reborn.hud.staff.StaffClient.ouvrirFiche(id)),
             InteractionItem.action("Aller à", () -> sendCommand("aller " + name)),
             InteractionItem.action("Ramener", () -> sendCommand("ramener " + name)),
-            InteractionItem.action("Geler", () -> sendCommand("geler " + name))
+            InteractionItem.action("Geler", () -> sendCommand("geler " + name)),
+            voixStaff(id)
         )));
         return l;
+    }
+
+    /**
+     * Staff › voix (31/10) : « Couper la voix… » ouvre sa fiche du Poste de garde sur le formulaire (durée, motif
+     * obligatoire) ; si sa voix est déjà coupée, « Rétablir la voix » part tout de suite. Le serveur revérifie le grade
+     * (Modérateur) et journalise, jamais le contenu de la voix.
+     */
+    static InteractionItem voixStaff(java.util.UUID id) {
+        if (fr.reborn.hud.staff.StaffClient.voixCoupee(id))
+            return InteractionItem.action("Rétablir la voix", () -> fr.reborn.hud.staff.StaffClient.agir(id, "voix_retablir"));
+        return InteractionItem.action("Couper la voix…", () -> fr.reborn.hud.staff.StaffClient.ouvrirFiche(id, "voix"));
     }
 
     /** Niveaux proposés : on baisse une voix, on ne la coupe jamais (le RP doit rester audible). */

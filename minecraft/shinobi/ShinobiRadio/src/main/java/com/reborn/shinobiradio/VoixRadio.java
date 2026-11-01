@@ -36,7 +36,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *       staff à l'écoute. À terre (ou porté), le serveur saute des trames en rafales (coupures) ; le mod ajoute
  *       l'effet « haché ».</li>
  *   <li><b>Chuchoté à 4 blocs</b> : la même trame part sur une source <b>joueur</b> de la ligne de proximité, distance
- *       {@code voix.chuchote-blocs}, sauf pour ceux qui l'entendent déjà à la radio.</li>
+ *       {@code voix.chuchote-blocs}, sauf pour ceux qui l'entendent déjà à la radio ; icône de Plasmo masquée (31/10 :
+ *       la seule bulle au-dessus de la tête est celle du mod).</li>
  *   <li><b>Ligne « radio »</b> : un curseur de volume à part dans le menu de Plasmo Voice.</li>
  *   <li><b>Début et fin</b> de chaque prise de parole remontent à {@link Radio} (HUD « parle » et journal de
  *       l'émission, <b>jamais le contenu</b>).</li>
@@ -209,7 +210,7 @@ final class VoixRadio {
         Optional<ServerSourceLine> prox = voix.getSourceLineManager().getLineByName("proximity");
         if (prox.isEmpty()) return null;
         ServerPlayerSource n = prox.get().createPlayerSource(vsp, false);
-        n.setIconVisible(true);
+        n.setIconVisible(false);   // une seule bulle au-dessus de la tête : celle du mod (décision du 31/10)
         // Ceux qui entendent déjà l'escouade à la radio n'ont pas la voix en double.
         n.<VoicePlayer>addFilter(vp -> {
             Radio r = radio();

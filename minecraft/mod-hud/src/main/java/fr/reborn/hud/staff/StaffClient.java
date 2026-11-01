@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.InputConstants;
 import fr.reborn.hud.keybind.RebornKeyCategory;
+import fr.reborn.hud.voice.VoiceState;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -57,6 +58,7 @@ public final class StaffClient {
         ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> {
             snapshot = null; profile = null; journal = null; cherche = null;
             modeStaff = false; modeAnim = false;
+            ficheDemandee = null; actionDemandee = null; actionEnAttente = null; horsGarde = 0;
             synchronized (ALERTES_VUES) { ALERTES_VUES.clear(); }
             synchronized (NOTES) { NOTES.clear(); }
         });
@@ -82,8 +84,12 @@ public final class StaffClient {
                 GardeScreen g;
                 if (mc.gui.screen() instanceof GardeScreen cur) { g = cur; if (g.onKo()) g.show("alerts"); }
                 else mc.setScreenAndShow(g = new GardeScreen("alerts"));
-                String fiche = ficheDemandee;
+                String fiche = ficheDemandee, action = actionDemandee;
                 ficheDemandee = null;
+                actionDemandee = null;
+                // l'action attend la fiche complète de ce joueur (réponse « profile ») ; une ouverture sans fiche l'oublie
+                actionEnAttente = fiche != null ? action : null;
+                actionPour = fiche;
                 if (fiche != null) g.openProfile(fiche);
             }
             case "snap" -> {
@@ -105,16 +111,35 @@ public final class StaffClient {
             case "close" -> {
                 if (mc.gui.screen() instanceof StaffScreen) mc.setScreenAndShow(null);
             }
-            case "profile" -> profile = o;
+            case "profile" -> {
+                profile = o;
+                lancerEnAttente(o, mc);
+            }
             case "persos" -> persos = o;
             case "journal" -> journal = o;
             case "notes" -> {
                 String pid = o.has("pid") ? o.get("pid").getAsString() : "";
                 synchronized (NOTES) { NOTES.put(normPid(pid), o); }
             }
-            case "toast" -> toast(o.get("m").getAsString());
+            case "toast" -> {
+                String m = o.get("m").getAsString();
+                toast(m);
+                // réponse à une action du menu R, Poste de garde fermé : dans la pile de notifications, en bas à droite
+                if (!(mc.gui.screen() instanceof StaffScreen) && System.currentTimeMillis() - horsGarde < 5000)
+                    fr.reborn.hud.notif.NotifHud.message("info", null, null, m);
+            }
             default -> { }
         }
+    }
+
+    /** Lance l'action demandée avec la fiche (menu R) quand la fiche de ce joueur arrive, une seule fois. */
+    private static void lancerEnAttente(JsonObject p, Minecraft mc) {
+        String a = actionEnAttente;
+        if (a == null || !StaffScreen.str(p, "uuid").equals(actionPour)) return;
+        actionEnAttente = null;
+        // le staff a pu quitter la fiche avant la réponse : rien n'est lancé
+        if (mc.gui.screen() instanceof StaffScreen s && "players".equals(s.tab) && actionPour.equals(s.profileUuid))
+            GardeActions.lancerDemandee(s, a, p);
     }
 
     /** Petit son quand une alerte nouvelle arrive alors que le Poste de garde est ouvert. */
@@ -188,11 +213,63 @@ public final class StaffClient {
 
     /** Fiche demandée depuis le menu R (« Staff › Fiche »), ouverte dès que le Poste de garde s'ouvre. */
     private static volatile String ficheDemandee;
+    /**
+     * Action demandée avec la fiche (menu R › Staff › « Couper la voix… », 31/10) : id du catalogue de
+     * {@link GardeActions}, mise en attente à l'ouverture puis lancée à l'arrivée de la fiche de {@code actionPour}.
+     */
+    private static volatile String actionDemandee, actionEnAttente, actionPour;
+    /** Dernière action envoyée du menu R (Poste de garde fermé) : sa réponse {@code toast} reste visible en jeu. */
+    private static volatile long horsGarde;
 
     /** Ouvre le Poste de garde sur la fiche de ce joueur (le serveur revérifie le grade à l'ouverture). */
-    public static void ouvrirFiche(java.util.UUID id) {
+    public static void ouvrirFiche(java.util.UUID id) { ouvrirFiche(id, null); }
+
+    /**
+     * Idem, puis lance l'action {@code action} (id du catalogue, ex. {@code "voix"} : le formulaire « Couper la voix »)
+     * dès que sa fiche arrive ; null = la fiche seule.
+     */
+    public static void ouvrirFiche(java.util.UUID id, String action) {
         ficheDemandee = id.toString();
+        actionDemandee = action;
         send("open");
+    }
+
+    /**
+     * Action directe sur un joueur depuis le menu R (« Staff › Rétablir la voix ») : {@code act} par UUID, sans ouvrir
+     * le Poste de garde ; le serveur revérifie le grade et répond d'un mot repris dans la pile de notifications.
+     */
+    public static void agir(java.util.UUID id, String op) {
+        JsonObject o = new JsonObject();
+        o.addProperty("a", "act");
+        o.addProperty("op", op);
+        o.addProperty("t", id.toString());
+        horsGarde = System.currentTimeMillis();
+        send(o);
+    }
+
+    /**
+     * La voix de ce joueur est-elle coupée par le staff (menu R › Staff) ? Plasmo Voice d'abord, diffusé en direct à
+     * tous les clients ({@link VoiceState#MICRO_MUET}) ; sans réponse franche de Plasmo (pas de voix chez soi, joueur
+     * sans Plasmo), la dernière fiche ou liste reçue du Poste de garde, si la coupure n'est pas échue.
+     */
+    public static boolean voixCoupee(java.util.UUID id) {
+        int m = VoiceState.micro(id);
+        if (m == VoiceState.MICRO_MUET) return true;
+        if (m == VoiceState.MICRO_ACTIF || m == VoiceState.MICRO_COUPE) return false;
+        JsonObject p = connu(id.toString());
+        if (!GardeActions.voixCoupee(p)) return false;
+        long fin = StaffScreen.lng(p, "voixFin");
+        return fin <= 0 || fin > System.currentTimeMillis();
+    }
+
+    /** Dernière fiche, sinon ligne de la liste, de ce joueur (null si le Poste de garde ne l'a pas vu). */
+    private static JsonObject connu(String uuid) {
+        JsonObject p = profile;
+        if (p != null && uuid.equals(StaffScreen.str(p, "uuid"))) return p;
+        for (var e : StaffScreen.arr(snapshot, "players")) {
+            if (e.isJsonObject() && uuid.equals(StaffScreen.str(e.getAsJsonObject(), "uuid"))) return e.getAsJsonObject();
+        }
+        return null;
     }
 
     public static void send(String action) {

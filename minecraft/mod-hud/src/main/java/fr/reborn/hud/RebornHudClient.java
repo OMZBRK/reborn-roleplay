@@ -17,7 +17,8 @@ import org.slf4j.LoggerFactory;
  *       presets, prefs chat) depuis {@code config/reborn-hud.json}.</li>
  *   <li>Enregistre les textures du pack {@code reborn-hud} (icones de
  *       l'editeur, ressources UI).</li>
- *   <li>Enregistre les keybindings (touche H = editeur HUD par defaut).</li>
+ *   <li>Enregistre les touches Reborn ({@link HudKeybinds}, carte du 15/10 ; H = portée de la voix depuis le
+ *       31/10, l'éditeur de HUD s'ouvre par Échap → Interface).</li>
  *   <li>Schedule la creation du browser MCEF qui rendra le background
  *       dynamique (skin 3D du joueur) du main menu. Le browser est cree
  *       une fois CEF initialise (~1-2s apres le boot du client).</li>
@@ -370,9 +371,9 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.cosmetic.RemoteCosmetics.clearAll());
 
-        // Voix Reborn (PlasmoVoice) : addon client qui capte l'instance PV pour
-        // savoir qui parle → bulle de parole au-dessus des têtes. Se désactive
-        // proprement si PlasmoVoice n'est pas dans le modpack.
+        // Voix Reborn (PlasmoVoice) : addon client (radio, réglages Reborn de Plasmo Voice : icônes au-dessus des têtes
+        // masquées, cercle de portée aux couleurs du micro) ; qui parle, portée et micro sont relus à chaque tick par
+        // VoiceState (touches). Se désactive proprement si PlasmoVoice n'est pas dans le modpack.
         try {
             su.plo.voice.api.client.PlasmoVoiceClient.getAddonsLoader()
                 .load(new fr.reborn.hud.voice.RebornVoiceAddon());
@@ -395,18 +396,34 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.chat.TypingState.clear());
 
-        // Bulles au-dessus des têtes : voix (1 point, si PlasmoVoice présent) +
+        // Bulle au-dessus des têtes : voix (3 barres, si PlasmoVoice présent) ou
         // frappe chat (3 points). Toujours enregistré ; la partie voix no-op sans PV.
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "head-bubbles"),
             (ctx, tickCounter) -> fr.reborn.hud.voice.SpeechBubbles.render(ctx));
 
         // Plaques de nom RP au-dessus des têtes (remplace le pseudo MC, masqué serveur) :
-        // « Prénom [Clan] » si le joueur est connu / « Inconnu » sinon, visible seulement
-        // de PRÈS. Rendu 2D projeté (pattern SpeechBubbles), data = roster reborn:tablist.
+        // « Prénom [Clan] » si le joueur est connu / « Inconnu » sinon, au REGARD (puis
+        // maintien 2,5 s et fondu). Rendu 2D projeté sur la tête rendue, data = roster reborn:tablist.
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "nameplates"),
             (ctx, tickCounter) -> fr.reborn.hud.nameplate.Nameplates.render(ctx));
+        fr.reborn.hud.anchor.TeteAncre.init();   // ancre de tête rendue (plaques, bulles, /me) + croix -Dreborn.teteAncreDebug
+        fr.reborn.hud.nameplate.CalqueTete.init();   // pile au-dessus de la tête (plaque, bulle, /me, staff) + banc REBORN_PLAQUES_DEBUG
+
+        // /me au-dessus de la tête (canal reborn:me, S → C) : le type est enregistré dès l'init du client, sinon le
+        // canal n'est pas annoncé au serveur (getListeningPluginChannels) et il garde sa bulle TextDisplay.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.chat.MePayload.ID, fr.reborn.hud.chat.MePayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.chat.MePayload.ID,
+            (payload, context) -> context.client().execute(
+                () -> fr.reborn.hud.voice.MeBulles.recevoir(payload.json())));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.voice.MeBulles.vider());
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "me-bulles"),
+            (ctx, tickCounter) -> fr.reborn.hud.voice.MeBulles.render(ctx));
 
         // Menu Échap : coupe l'ambiance et joue la fermeture quand on le quitte.
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(
@@ -573,7 +590,7 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "combat"),
             (ctx, tickCounter) -> fr.reborn.hud.combat.CombatHud.render(ctx));
-        // Barre d'endurance de combat — élément HUD DÉPLAÇABLE (éditeur HUD, touche H).
+        // Barre d'endurance de combat — élément HUD DÉPLAÇABLE (éditeur de HUD : Échap → Interface).
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "combat-endurance"),
             (ctx, tickCounter) -> {
@@ -589,7 +606,7 @@ public final class RebornHudClient implements ClientModInitializer {
                     fr.reborn.hud.element.HudElement.COMBAT_ENDURANCE, st, w, h);
                 fr.reborn.hud.combat.CombatHud.renderEnduranceBar(ctx, b.x(), b.y(), st.scale());
             });
-        // HUD de cooldowns (dash, sauts…) — élément déplaçable (éditeur HUD, touche H).
+        // HUD de cooldowns (dash, sauts…) — élément déplaçable (éditeur de HUD : Échap → Interface).
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "cooldowns"),
             (ctx, tickCounter) -> {
@@ -668,6 +685,8 @@ public final class RebornHudClient implements ClientModInitializer {
             (ctx, tickCounter) -> fr.reborn.hud.ko.VolonteHud.render(ctx));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.ko.VolonteHud.clear());
+        // Micro « à terre » (31/10) : le micro seul, vert (chuchoté), à sa place quand le KO masque les vitals.
+        fr.reborn.hud.ko.MicroATerreHud.init();
         // KO-7 : corps (menu d'interaction) + scène de mort (canal reborn:corps).
         fr.reborn.hud.ko.CorpsClient.init();
         fr.reborn.hud.yeux.YeuxClient.init();
