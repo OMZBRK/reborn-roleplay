@@ -12,6 +12,7 @@
 
 | Version | Manifest | Date | Contenu | Commit(s) |
 |---|---|---|---|---|
+| 0.4.194 | 3.1.152 | 01/11 | Game Plan n° 17 lot 1 : nom au regard, bulle et /me sans fond ancrés sur la tête, portées de la voix sur H, outils staff voix | `2fd727a` |
 | 0.4.184 | 3.1.141 | 16/10 | Volet Faction sur J (sections, grades de section, caisse et taxe, tenue prêtée, invitations R et volet, annonces, tag dans la tablist, outil Factions au F7), cloche d'annonces (bande en haut de l'écran), volières et missives par corbeau | `a0c79ed` |
 | 0.4.183 | 3.1.140 | 15/10 | Icônes (recharges, effets, natures) à la bonne taille à toutes les échelles de l'éditeur de HUD, touche X pour la course de chakra | `099ac90` |
 | 0.4.182 | 3.1.138 | 15/10 | 15 touches Reborn au lieu de 26, sans conflit, défauts AZERTY / QWERTZ et migration unique ; marche sur l'eau v8 ; personnages gérés au Poste de garde (F7) | `b5bf568` |
@@ -70,6 +71,7 @@
 
 | Date | Plugins | Contenu |
 |---|---|---|
+| 01/11 | ShinobiCore, ShinobiRadio, config Plasmo Voice | Game Plan n° 17 lot 1 : VoixService, /me par paquet dédié, portées Plasmo Voice (8 / 24 / 64, défaut 24), voix à terre, outils staff voix, icônes Plasmo masquées en parlant et en sourdine — `2fd727a` |
 | 16/10 | ShinobiCore, pack Nexo (communication) | Factions et sections, cloche d'annonces, volières et missives, journaux `FACTION` et `MISSIVE` ; objets provisoires `cloche_village`, `perchoir_voliere`, `missive_scellee` / `missive_descellee` (`/nexo reload all` après redémarrage) — `a0c79ed` |
 | 15/10 soir | ShinobiAbilities | Souffle discret de la course de chakra (clés `mobility.naruto-run.souffle-*`) — `099ac90` |
 | 15/10 soir | ShinobiCore | Personnages gérés depuis le Poste de garde (`/character edit`, `/persoreset`, `/persosuppr` retirées) — `b5bf568` |
