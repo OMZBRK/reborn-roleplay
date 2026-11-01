@@ -18,12 +18,12 @@
 - **Date de référence : 17 octobre 2026.** Sprint 1 prolongé (décision : le finir avant le Sprint 2).
 - **Game Plan Reborn : [`GAMEPLAN.md`](./GAMEPLAN.md), on avance point par point dans l'ordre RedLine** (§54 du Game
   Plan).
-  - **n° 17, lot 1 — codé le 01/11, non publié** (`reborn-hud` 0.4.194 + ShinobiCore + ShinobiRadio) : ancre de tête
+  - **n° 17, lot 1 — publié sur le dev le 01/11** (`reborn-hud` 0.4.194, manifest 3.1.152, ShinobiCore + ShinobiRadio) : ancre de tête
     (tout ce qui flotte suit la tête rendue, à terre et pendant les émotes), nom au regard au lieu du pseudo permanent,
     bulle voix / frappe et `/me` **sans fond** posés sur la tête (masqués derrière un mur ou un joueur plus proche),
     portées de Plasmo sur la touche H avec micro coloré, chuchoté imposé à terre, couper / rétablir la voix au Poste de
     garde ([`technique/MOD_HUD.md`](./technique/MOD_HUD.md) §9-§10, [`technique/PLUGINS_REFERENCE.md`](./technique/PLUGINS_REFERENCE.md)
-    §4 quater.1). 🟢 À publier, puis tester à plusieurs sur le dev (config Plasmo à appliquer, `/vreload`). ❓ Douane :
+    §4 quater.1). 🟢 En recette (01/11 : « la majorité semble marcher », points en échec à relever). ❓ Douane :
     `douane.voix.couper` passe-t-il par `vmute` ? Ensuite lots 2 à 5 (HUD bas-droite et OST, Échap et touches,
     concentration, saut / Byakugan / arbres et murs).
   - **Recette du 17/10** (en jeu) : radio, boutiques, factions, cloche, volière et missives, marche sur l'eau, Test de
