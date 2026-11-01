@@ -1,7 +1,11 @@
 import { AppStatus } from '@prisma/client';
 import type { WhitelistApplication } from '@prisma/client';
 import type { PhaseCandidature } from '../whitelist/whitelist.rules';
-import { LIBELLES, ageDepuisNaissance } from '../whitelist/whitelist.rules';
+import {
+  LIBELLES,
+  ageDepuisNaissance,
+  jourMoisAnParis,
+} from '../whitelist/whitelist.rules';
 import type { CandidatureView } from './game.service';
 import type { PorteeJeu, RaisonAcces } from './game-acces.regles';
 import { fenetreIso } from './game-acces.regles';
@@ -145,9 +149,40 @@ const TEXTES_LONGS: ReadonlyArray<{
 
 export const CONSIGNE_VOIX = 'Voix : à réécouter dans le panel';
 
+/**
+ * Note de l'écrit montrée à l'examinateur. Oral à repasser (décision du
+ * 01/11) : le motif du staff passe en tête, « Oral à repasser (demandé le
+ * JJ/MM/AAAA) : … », puis la note privée de l'écrit, sur la même ligne
+ * (« · ») : le Poste de garde publié ne coupe ses lignes qu'aux espaces et
+ * afficherait un saut de ligne tel quel. Vue seulement, rien n'est écrit en
+ * base : le jeu affiche déjà `noteEcrit`, sans nouvelle version.
+ */
+export function noteEcritDossier(
+  notePrivee: string | null,
+  candidat: {
+    oralRetakeReason?: string | null;
+    oralRetakeRequestedAt?: Date | null;
+  },
+): string | null {
+  const note = notePrivee?.trim() || null;
+  const motif = candidat.oralRetakeReason?.trim();
+  if (!motif) return note;
+  const quand = candidat.oralRetakeRequestedAt
+    ? ` (demandé le ${jourMoisAnParis(candidat.oralRetakeRequestedAt)})`
+    : '';
+  const ligne = `Oral à repasser${quand} : ${motif}`;
+  return note ? `${ligne} · ${note}` : ligne;
+}
+
 export function dossierDouaneVue(
   app: WhitelistApplication,
-  candidat: { minecraftUuid: string; minecraftUsername: string },
+  candidat: {
+    minecraftUuid: string;
+    minecraftUsername: string;
+    /** Nouvel oral exigé par le staff (01/11) : repris en tête de `noteEcrit`. */
+    oralRetakeReason?: string | null;
+    oralRetakeRequestedAt?: Date | null;
+  },
   place: {
     id: string;
     seanceId: string;
@@ -178,7 +213,7 @@ export function dossierDouaneVue(
     extraits.push({ champ, titre, ...e, caracteres: brut.length });
   }
 
-  const note = app.writtenStaffNotes?.trim() || null;
+  const note = noteEcritDossier(app.writtenStaffNotes, candidat);
   const deuxiemePassage = app.oralStatus === AppStatus.NEEDS_REVISION;
 
   return {

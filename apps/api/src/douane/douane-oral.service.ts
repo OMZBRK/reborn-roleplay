@@ -67,8 +67,10 @@ export interface OptionsDecisionOral {
  *    service.
  *
  * Effets :
- *  - APPROVED : statut global APPROVED, `User.oralPassedAt` (plus jamais
- *    d'oral), rôle WHITELISTED si le compte est PLAYER (jamais un staff) ;
+ *  - APPROVED : statut global APPROVED, `User.oralPassedAt` (plus d'oral,
+ *    sauf nouvel oral exigé par le staff : l'exigence en cours est levée, et
+ *    hors jeu le candidat lit « oral validé par le staff », pas « douane
+ *    réussie »), rôle WHITELISTED si le compte est PLAYER (jamais un staff) ;
  *  - NEEDS_REVISION : l'écrit est gardé, nouvelle séance dès le lendemain ;
  *  - REJECTED : statut global REJECTED, `User.whitelistRejectedAt` (nouvelle
  *    candidature complète 1 jour plus tard).
@@ -158,7 +160,15 @@ export class DouaneOralService {
         const app = await tx.whitelistApplication.findUnique({
           where: { id: applicationId },
           include: {
-            user: { select: { id: true, role: true, oralPassedAt: true } },
+            user: {
+              select: {
+                id: true,
+                role: true,
+                oralPassedAt: true,
+                oralRetakeRequestedAt: true,
+                oralRetakeReason: true,
+              },
+            },
           },
         });
         if (!app) throw new NotFoundException('Candidature introuvable.');
@@ -269,7 +279,13 @@ export class DouaneOralService {
           oralPassedAt = maintenant;
           await tx.user.update({
             where: { id: app.userId },
-            data: { oralPassedAt: maintenant },
+            data: {
+              oralPassedAt: maintenant,
+              // Oral à repasser (01/11) : l'oral réussi lève l'exigence du staff.
+              oralRetakeRequestedAt: null,
+              oralRetakeRequestedById: null,
+              oralRetakeReason: null,
+            },
           });
           // Promotion seulement depuis PLAYER : jamais de changement de rôle pour un staff.
           const promu = await tx.user.updateMany({
@@ -318,7 +334,14 @@ export class DouaneOralService {
 
     void this.messages.postSystemMessage(
       applicationId,
-      messageCandidat(res, motifVisible, prochaineSeanceDes, canReapplyAt),
+      messageCandidat(
+        res,
+        motifVisible,
+        prochaineSeanceDes,
+        canReapplyAt,
+        // Oral à repasser validé hors jeu (« Lever », 01/11) : pas de « douane réussie » sans douane.
+        via === OralVia.HORS_JEU && !!app.user.oralRetakeRequestedAt,
+      ),
     );
 
     if (app.discordThreadId || app.discordMessageId) {
@@ -356,6 +379,10 @@ export class DouaneOralService {
         reservationId: place?.id ?? null,
         seanceId: place?.seanceId ?? null,
         promotion: issue.promu,
+        // Oral exigé de nouveau par le staff (01/11) : le journal le relie à sa demande.
+        ...(app.user.oralRetakeRequestedAt
+          ? { repassage: true, motifRepassage: app.user.oralRetakeReason }
+          : {}),
       },
       source,
     });
@@ -398,7 +425,14 @@ function messageCandidat(
   motif: string | null,
   prochaineSeanceDes: Date | null,
   canReapplyAt: Date | null,
+  repassageHorsJeu = false,
 ): string {
+  if (resultat === AppStatus.APPROVED && repassageHorsJeu) {
+    return (
+      '✅ Oral validé par le staff : ton accès au serveur est rouvert.' +
+      (motif ? `\nMot de l'examinateur : ${motif}` : '')
+    );
+  }
   if (resultat === AppStatus.APPROVED) {
     return (
       '🎉 Douane réussie : bienvenue sur Reborn ! Ton accès au serveur est ouvert.' +

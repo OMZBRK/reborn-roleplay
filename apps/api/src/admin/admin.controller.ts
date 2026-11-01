@@ -42,6 +42,8 @@ import {
   ListWhitelistQueryDto,
   NotePriveeEcritDto,
   PanelMessageDto,
+  RepasserOralDto,
+  ResetWhitelistDto,
   SearchPlayersQueryDto,
   TicketStatusUpdateDto,
 } from './dto/admin.dto';
@@ -146,6 +148,8 @@ export class AdminController {
   /**
    * Reset propre d'une candidature (supprime + retrograde WHITELISTED→PLAYER,
    * jamais le staff). Remplace le DELETE SQL brut pour re-tester le flow.
+   * Corps facultatif `{ refaireOral: true }` : l'oral redevient aussi à passer
+   * (cycle complet, écrit puis oral ; exception du 01/11).
    */
   @Post('whitelist/:id/reset')
   @ExigeCapacite('candidatures.reinitialiser')
@@ -153,8 +157,13 @@ export class AdminController {
   resetWhitelist(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: RequestUser,
+    @Body() dto: ResetWhitelistDto,
   ) {
-    return this.staff.resetWhitelist(id, { userId: user.sub });
+    return this.staff.resetWhitelist(
+      id,
+      { userId: user.sub },
+      { refaireOral: dto?.refaireOral },
+    );
   }
 
   /**
@@ -377,6 +386,24 @@ export class AdminController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.roles.changeRoleByUserId(user.sub, id, dto.role, dto.motif);
+  }
+
+  /**
+   * Exiger un nouvel oral (douane) d'un joueur, oral déjà passé compris
+   * (décision du 01/11) : candidature de clan, longue absence, comptes de
+   * test. Motif obligatoire, montré au joueur et inscrit au journal ; staff
+   * refusé. Lever l'exigence : oral hors jeu accepté (PATCH
+   * whitelist/:id/oral).
+   */
+  @Post('players/:id/oral-a-repasser')
+  @ExigeCapacite('candidatures.relire')
+  @HttpCode(HttpStatus.OK)
+  exigerNouvelOral(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RepasserOralDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.staff.exigerNouvelOral(id, dto.motif, { userId: user.sub });
   }
 
   // ── Audit ─────────────────────────────────────────────

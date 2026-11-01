@@ -155,6 +155,7 @@ const ACTIONS: Record<string, string> = {
   'whitelist.oral.approved': 'Oral accepté',
   'whitelist.oral.needs_revision': 'Oral à revoir',
   'whitelist.oral.rejected': 'Oral refusé',
+  'whitelist.oral.repasser': 'Oral à repasser exigé',
   'ticket.claim': 'Ticket pris',
   'ticket.release': 'Ticket relâché',
   'ticket.release.force': 'Ticket repris de force',

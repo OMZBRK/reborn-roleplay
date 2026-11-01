@@ -615,6 +615,24 @@ export const JOURNAL: Array<Omit<AuditLogItem, 'actor' | 'targetUser' | 'ipAddre
   { id: 'l-12', action: 'player.ip.view', acteur: MOI_PSEUDO, cible: 'Nekomata', targetEntity: null, metadata: null, source: 'panel', createdAt: avant(6 * J) },
   { id: 'l-13', action: 'whitelist.reject', acteur: 'Asuka', cible: 'Natsuki_', targetEntity: 'whitelist:c-natsuki', metadata: { partie: 'RP', decision: 'REJECTED' }, source: 'panel', createdAt: avant(5 * J) },
   { id: 'l-14', action: 'discord.message.publish', acteur: MOI_PSEUDO, cible: null, targetEntity: null, metadata: { canal: 'dev-updates' }, source: 'panel', createdAt: avant(2 * J + 5 * H) },
+  { id: 'l-15', action: 'whitelist.oral.repasser', acteur: 'Asuka', cible: 'Lanterne', targetEntity: 'whitelist:c-lanterne', metadata: { motif: 'Candidature de clan', roleAvant: 'WHITELISTED' }, source: 'panel', createdAt: avant(3 * H) },
+];
+
+// ── Oraux à repasser (décision du 01/11) ──────────────────────────────
+
+/**
+ * Oraux à repasser exigés par le staff, posés au chargement par la même règle
+ * que la route (index.ts › exigerOral) : Lanterne, accepté, repasse la douane
+ * pour sa candidature de clan ; Brioche, accepté aussi, garde l'entrée
+ * « Faire repasser l'oral ».
+ */
+export const ORAUX_A_REPASSER: Array<{ pseudo: string; motif: string; par: string; ilYa: number }> = [
+  {
+    pseudo: 'Lanterne',
+    motif: 'candidature au clan, le conseil demande un nouvel oral',
+    par: 'Asuka',
+    ilYa: 3 * H,
+  },
 ];
 
 // ── Anciens créneaux d'oral ───────────────────────────────────────────

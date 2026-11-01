@@ -143,15 +143,34 @@ export class RoleService {
     // Retour à PLAYER : la procédure reprend là où elle en était ; l'effacement
     // programmé par la promotion est levé sur une candidature encore en cours
     // (ni acceptée ni refusée), comme le refus annulé de la décision de l'écrit.
+    // Oral à repasser (01/11) : un grade au-dessus de PLAYER contourne l'oral
+    // exigé par le staff, comme « Lever » : l'oral compte de nouveau comme
+    // réussi (sinon le compte garderait « oral à passer » et sa prochaine
+    // candidature exigerait l'oral, contre la décision du 19/10) et l'indicateur
+    // est effacé. Écriture conditionnelle, jugée en base dans la transaction :
+    // une exigence posée après la lecture de la cible est levée elle aussi.
+    const promotion = target.role === Role.PLAYER && newRole !== Role.PLAYER;
     const now = new Date();
+    const leverOral = () =>
+      this.prisma.user.updateMany({
+        where: { id: target.id, oralRetakeRequestedAt: { not: null } },
+        data: {
+          oralPassedAt: now,
+          oralRetakeRequestedAt: null,
+          oralRetakeRequestedById: null,
+          oralRetakeReason: null,
+        },
+      });
     const majRole = this.prisma.user.update({
       where: { id: target.id },
       data: { role: newRole },
       select: { id: true, minecraftUsername: true, role: true },
     });
     let updated: Awaited<typeof majRole>;
-    if (target.role === Role.PLAYER && newRole !== Role.PLAYER) {
-      const [u, voix, places] = await this.prisma.$transaction([
+    let oralLeve = false;
+    if (promotion) {
+      const [oral, u, voix, places] = await this.prisma.$transaction([
+        leverOral(),
         majRole,
         this.prisma.whitelistApplication.updateMany({
           where: {
@@ -171,6 +190,7 @@ export class RoleService {
         }),
       ]);
       updated = u;
+      oralLeve = oral.count > 0;
       if (voix.count > 0) {
         this.logger.log(
           `voix de la candidature de ${target.minecraftUsername} programmée pour effacement (changement de rôle)`,
@@ -201,12 +221,15 @@ export class RoleService {
         );
       }
     } else {
-      updated = await majRole;
+      const [oral, u] = await this.prisma.$transaction([leverOral(), majRole]);
+      updated = u;
+      oralLeve = oral.count > 0;
     }
 
     this.logger.log(
       `role ${target.minecraftUsername} : ${target.role} → ${newRole} ` +
-        `par ${actor.minecraftUsername} (${source})`,
+        `par ${actor.minecraftUsername} (${source})` +
+        (oralLeve ? ' — oral à repasser levé' : ''),
     );
     void this.audit.log({
       actorId: actor.id,
@@ -217,6 +240,8 @@ export class RoleService {
         from: target.role,
         to: newRole,
         ...(motif?.trim() ? { motif: motif.trim() } : {}),
+        // Oral à repasser contourné par ce grade (01/11).
+        ...(oralLeve ? { oralARepasserLeve: true } : {}),
       },
       source,
     });

@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AppStatus, OralVia, Role } from '@prisma/client';
+import { StaffService } from '../staff/staff.service';
 import { DouaneOralService } from './douane-oral.service';
 import { DouaneService } from './douane.service';
 
@@ -100,7 +101,9 @@ function creerBase({ verrous = true }: { verrous?: boolean } = {}) {
           ? 'seance'
           : sql.includes('"WhitelistApplication"')
             ? 'app'
-            : null;
+            : sql.includes('"User"')
+              ? 'user'
+              : null;
         if (table)
           tx.liberations.push(
             await v.prendre(`${table}:${String(valeurs[0])}`),
@@ -994,6 +997,205 @@ describe('DouaneOralService.decideOral', () => {
         motifHorsJeu: 'crash',
       }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('oral à repasser (01/11) : « à revoir » garde l’exigence, l’oral réussi la lève ; le journal la relie à sa demande', async () => {
+    const base = baseOral();
+    Object.assign(base.db.users.get('c0')!, {
+      oralRetakeRequestedAt: new Date('2026-10-29T10:00:00.000Z'),
+      oralRetakeRequestedById: 'exam',
+      oralRetakeReason: 'Candidature de clan.',
+    });
+    ajouterCandidat(base, 'c1');
+    const { oral, audit, messages } = services(base);
+
+    await oral.decideOral(
+      'app-c0',
+      'exam',
+      AppStatus.NEEDS_REVISION,
+      'Lore du clan à revoir.',
+      null,
+      { motifHorsJeu: 'crash' },
+    );
+    expect(base.db.users.get('c0')).toMatchObject({
+      oralPassedAt: null,
+      oralRetakeReason: 'Candidature de clan.',
+    });
+
+    await oral.decideOral('app-c0', 'exam', AppStatus.APPROVED, null, null, {
+      motifHorsJeu: 'crash',
+    });
+    expect(base.db.users.get('c0')).toMatchObject({
+      oralPassedAt: MAINTENANT,
+      role: Role.WHITELISTED,
+      oralRetakeRequestedAt: null,
+      oralRetakeRequestedById: null,
+      oralRetakeReason: null,
+    });
+    // Validé hors jeu (« Lever ») : pas de « douane réussie » sans douane.
+    expect(messages.postSystemMessage).toHaveBeenLastCalledWith(
+      'app-c0',
+      '✅ Oral validé par le staff : ton accès au serveur est rouvert.',
+    );
+    for (const action of [
+      'whitelist.oral.needs_revision',
+      'whitelist.oral.approved',
+    ]) {
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action,
+          targetUserId: 'c0',
+          metadata: expect.objectContaining({
+            repassage: true,
+            motifRepassage: 'Candidature de clan.',
+          }),
+        }),
+      );
+    }
+
+    // Sans exigence en cours : rien de plus au journal, message habituel.
+    await oral.decideOral('app-c1', 'exam', AppStatus.APPROVED, null, null, {
+      motifHorsJeu: 'crash',
+    });
+    const journal = audit.log.mock.calls
+      .map((c) => c[0])
+      .find((e) => e.targetUserId === 'c1');
+    expect(journal.metadata).not.toHaveProperty('repassage');
+    expect(messages.postSystemMessage).toHaveBeenLastCalledWith(
+      'app-c1',
+      expect.stringContaining('🎉 Douane réussie'),
+    );
+  });
+});
+
+// ═══════════════════════════ Oral à repasser (01/11) ═══════════════════════════
+
+describe('StaffService.exigerNouvelOral — le parcours habituel, sans règle nouvelle', () => {
+  it('whitelisté → oral à repasser → réservation → décision en jeu → de nouveau WHITELISTED', async () => {
+    const base = creerBase();
+    ajouterCompte(base, 'exam', Role.WHITELIST_REVIEWER);
+    ajouterSeance(base, 'S2', CE_SOIR, 60, 8);
+    const ancienOral = new Date('2026-10-01T20:00:00.000Z');
+    ajouterCandidat(base, 'c0', {
+      status: AppStatus.APPROVED,
+      oralStatus: AppStatus.APPROVED,
+      oralDecidedAt: ancienOral,
+      oralVia: OralVia.DOUANE,
+      oralExaminerUserId: 'exam',
+      oralReason: 'Bienvenue.',
+      voicePurgeAt: new Date('2026-10-31T20:00:00.000Z'),
+    });
+    Object.assign(base.db.users.get('c0')!, {
+      role: Role.WHITELISTED,
+      oralPassedAt: ancienOral,
+    });
+    const { douane, oral, audit, messages } = services(base);
+    const staff = new StaffService(
+      base.prisma as never,
+      {
+        statusUpdate: jest.fn().mockResolvedValue(undefined),
+        directMessage: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      audit as never,
+      messages as never,
+      { supprimer: jest.fn().mockResolvedValue(undefined) } as never,
+    );
+
+    await expect(
+      staff.exigerNouvelOral('c0', 'Candidature de clan', { userId: 'exam' }),
+    ).resolves.toEqual({
+      ok: true,
+      userId: 'c0',
+      applicationId: 'app-c0',
+      roleAvant: Role.WHITELISTED,
+      phase: 'DOUANE_A_RESERVER',
+    });
+    expect(base.db.users.get('c0')).toMatchObject({
+      role: Role.PLAYER,
+      oralPassedAt: null,
+      oralRetakeRequestedAt: MAINTENANT,
+      oralRetakeRequestedById: 'exam',
+      oralRetakeReason: 'Candidature de clan',
+    });
+    expect(base.db.apps.get('app-c0')).toMatchObject({
+      status: AppStatus.PENDING,
+      hrpStatus: AppStatus.APPROVED,
+      rpStatus: AppStatus.APPROVED,
+      oralStatus: AppStatus.PENDING,
+      oralDecidedAt: null,
+      oralVia: null,
+      voicePurgeAt: null,
+      writtenApprovedAt: new Date('2026-10-28T18:00:00.000Z'),
+    });
+    // Une seconde demande : l'oral est déjà à passer.
+    await expect(
+      staff.exigerNouvelOral('c0', 'Encore', { userId: 'exam' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    // La suite habituelle : réservation, puis décision envoyée par le jeu.
+    await expect(douane.reserver('c0', 'S2')).resolves.toMatchObject({
+      seanceId: 'S2',
+    });
+    const vue = await oral.decideOral(
+      'app-c0',
+      'exam',
+      AppStatus.APPROVED,
+      null,
+      null,
+      { via: OralVia.DOUANE, source: 'system' },
+    );
+    expect(vue).toMatchObject({ phase: 'ACCEPTE', status: AppStatus.APPROVED });
+    expect(base.db.users.get('c0')).toMatchObject({
+      role: Role.WHITELISTED,
+      oralPassedAt: MAINTENANT,
+      oralRetakeRequestedAt: null,
+      oralRetakeReason: null,
+    });
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'whitelist.oral.repasser' }),
+    );
+  });
+
+  it('/douane/me après la demande : une place perdue au premier passage ne ressort pas, une place perdue ensuite oui', async () => {
+    const base = creerBase();
+    ajouterCompte(base, 'exam', Role.WHITELIST_REVIEWER);
+    ajouterSeance(base, 'S1', CE_SOIR, 60, 8);
+    ajouterCandidat(base, 'c0');
+    const { douane, oral, audit, messages } = services(base);
+    const staff = new StaffService(
+      base.prisma as never,
+      {
+        statusUpdate: jest.fn().mockResolvedValue(undefined),
+        directMessage: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      audit as never,
+      messages as never,
+      { supprimer: jest.fn().mockResolvedValue(undefined) } as never,
+    );
+
+    // Premier passage : place prise puis annulée, oral accepté hors jeu.
+    const premiere = await douane.reserver('c0', 'S1');
+    await douane.annulerMaReservation('c0', premiere.id);
+    await oral.decideOral('app-c0', 'exam', AppStatus.APPROVED, null, null, {
+      motifHorsJeu: 'vocal',
+    });
+
+    // La demande efface la date de l'oral : sa propre date borne l'historique.
+    jest.setSystemTime(new Date(MAINTENANT.getTime() + 5 * MIN));
+    await staff.exigerNouvelOral('c0', 'Candidature de clan', {
+      userId: 'exam',
+    });
+    const apres = await douane.etatCandidat('c0');
+    expect(apres.phase).toBe('DOUANE_A_RESERVER');
+    expect(apres.derniereReservation).toBeNull();
+
+    // Nouveau passage : la place annulée après la demande est bien annoncée.
+    jest.setSystemTime(new Date(MAINTENANT.getTime() + 10 * MIN));
+    const seconde = await douane.reserver('c0', 'S1');
+    await douane.annulerMaReservation('c0', seconde.id);
+    expect((await douane.etatCandidat('c0')).derniereReservation).toMatchObject(
+      { statut: 'CANCELLED' },
+    );
   });
 });
 

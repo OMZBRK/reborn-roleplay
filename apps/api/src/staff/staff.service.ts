@@ -13,7 +13,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { WhitelistMessagesService } from '../whitelist/whitelist-messages.service';
 import { WhitelistVoixService } from '../whitelist/whitelist-voix.service';
-import { estExaminateur } from '../douane/douane.regles';
+import { calculerPhase, estExaminateur } from '../douane/douane.regles';
+import {
+  OPTIONS_TRANSACTION,
+  traduireConflitTransaction,
+  verrouillerCandidature,
+  verrouillerCompte,
+} from '../douane/douane.verrous';
 import {
   DELAI_NOUVELLE_CANDIDATURE_MS,
   formatDateParis,
@@ -27,6 +33,12 @@ import {
   WhitelistPartDecisionBotDto,
   WhitelistPartDecisionDto,
 } from './dto/staff.dto';
+import {
+  messageRepasserOral,
+  REFUS_ECRIT_ORAL_A_REPASSER,
+  REFUS_ORAL_SANS_CANDIDATURE,
+  refusRepasserOral,
+} from './oral-repasser.regles';
 
 export interface DecisionActor {
   /** Si fourni, on resoud le nom via User.discordUsername / minecraftUsername. */
@@ -85,6 +97,12 @@ export function messageDecisionEcrit(
 const STATUTS_COMMENTES: readonly AppStatus[] = [
   AppStatus.NEEDS_REVISION,
   AppStatus.REJECTED,
+];
+
+/** Candidature en cours : ni acceptée ni refusée (même règle que le retour à PLAYER de RoleService). */
+const STATUTS_EN_COURS: readonly AppStatus[] = [
+  AppStatus.PENDING,
+  AppStatus.NEEDS_REVISION,
 ];
 
 const MOTIF_SECTION = /^(HRP|RP) : /;
@@ -214,10 +232,18 @@ export class StaffService {
    * re-testant le flow). Remplace le `DELETE FROM WhitelistApplication` brut.
    *
    * Candidature v2 : la voix jointe est effacée avec la candidature, et le délai
-   * après un refus est levé (décision ADMIN). `oralPassedAt` reste : l'oral ne
-   * se passe qu'à la première whitelist (décision du 19/10).
+   * après un refus est levé (décision ADMIN). Par défaut `oralPassedAt` reste :
+   * l'oral ne se passe qu'à la première whitelist (décision du 19/10).
+   * Exception du 01/11 : avec `refaireOral`, l'oral redevient aussi à passer
+   * (oralPassedAt effacé, indicateur « oral à repasser » levé), pour rejouer le
+   * cycle complet, écrit puis oral (comptes de test, retour d'absence).
    */
-  async resetWhitelist(applicationId: string, actor: DecisionActor = {}) {
+  async resetWhitelist(
+    applicationId: string,
+    actor: DecisionActor = {},
+    options: { refaireOral?: boolean } = {},
+  ) {
+    const refaireOral = options.refaireOral === true;
     const app = await this.prisma.whitelistApplication.findUnique({
       where: { id: applicationId },
       select: { id: true, userId: true, status: true, voiceKey: true },
@@ -226,25 +252,34 @@ export class StaffService {
 
     const target = await this.prisma.user.findUnique({
       where: { id: app.userId },
-      select: { role: true },
+      select: { role: true, oralPassedAt: true },
     });
     // Retrograde WHITELISTED → PLAYER seulement. Jamais le staff.
     const demote = target?.role === 'WHITELISTED';
+    const oral = refaireOral
+      ? {
+          oralPassedAt: null,
+          oralRetakeRequestedAt: null,
+          oralRetakeRequestedById: null,
+          oralRetakeReason: null,
+        }
+      : {};
 
     await this.prisma.$transaction(async (tx) => {
       await tx.whitelistApplication.delete({ where: { id: applicationId } });
       await tx.user.update({
         where: { id: app.userId },
         data: demote
-          ? { role: 'PLAYER', whitelistRejectedAt: null }
-          : { whitelistRejectedAt: null },
+          ? { role: 'PLAYER', whitelistRejectedAt: null, ...oral }
+          : { whitelistRejectedAt: null, ...oral },
       });
     });
     await this.voix.supprimer(app.voiceKey);
 
     this.logger.log(
       `whitelist reset ${applicationId} (user ${app.userId})` +
-        (demote ? ' — role → PLAYER' : ' — role conserve'),
+        (demote ? ' — role → PLAYER' : ' — role conserve') +
+        (refaireOral ? ' — oral à refaire' : ''),
     );
 
     if (actor.userId) {
@@ -253,12 +288,294 @@ export class StaffService {
         action: 'whitelist.reset',
         targetUserId: app.userId,
         targetEntity: `whitelist:${applicationId}`,
-        metadata: { previousStatus: app.status, roleDemoted: demote },
+        metadata: {
+          previousStatus: app.status,
+          roleDemoted: demote,
+          refaireOral,
+          oralPassedAtAvant: target?.oralPassedAt?.toISOString() ?? null,
+        },
         source: 'panel',
       });
     }
 
-    return { ok: true, userId: app.userId, roleDemoted: demote };
+    return {
+      ok: true,
+      userId: app.userId,
+      roleDemoted: demote,
+      oralReinitialise: refaireOral,
+    };
+  }
+
+  /**
+   * Exiger un nouvel oral (décision du 01/11, qui amende celle du 19/10) :
+   * candidature de clan, longue absence, essai du parcours avec des comptes de
+   * test. Motif obligatoire, montré au joueur et inscrit à l'audit.
+   *
+   * Aucune règle ne change : le compte est remis dans l'état que les règles
+   * lisent déjà comme « écrit accepté, oral à passer » (rôle PLAYER,
+   * oralPassedAt effacé, oral PENDING, candidature PENDING). La suite est le
+   * parcours habituel, launcher et jeu inchangés : réservation, jeton douane,
+   * décision, puis decideOral APPROVED rend WHITELISTED et repose oralPassedAt.
+   * Quand, qui et pourquoi vivent sur le compte (User.oralRetake*).
+   *
+   * Refus avant toute écriture : le staff (refusRepasserOral), un compte sans
+   * candidature, une candidature refusée, un oral déjà à passer. Un compte
+   * banni passe : l'exigence prend effet à la levée du bannissement. Jamais
+   * NEEDS_REVISION (le jeu afficherait « 2ᵉ passage » avec un ancien motif, et
+   * la réservation attendrait le lendemain) ; une place BOOKED reste telle
+   * quelle. L'oral effacé (date, voie, examinateur, motif, notes privées) est
+   * recopié au journal. « Lever » l'exigence = accepter l'oral hors jeu
+   * (PATCH /admin/whitelist/:id/oral).
+   */
+  async exigerNouvelOral(
+    userId: string,
+    motif: string,
+    actor: DecisionActor & { userId: string },
+  ) {
+    const raison = motif.trim();
+    if (raison.length < 3) {
+      throw new BadRequestException('Motif : 3 caractères au moins.');
+    }
+    const cible = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        role: true,
+        oralPassedAt: true,
+        discordUserId: true,
+        minecraftUsername: true,
+        whitelistApp: {
+          select: {
+            id: true,
+            status: true,
+            hrpStatus: true,
+            rpStatus: true,
+            oralStatus: true,
+          },
+        },
+      },
+    });
+    if (!cible) throw new NotFoundException('Joueur introuvable.');
+    if (actor.userId === userId) {
+      throw new ForbiddenException(
+        'Tu ne peux pas exiger un nouvel oral de ton propre compte.',
+      );
+    }
+    const refus = refusRepasserOral(cible, cible.whitelistApp);
+    if (refus !== null || !cible.whitelistApp) {
+      throw new ConflictException(refus ?? REFUS_ORAL_SANS_CANDIDATURE);
+    }
+    const applicationId = cible.whitelistApp.id;
+
+    const maintenant = new Date();
+    const issue = await this.prisma
+      .$transaction(async (tx) => {
+        // Même verrou et même ordre que la douane (decideOral) : la candidature
+        // d'abord, puis le compte. Un changement de grade (RoleService) ne peut
+        // plus passer entre la relecture du rôle et les écritures.
+        await verrouillerCandidature(tx, applicationId);
+        await verrouillerCompte(tx, userId);
+        const app = await tx.whitelistApplication.findUnique({
+          where: { id: applicationId },
+          include: {
+            user: {
+              select: {
+                id: true,
+                role: true,
+                oralPassedAt: true,
+                whitelistRejectedAt: true,
+              },
+            },
+          },
+        });
+        // Relu sous les verrous : une décision, une remise à zéro ou un changement
+        // de grade a pu passer entre-temps.
+        const refusFrais = refusRepasserOral(app?.user ?? cible, app);
+        if (refusFrais !== null || !app) {
+          throw new ConflictException(
+            refusFrais ?? REFUS_ORAL_SANS_CANDIDATURE,
+          );
+        }
+        const place = await tx.douaneReservation.findFirst({
+          where: { applicationId, statut: 'BOOKED' },
+          select: { id: true },
+        });
+
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            oralPassedAt: null,
+            oralRetakeRequestedAt: maintenant,
+            oralRetakeRequestedById: actor.userId,
+            oralRetakeReason: raison,
+          },
+        });
+        // Rétrogradation seulement depuis WHITELISTED : jamais un autre rôle. Le
+        // compte est verrouillé : le rôle relu est bien celui qui change ici.
+        const r = await tx.user.updateMany({
+          where: { id: userId, role: Role.WHITELISTED },
+          data: { role: Role.PLAYER },
+        });
+        const roleApres = r.count > 0 ? Role.PLAYER : app.user.role;
+
+        // Oral accepté sur la candidature : il redevient à passer, l'écrit reste
+        // accepté. Un ancien dossier accepté d'un bloc (v1) n'a pas toujours ses
+        // parties tranchées : elles comptent alors comme validées.
+        const accepte = app.status === AppStatus.APPROVED;
+        const ecritForce =
+          accepte &&
+          (app.hrpStatus !== AppStatus.APPROVED ||
+            app.rpStatus !== AppStatus.APPROVED);
+        const effaceOral = accepte || app.oralStatus === AppStatus.APPROVED;
+        const data: Prisma.WhitelistApplicationUncheckedUpdateInput = effaceOral
+          ? {
+              oralStatus: AppStatus.PENDING,
+              oralDecidedAt: null,
+              oralVia: null,
+              oralExaminerUserId: null,
+              oralReason: null,
+              oralNotes: null,
+              // Plus de prise en charge : le dossier ne revient pas dans les prises d'un ancien relecteur.
+              assignedToUserId: null,
+              assignedAt: null,
+            }
+          : {};
+        if (accepte) {
+          data.status = AppStatus.PENDING;
+          data.hrpStatus = AppStatus.APPROVED;
+          data.rpStatus = AppStatus.APPROVED;
+        }
+        const enCours = STATUTS_EN_COURS.includes(
+          accepte ? AppStatus.PENDING : app.status,
+        );
+        const ecritValide =
+          accepte ||
+          (app.hrpStatus === AppStatus.APPROVED &&
+            app.rpStatus === AppStatus.APPROVED);
+        // Le jeton douane et l'accès au jeu lisent writtenApprovedAt pour « écrit accepté ».
+        if (enCours && ecritValide && !app.writtenApprovedAt) {
+          data.writtenApprovedAt = maintenant;
+        }
+        // Procédure reprise, comme un retour à PLAYER (RoleService) : l'effacement
+        // programmé de la voix est levé sur une candidature en cours.
+        if (enCours && app.voiceKey && app.voicePurgeAt) {
+          data.voicePurgeAt = null;
+        }
+        const appApres =
+          Object.keys(data).length > 0
+            ? await tx.whitelistApplication.update({
+                where: { id: applicationId },
+                data,
+              })
+            : app;
+
+        const phaseApres = calculerPhase({
+          role: roleApres,
+          oralPassedAt: null,
+          whitelistRejectedAt: app.user.whitelistRejectedAt,
+          application: appApres,
+          reservationActive: place !== null,
+        });
+        return { app, appApres, roleApres, ecritForce, effaceOral, phaseApres };
+      }, OPTIONS_TRANSACTION)
+      .catch(traduireConflitTransaction);
+
+    const { app, appApres, roleApres, ecritForce, effaceOral, phaseApres } =
+      issue;
+    this.logger.log(
+      `oral à repasser ${applicationId} (user ${userId}) par ${actor.userId}` +
+        (roleApres !== app.user.role
+          ? ` — ${app.user.role} → ${roleApres}`
+          : '') +
+        ` — phase ${phaseApres}`,
+    );
+
+    const message = messageRepasserOral(raison, phaseApres);
+    void this.whitelistMessages.postSystemMessage(applicationId, message);
+
+    if (app.discordThreadId || app.discordMessageId) {
+      const actorName = await this.resolveActorName(actor);
+      const ecritAccepte =
+        appApres.hrpStatus === AppStatus.APPROVED &&
+        appApres.rpStatus === AppStatus.APPROVED;
+      void this.webhooks
+        .statusUpdate({
+          kind: 'whitelist',
+          threadId: app.discordThreadId,
+          messageId: app.discordMessageId,
+          status:
+            ecritAccepte && appApres.status === AppStatus.PENDING
+              ? STATUT_BOT_ECRIT_ACCEPTE
+              : appApres.status,
+          actorName,
+          reason: `Oral à repasser : ${raison}`,
+        })
+        .catch((err) =>
+          this.logger.warn(
+            `statusUpdate oral à repasser ${applicationId} échec : ${(err as Error).message}`,
+          ),
+        );
+    }
+
+    // MP au joueur (kind `douane`, comme les MP de la douane) : le fil reste la référence.
+    if (cible.discordUserId) {
+      void this.webhooks
+        .directMessage({
+          discordUserId: cible.discordUserId,
+          context: {
+            kind: 'douane',
+            entityId: applicationId,
+            subject: 'Oral à repasser',
+          },
+          fromPseudo: cible.minecraftUsername,
+          content: message,
+        })
+        .catch((err) =>
+          this.logger.warn(
+            `MP oral à repasser non transmis (${userId}) : ${(err as Error).message}`,
+          ),
+        );
+    }
+
+    // Attendu (et non lancé en tâche de fond) : l'exigence doit être tracée. AuditService.log ne lève jamais.
+    await this.audit.log({
+      actorId: actor.userId,
+      action: 'whitelist.oral.repasser',
+      targetUserId: userId,
+      targetEntity: `whitelist:${applicationId}`,
+      metadata: {
+        motif: raison,
+        roleAvant: app.user.role,
+        roleApres,
+        oralPassedAtAvant: app.user.oralPassedAt?.toISOString() ?? null,
+        statutAvant: app.status,
+        oralAvant: app.oralStatus,
+        hrpAvant: app.hrpStatus,
+        rpAvant: app.rpStatus,
+        ecritForce,
+        phaseApres,
+        // L'oral effacé de la candidature ne vit plus qu'ici, notes privées
+        // comprises (le journal est réservé à la direction, audit.voir).
+        ...(effaceOral
+          ? {
+              oralDecidedAtAvant: app.oralDecidedAt?.toISOString() ?? null,
+              oralViaAvant: app.oralVia,
+              oralExaminerAvant: app.oralExaminerUserId,
+              oralReasonAvant: app.oralReason,
+              oralNotesAvant: app.oralNotes,
+            }
+          : {}),
+      },
+      source: actor.source ?? 'panel',
+    });
+
+    return {
+      ok: true as const,
+      userId,
+      applicationId,
+      roleAvant: app.user.role,
+      phase: phaseApres,
+    };
   }
 
   /**
@@ -354,7 +671,14 @@ export class StaffService {
       const app = await tx.whitelistApplication.findUnique({
         where: { id: applicationId },
         include: {
-          user: { select: { id: true, role: true, oralPassedAt: true } },
+          user: {
+            select: {
+              id: true,
+              role: true,
+              oralPassedAt: true,
+              oralRetakeRequestedAt: true,
+            },
+          },
         },
       });
       if (!app) throw new NotFoundException('Candidature introuvable.');
@@ -367,6 +691,14 @@ export class StaffService {
         throw new ConflictException(
           'Candidature déjà acceptée (oral compris). Pour la rouvrir, passe par la remise à zéro (ADMIN).',
         );
+      }
+      // Oral à repasser : l'écrit déjà accepté ne se retranche plus (panel et bot).
+      if (
+        app.user.oralRetakeRequestedAt &&
+        app.hrpStatus === AppStatus.APPROVED &&
+        app.rpStatus === AppStatus.APPROVED
+      ) {
+        throw new ConflictException(REFUS_ECRIT_ORAL_A_REPASSER);
       }
 
       const hrp = parties.includes('HRP') ? decision : app.hrpStatus;

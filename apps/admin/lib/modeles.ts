@@ -1,8 +1,8 @@
 /**
  * Modèles de texte du staff (PANEL_V2 §4.3, §4.4, §4.7) : motifs de
- * candidature (« À revoir », « Refuser ») et réponses types de tickets
- * (« / » en début de réponse). Un modèle est un point de départ, toujours
- * modifiable avant envoi.
+ * candidature (« À revoir », « Refuser »), motifs d'oral à repasser et
+ * réponses types de tickets (« / » en début de réponse). Un modèle est un
+ * point de départ, toujours modifiable avant envoi.
  *
  * Jeu commun livré avec le panel : l'API n'a pas encore de route pour les
  * enregistrer, donc ils ne se modifient pas depuis Réglages › Modèles (lot
@@ -53,6 +53,30 @@ export const MOTIFS_CANDIDATURE: readonly ModeleMotif[] = [
     nom: 'Partie HRP incomplète',
     texte:
       'Certaines réponses de la partie HRP sont trop courtes pour qu’on se fasse une idée. Complète-les avec un peu plus de détails.',
+  },
+];
+
+/**
+ * « Faire repasser l'oral » (décision du 01/11) : le motif est montré au
+ * joueur. L'API l'encadre déjà (« Le staff te demande de repasser l'oral :
+ * <motif>. » puis la consigne de réservation) : un modèle ne dit que la
+ * raison, en minuscule, sans consigne.
+ */
+export const MOTIFS_ORAL_A_REPASSER: readonly ModeleMotif[] = [
+  {
+    id: 'candidature-clan',
+    nom: 'Candidature de clan',
+    texte: 'candidature au clan, le conseil demande un nouvel oral',
+  },
+  {
+    id: 'longue-absence',
+    nom: 'Longue absence',
+    texte: 'longue absence, pour refaire le point sur ton personnage et les règles',
+  },
+  {
+    id: 'test-whitelist',
+    nom: 'Test de la whitelist',
+    texte: 'compte de test, vérification du parcours de la whitelist',
   },
 ];
 

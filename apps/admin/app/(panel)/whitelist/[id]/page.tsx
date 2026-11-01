@@ -18,6 +18,13 @@ import {
   type PanneauDecisionRef,
 } from '@/components/candidature/DecisionEcrit';
 import { OralHorsJeu } from '@/components/candidature/OralHorsJeu';
+import {
+  CaseRefaireOral,
+  FaireRepasserOral,
+  LigneOralARepasser,
+  descriptionRemiseAZero,
+  proposerRefaireOral,
+} from '@/components/candidature/RepasserOral';
 import { TexteLong } from '@/components/candidature/TexteLong';
 import { EVENEMENT_VOIX, VoixLecteur } from '@/components/candidature/VoixLecteur';
 import { Tag } from '@/components/ui/Badge';
@@ -35,6 +42,7 @@ import {
   LIBELLE_RP_YEARS,
   LIBELLE_SEXE,
   LIBELLE_TYPE_PERSO,
+  PHASES_ORAL,
   dateHeure,
   jourLong,
   trancheAge,
@@ -88,6 +96,7 @@ function Fiche({ id }: { id: string }) {
   const note = useRef<NotePriveeRef>(null);
   const chat = useRef<ChatPanelRef>(null);
   const [echanges, setEchanges] = useState(false);
+  const [oral, setOral] = useState(false);
   const [ancre, setAncre] = useState<Ancre>('hrp');
   const [bandeau, setBandeau] = useState<{
     resume: string;
@@ -157,14 +166,16 @@ function Fiche({ id }: { id: string }) {
   }
 
   const reset = useMutation({
-    mutationFn: () =>
-      api<{ ok: boolean; roleDemoted: boolean }>(`/admin/whitelist/${id}/reset`, { method: 'POST' }),
+    mutationFn: (refaireOral: boolean) =>
+      api<{ ok: boolean; roleDemoted: boolean; oralReinitialise: boolean }>(`/admin/whitelist/${id}/reset`, {
+        method: 'POST',
+        // Sans la case : aucun corps, comme avant.
+        body: refaireOral ? { refaireOral: true } : undefined,
+      }),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['admin', 'whitelist'] });
       toast.success('Candidature remise à zéro', {
-        description: r.roleDemoted
-          ? 'Le joueur repasse joueur et peut envoyer une nouvelle candidature.'
-          : 'Grade staff conservé : le joueur peut envoyer une nouvelle candidature.',
+        description: descriptionRemiseAZero(r, data?.user.role ?? ''),
       });
       router.push('/whitelist');
     },
@@ -219,6 +230,7 @@ function Fiche({ id }: { id: string }) {
     .slice(dernierStaff + 1)
     .filter((m) => m.authorType === 'USER').length;
   const ouverteAuxMessages = data.status === 'PENDING' || data.status === 'NEEDS_REVISION';
+  const peutFaireRepasser = peut('candidatures.relire') && data.peutExigerOral;
 
   const entreesPlus = [
     ...(peut('joueurs.voir')
@@ -231,6 +243,16 @@ function Fiche({ id }: { id: string }) {
           },
         ]
       : []),
+    ...(peutFaireRepasser
+      ? [
+          {
+            cle: 'repasser-oral',
+            label: 'Faire repasser l’oral',
+            icone: 'landmark' as const,
+            onClick: () => setOral(true),
+          },
+        ]
+      : []),
     ...(peut('candidatures.reinitialiser')
       ? [
           {
@@ -239,6 +261,8 @@ function Fiche({ id }: { id: string }) {
             icone: 'rotate-ccw' as const,
             danger: true,
             onClick: async () => {
+              // Lue une fois la remise confirmée (la case garde son état dans la fenêtre).
+              let refaireOral = false;
               const ok = await confirmer({
                 titre: `Remettre à zéro la candidature de ${data.user.minecraftUsername} ?`,
                 message:
@@ -246,8 +270,15 @@ function Fiche({ id }: { id: string }) {
                 confirmer: 'Remettre à zéro',
                 danger: true,
                 retaper: data.user.minecraftUsername,
+                contenu: proposerRefaireOral(data.user) ? (
+                  <CaseRefaireOral
+                    onChange={(v) => {
+                      refaireOral = v;
+                    }}
+                  />
+                ) : undefined,
               });
-              if (ok) reset.mutate();
+              if (ok) reset.mutate(refaireOral);
             },
           },
         ]
@@ -470,8 +501,24 @@ function Fiche({ id }: { id: string }) {
                       valeur: `possible le ${jourLong(data.suivi.canReapplyAt)}`,
                     }
                   : null,
-                data.user.oralPassedAt
+                // Oral à repasser exigé : plus de « Oral réussi » tant qu'il n'est pas repassé.
+                data.user.oralPassedAt && !data.oralARepasser
                   ? { cle: 'oral', label: 'Oral réussi', valeur: dateHeure(data.user.oralPassedAt) }
+                  : null,
+                data.oralARepasser
+                  ? {
+                      cle: 'oral-repasser',
+                      label: 'Oral à repasser',
+                      valeur: (
+                        <span className="[overflow-wrap:anywhere]">
+                          {dateHeure(data.oralARepasser.demandeLe)}
+                          {data.oralARepasser.demandePar?.minecraftUsername
+                            ? ` · par ${data.oralARepasser.demandePar.minecraftUsername}`
+                            : ''}
+                          {` · ${data.oralARepasser.motif}`}
+                        </span>
+                      ),
+                    }
                   : null,
               ]}
             />
@@ -485,7 +532,22 @@ function Fiche({ id }: { id: string }) {
         {/* ── Décision ── */}
         <aside className="stack collant" aria-label="Décision">
           <PanneauDecision ref={decision} data={data} onDecision={apresDecision} />
-          <BlocDouane applicationId={data.id} suivi={data.suivi}>
+          <BlocDouane
+            applicationId={data.id}
+            suivi={data.suivi}
+            oralARepasser={
+              data.oralARepasser ? (
+                <LigneOralARepasser
+                  o={data.oralARepasser}
+                  applicationId={data.id}
+                  pseudo={data.user.minecraftUsername}
+                  // Lever valide l'oral hors jeu : seulement dans une phase où il se tranche.
+                  peutLever={peut('candidatures.relire') && PHASES_ORAL.includes(data.phase)}
+                  variante="carte"
+                />
+              ) : undefined
+            }
+          >
             <OralHorsJeu id={data.id} phase={data.phase} douaneEnJeu={data.suivi.douaneEnJeu} />
           </BlocDouane>
           <NotePriveeEcrit ref={note} id={data.id} note={data.writtenStaffNotes} />
@@ -536,6 +598,14 @@ function Fiche({ id }: { id: string }) {
             closedLabel={`Candidature ${data.status === 'APPROVED' ? 'acceptée' : 'refusée'} : conversation close.`}
           />
       </Drawer>
+
+      {peutFaireRepasser && (
+        <FaireRepasserOral
+          ouvert={oral}
+          onFermer={() => setOral(false)}
+          cible={{ userId: data.user.id, pseudo: data.user.minecraftUsername }}
+        />
+      )}
     </div>
   );
 }

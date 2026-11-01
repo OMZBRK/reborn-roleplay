@@ -28,10 +28,13 @@ import type {
   DouaneCandidature,
   ExaminateurPropose,
   LoginAnomaly,
+  OralARepasser,
+  OralDecision,
   OralSlot,
   PhaseCandidature,
   PlayerDetail,
   PlayerListItem,
+  ReponseOralARepasser,
   ReservationStaff,
   Role,
   SeanceStaff,
@@ -62,6 +65,7 @@ import {
   MESSAGES_DISCORD,
   MIN,
   MOI_PSEUDO,
+  ORAUX_A_REPASSER,
   SEANCES,
   SEANCE_DU_JOUR,
   T0,
@@ -171,6 +175,8 @@ const etat = {
   anomalies: ANOMALIES.map((a) => ({ ...a })),
   seances: SEANCES.map((s) => ({ ...s })),
   roles: new Map<string, Role>(),
+  /** Oraux à repasser exigés, par id de compte (pseudo du staff, date ISO). */
+  oraux: new Map<string, { motif: string; par: string; demandeLe: string }>(),
 };
 
 function moi(): CompteDemo {
@@ -309,6 +315,8 @@ function seanceDetail(s: SeanceDemo): SeanceStaffDetail {
 
 /** Phase et statuts après la séance du jour (oral décidé au Poste de garde). */
 function apresDouane(c: CandidatureDemo): CandidatureDemo {
+  // Oral à repasser exigé après la séance : elle ne le retranche pas.
+  if (etat.oraux.has(comptePar(c.pseudo).id)) return c;
   const d = c.reservation?.seance === SEANCE_DU_JOUR ? DEROULE[c.pseudo] : undefined;
   if (!d) return c;
   if (d.resultat === 'APPROVED') {
@@ -324,6 +332,50 @@ function apresDouane(c: CandidatureDemo): CandidatureDemo {
 function toutesCandidatures(): CandidatureDemo[] {
   return etat.candidatures.map(apresDouane);
 }
+
+// ── Oral à repasser ───────────────────────────────────────────────────
+
+/** Phases où l'oral se tranche (lib/candidature.ts › PHASES_ORAL). */
+const PHASES_ORAL_DEMO: readonly PhaseCandidature[] = ['DOUANE_A_RESERVER', 'DOUANE_RESERVEE', 'DOUANE_A_REVOIR'];
+
+/** User.oralPassedAt : l'oral accepté de sa candidature. */
+function oralReussiLe(c: CandidatureDemo | undefined): string | null {
+  return c && c.oral === 'APPROVED' && c.oralDecideIlYa !== null ? avant(c.oralDecideIlYa) : null;
+}
+
+/** Vue « oral à repasser » d'un compte (OralARepasserVue de l'API). */
+function oralARepasserDe(c: CompteDemo): OralARepasser | null {
+  const o = etat.oraux.get(c.id);
+  if (!o) return null;
+  const par = comptePar(o.par);
+  return { motif: o.motif, demandeLe: o.demandeLe, demandePar: { id: par.id, minecraftUsername: par.pseudo } };
+}
+
+/** Règle de la démo (l'API a la sienne) : jamais un staff, candidature acceptée, pas d'oral déjà exigé. */
+function peutExigerOralDe(c: CompteDemo, app: CandidatureDemo | undefined): boolean {
+  return !STAFF.includes(roleDe(c)) && app?.phase === 'ACCEPTE' && !etat.oraux.has(c.id);
+}
+
+/**
+ * « Faire repasser l'oral » : l'état que tout le parcours lit comme « écrit
+ * accepté, oral à passer » (compte rétrogradé joueur, oral réussi effacé,
+ * oral en attente, candidature en cours), plus le qui, quand, pourquoi.
+ * Seules les candidatures acceptées y arrivent (peutExigerOralDe).
+ */
+function exigerOral(c: CompteDemo, motif: string, par: string, ilYa = 0) {
+  const cand = etat.candidatures.find((x) => x.pseudo === c.pseudo);
+  if (cand) {
+    cand.phase = 'DOUANE_A_RESERVER';
+    cand.status = 'PENDING';
+    cand.oral = 'PENDING';
+    cand.oralDecideIlYa = null;
+    cand.examinateur = null;
+  }
+  if (roleDe(c) === 'WHITELISTED') etat.roles.set(c.id, 'PLAYER');
+  etat.oraux.set(c.id, { motif, par, demandeLe: avant(ilYa) });
+}
+
+for (const o of ORAUX_A_REPASSER) exigerOral(comptePar(o.pseudo), o.motif, o.par, o.ilYa);
 
 function reservationListe(c: CandidatureDemo) {
   if (!c.reservation || c.phase !== 'DOUANE_RESERVEE') return null;
@@ -486,13 +538,15 @@ function detailCandidature(c: CandidatureDemo): WhitelistDetail {
       discordUserId: '000000000000000000',
       discordUsername: u.discord,
       role: roleDe(u),
-      oralPassedAt: c.oral === 'APPROVED' && c.oralDecideIlYa !== null ? avant(c.oralDecideIlYa) : null,
+      oralPassedAt: oralReussiLe(c),
       whitelistRejectedAt: c.phase === 'REFUSE' && c.relueIlYa !== null ? avant(c.relueIlYa) : null,
     },
     messages: messagesDe(c.id, [
       { auteur: 'SYSTEM', nom: null, texte: '✅ Nouvelle candidature envoyée. Elle est en cours de relecture par l’équipe whitelist.', ilYa: c.envoyeeIlYa },
       ...c.messages,
     ]),
+    oralARepasser: oralARepasserDe(u),
+    peutExigerOral: peutExigerOralDe(u, c),
   };
 }
 
@@ -509,7 +563,7 @@ function douaneCandidature(c: CandidatureDemo): DouaneCandidature {
     phase: c.phase,
     writtenApprovedAt: c.ecritValideIlYa !== null ? avant(c.ecritValideIlYa) : null,
     writtenStaffNotes: c.notePrivee,
-    oralPassedAt: c.oral === 'APPROVED' && c.oralDecideIlYa !== null ? avant(c.oralDecideIlYa) : null,
+    oralPassedAt: oralReussiLe(c),
     oral: {
       status: c.oral,
       via: c.oral !== 'PENDING' ? 'DOUANE' : null,
@@ -660,6 +714,9 @@ function detailJoueur(c: CompteDemo): PlayerDetail {
           lastMessagePreview: l.lastMessagePreview,
         };
       }),
+    oralPassedAt: oralReussiLe(app),
+    oralARepasser: oralARepasserDe(c),
+    peutExigerOral: peutExigerOralDe(c, app),
   };
 }
 
@@ -926,8 +983,38 @@ function router(methode: string, chemin: string, p: URLSearchParams, corps: Corp
         cand.messages.push({ auteur: 'STAFF', nom: MOI_PSEUDO, texte: String(corps?.content ?? ''), ilYa: 0 });
         return { ok: true };
       }
-      if (d === 'reset') return { ok: true, roleDemoted: false };
-      if (d === 'oral') throw new Refus(409, 'Oral hors jeu : non simulé en mode démo.');
+      if (d === 'reset') return { ok: true, roleDemoted: false, oralReinitialise: corps?.refaireOral === true };
+      if (d === 'oral') {
+        // Seule « Lever » est simulée : un oral à repasser accepté hors jeu.
+        const u = comptePar(cand.pseudo);
+        if (corps?.resultat !== 'APPROVED' || !etat.oraux.has(u.id)) {
+          throw new Refus(409, 'Oral hors jeu : non simulé en mode démo.');
+        }
+        if (!PHASES_ORAL_DEMO.includes(cand.phase)) {
+          throw new Refus(409, 'L’écrit n’est pas accepté : l’oral se tranche après la validation des parties HRP et RP.');
+        }
+        cand.phase = 'ACCEPTE';
+        cand.status = 'APPROVED';
+        cand.oral = 'APPROVED';
+        cand.oralDecideIlYa = 0;
+        cand.examinateur = MOI_PSEUDO;
+        if (roleDe(u) === 'PLAYER') etat.roles.set(u.id, 'WHITELISTED');
+        etat.oraux.delete(u.id);
+        const r: OralDecision = {
+          applicationId: cand.id,
+          userId: u.id,
+          resultat: 'APPROVED',
+          status: 'APPROVED',
+          oralStatus: 'APPROVED',
+          oralVia: 'HORS_JEU',
+          oralDecidedAt: avant(0),
+          phase: 'ACCEPTE',
+          prochaineSeanceDes: null,
+          canReapplyAt: null,
+          reservation: null,
+        };
+        return r;
+      }
     }
 
     // Douane
@@ -1045,6 +1132,26 @@ function router(methode: string, chemin: string, p: URLSearchParams, corps: Corp
             { ...base, serverId: 'dev', characterId: `${j.id}-2`, playerId: 57, playerNumber: '00057', firstName: 'Ren', lastName: 'Mori', village: 'Sunagakure', type: 'CIVIL', rank: null, state: 'DEAD', playMinutes: 380, playMinutesSince: new Date(Date.now() - 4 * 864e5).toISOString(), createdAt: new Date(Date.now() - 4 * 864e5).toISOString(), lastSeenAt: new Date(Date.now() - 2 * 864e5).toISOString() },
           ],
         };
+      }
+      if (d === 'oral-a-repasser' && methode === 'POST') {
+        exiger('candidatures.relire');
+        const motif = typeof corps?.motif === 'string' ? corps.motif.trim() : '';
+        if (motif.length < 3) throw new Refus(400, 'Motif : 3 caractères au moins.');
+        if (motif.length > 500) throw new Refus(400, 'Motif : 500 caractères au plus.');
+        const app = toutesCandidatures().find((x) => x.pseudo === j.pseudo);
+        if (!app || !peutExigerOralDe(j, app)) {
+          throw new Refus(409, 'Ce compte ne peut pas repasser l’oral (mode démo).');
+        }
+        const roleAvant = roleDe(j);
+        exigerOral(j, motif, MOI_PSEUDO);
+        const r: ReponseOralARepasser = {
+          ok: true,
+          userId: j.id,
+          applicationId: app.id,
+          roleAvant,
+          phase: apresDouane(trouver(etat.candidatures, (x) => x.id === app.id, 'Candidature')).phase,
+        };
+        return r;
       }
       if (d === 'role' && methode === 'PATCH') {
         exiger('grades.changer');

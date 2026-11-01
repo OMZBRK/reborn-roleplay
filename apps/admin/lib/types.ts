@@ -174,6 +174,19 @@ export interface OralSlot {
   notes: string | null;
 }
 
+/**
+ * Oral à repasser exigé par le staff (décision du 19/10 amendée le 01/11) :
+ * qui, quand, pourquoi. Mirror de OralARepasserVue (API). Le motif est
+ * montré au joueur.
+ */
+export type OralARepasser = {
+  motif: string;
+  /** ISO. */
+  demandeLe: string;
+  /** Staff qui l'a exigé ; null si son compte n'existe plus. */
+  demandePar: { id: string; minecraftUsername: string | null } | null;
+};
+
 /** Réponse de GET /admin/whitelist/:id (mirror de WhitelistDetail, admin.service.ts). */
 export interface WhitelistDetail {
   id: string;
@@ -253,6 +266,10 @@ export interface WhitelistDetail {
     whitelistRejectedAt: string | null;
   };
   messages: AdminMessage[];
+  /** Oral à repasser exigé sur le compte du candidat, sinon null. */
+  oralARepasser: OralARepasser | null;
+  /** POST /admin/players/:id/oral-a-repasser accepterait ce compte (jamais un staff). */
+  peutExigerOral: boolean;
 }
 
 // ── Douane : séances, réservations, oral (CANDIDATURE_ET_DOUANE.md §3.3) ──
@@ -382,6 +399,17 @@ export interface OralDecision {
     statut: DouaneReservationStatut;
     resultat: AppStatus | null;
   } | null;
+}
+
+/** Réponse de POST /admin/players/:id/oral-a-repasser (« Faire repasser l'oral »). */
+export interface ReponseOralARepasser {
+  ok: true;
+  userId: string;
+  applicationId: string;
+  /** Grade avant la demande (un whitelisté redevient joueur). */
+  roleAvant: Role;
+  /** Phase recalculée : DOUANE_A_RESERVER, DOUANE_RESERVEE, ou ECRIT_* si l'écrit attendait encore. */
+  phase: PhaseCandidature;
 }
 
 export interface TicketListItem {
@@ -615,6 +643,12 @@ export interface PlayerDetail {
     updatedAt: string;
     lastMessagePreview: string | null;
   }>;
+  /** Oral réussi ; null s'il reste à passer (ou à repasser). */
+  oralPassedAt: string | null;
+  /** Oral à repasser exigé par le staff, sinon null. */
+  oralARepasser: OralARepasser | null;
+  /** POST /admin/players/:id/oral-a-repasser accepterait ce compte (jamais un staff). */
+  peutExigerOral: boolean;
 }
 
 /** Réponse de GET /admin/players/:id/ip (capacité joueurs.ip, journalisé). */

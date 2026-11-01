@@ -1,5 +1,5 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { Role, TicketCategory } from '@prisma/client';
+import { AppStatus, Role, TicketCategory } from '@prisma/client';
 import type { AuditService } from '../audit/audit.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import {
@@ -390,5 +390,162 @@ describe('AdminService — tickets par catégorie', () => {
         }) as unknown,
       }),
     );
+  });
+});
+
+describe('AdminService — oral à repasser (01/11) dans les fiches joueur et candidature', () => {
+  const DEMANDE_LE = new Date('2026-11-01T14:00:00Z');
+  const ORAL_LE = new Date('2026-09-25T20:30:00Z');
+  const exigence = (par: string) => ({
+    oralRetakeRequestedAt: DEMANDE_LE,
+    oralRetakeRequestedById: par,
+    oralRetakeReason: 'Candidature de clan.',
+  });
+  const sansExigence = {
+    oralRetakeRequestedAt: null,
+    oralRetakeRequestedById: null,
+    oralRetakeReason: null,
+  };
+  const dossier = (status: AppStatus, oralStatus: AppStatus) => ({
+    id: 'app1',
+    status,
+    hrpStatus: AppStatus.APPROVED,
+    rpStatus: AppStatus.APPROVED,
+    oralStatus,
+    formVersion: 2,
+    firstName: 'Kazuki',
+    lastName: 'Arashi',
+    village: 'Konohagakure',
+    submittedAt: new Date('2026-10-02T10:00:00Z'),
+    reviewedAt: null,
+    reviewedBy: null,
+    writtenApprovedAt: new Date('2026-10-03T10:00:00Z'),
+    oralDecidedAt: null,
+    voiceKey: null,
+  });
+
+  /** Joueur `j1` ; le compte `staff1` existe, tout autre identifiant non. */
+  function monterFiche(
+    compte: Record<string, unknown>,
+    app: ReturnType<typeof dossier> | null,
+  ) {
+    const user = {
+      ...JOUEUR,
+      oralPassedAt: null,
+      whitelistRejectedAt: null,
+      ...sansExigence,
+      ...compte,
+    };
+    const prisma = {
+      user: {
+        findUnique: jest.fn(({ where }: { where: { id: string } }) =>
+          Promise.resolve(
+            where.id === 'j1'
+              ? { ...user, whitelistApp: app }
+              : where.id === 'staff1'
+                ? { id: 'staff1', minecraftUsername: 'Ayame' }
+                : null,
+          ),
+        ),
+      },
+      whitelistApplication: {
+        findUnique: jest.fn(() =>
+          Promise.resolve(
+            app && {
+              ...app,
+              userId: 'j1',
+              user,
+              assignedTo: null,
+              oralExaminer: null,
+              douaneReservations: [],
+              messages: [],
+            },
+          ),
+        ),
+      },
+    };
+    return new AdminService(
+      prisma as unknown as PrismaService,
+      { log: jest.fn() } as unknown as AuditService,
+    );
+  }
+
+  it('fiche joueur : qui, quand, pourquoi ; plus de bouton quand l’oral est déjà à passer', async () => {
+    const fiche = await monterFiche(
+      { role: Role.PLAYER, ...exigence('staff1') },
+      dossier(AppStatus.PENDING, AppStatus.PENDING),
+    ).getPlayer('j1');
+    expect(fiche).toMatchObject({
+      oralPassedAt: null,
+      oralARepasser: {
+        motif: 'Candidature de clan.',
+        demandeLe: DEMANDE_LE.toISOString(),
+        demandePar: { id: 'staff1', minecraftUsername: 'Ayame' },
+      },
+      peutExigerOral: false,
+    });
+  });
+
+  it('fiche joueur : whitelisté avec oral réussi → bouton proposé ; staff, sans candidature ou candidature refusée → non', async () => {
+    const whiteliste = await monterFiche(
+      { role: Role.WHITELISTED, oralPassedAt: ORAL_LE },
+      dossier(AppStatus.APPROVED, AppStatus.APPROVED),
+    ).getPlayer('j1');
+    expect(whiteliste).toMatchObject({
+      oralPassedAt: ORAL_LE.toISOString(),
+      oralARepasser: null,
+      peutExigerOral: true,
+    });
+    for (const [compte, app] of [
+      [
+        { role: Role.MODERATOR, oralPassedAt: ORAL_LE },
+        dossier(AppStatus.APPROVED, AppStatus.APPROVED),
+      ],
+      [{ role: Role.WHITELISTED, oralPassedAt: ORAL_LE }, null],
+      // Nouvel écrit refusé : pas de douane, le bouton mènerait à un refus.
+      [
+        { role: Role.PLAYER, oralPassedAt: ORAL_LE },
+        dossier(AppStatus.REJECTED, AppStatus.PENDING),
+      ],
+    ] as const) {
+      const f = await monterFiche(compte, app).getPlayer('j1');
+      expect(f.peutExigerOral).toBe(false);
+    }
+  });
+
+  it('demandeur dont le compte n’existe plus : son identifiant, sans pseudo', async () => {
+    const fiche = await monterFiche(
+      { role: Role.PLAYER, ...exigence('ancien-staff') },
+      dossier(AppStatus.PENDING, AppStatus.PENDING),
+    ).getPlayer('j1');
+    expect(fiche.oralARepasser?.demandePar).toEqual({
+      id: 'ancien-staff',
+      minecraftUsername: null,
+    });
+  });
+
+  it('fiche candidature : même bloc et même règle du bouton', async () => {
+    const enCours = await monterFiche(
+      { role: Role.PLAYER, ...exigence('staff1') },
+      dossier(AppStatus.PENDING, AppStatus.PENDING),
+    ).getWhitelist('app1');
+    expect(enCours).toMatchObject({
+      phase: 'DOUANE_A_RESERVER',
+      oralARepasser: {
+        motif: 'Candidature de clan.',
+        demandeLe: DEMANDE_LE.toISOString(),
+        demandePar: { id: 'staff1', minecraftUsername: 'Ayame' },
+      },
+      peutExigerOral: false,
+    });
+    const accepte = await monterFiche(
+      { role: Role.WHITELISTED, oralPassedAt: ORAL_LE },
+      dossier(AppStatus.APPROVED, AppStatus.APPROVED),
+    ).getWhitelist('app1');
+    expect(accepte).toMatchObject({
+      phase: 'ACCEPTE',
+      oralARepasser: null,
+      peutExigerOral: true,
+    });
   });
 });

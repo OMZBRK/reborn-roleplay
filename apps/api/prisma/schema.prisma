@@ -67,10 +67,21 @@ model User {
   // Ces deux dates vivent sur le compte, pas sur la candidature : elles
   // survivent au retrait (DELETE /whitelist/me supprime la ligne de candidature).
   /// Oral réussi (douane en jeu ou oral hors jeu). Renseigné = plus jamais d'oral, même après une nouvelle
-  /// candidature (décision du 19/10 : l'oral à la première whitelist seulement).
+  /// candidature (décision du 19/10 : l'oral à la première whitelist seulement), sauf si le staff exige un
+  /// nouvel oral (01/11, voir oralRetake*).
   oralPassedAt        DateTime?
   /// Dernier refus (écrit ou oral). Nouvelle candidature possible 1 jour plus tard (canReapplyAt calculé).
   whitelistRejectedAt DateTime?
+  // Oral à repasser (décision du 01/11) : le staff exige un nouvel oral, motif obligatoire, tracé à l'audit
+  // (whitelist.oral.repasser). L'état « oral à passer » reste celui que lisent les règles (rôle PLAYER,
+  // oralPassedAt effacé, oral PENDING) : ces trois champs disent seulement quand, qui et pourquoi. Effacés par
+  // l'oral réussi, une promotion manuelle ou la remise à zéro « Refaire aussi l'oral ».
+  /// Date à laquelle le staff a exigé un nouvel oral.
+  oralRetakeRequestedAt   DateTime?
+  /// Compte staff qui l'a exigé : identifiant simple, sans relation (comme reviewedBy).
+  oralRetakeRequestedById String?
+  /// Motif du staff, montré au joueur.
+  oralRetakeReason        String?
 
   // Securite
   twoFactorSecret   String?

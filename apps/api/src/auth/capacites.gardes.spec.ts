@@ -207,6 +207,7 @@ describe('gardes — panel /admin', () => {
       'ecouterVoix',
       'decideWhitelistPart',
       'notePriveeEcrit',
+      'exigerNouvelOral',
     ]) {
       expect(gradesQuiPassent(A, m)).toEqual(RECRUTEMENT);
     }

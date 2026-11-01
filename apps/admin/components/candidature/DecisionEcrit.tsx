@@ -77,7 +77,10 @@ export const PanneauDecision = forwardRef<
   const qc = useQueryClient();
   const { confirmer } = useConfirm();
   const [ouverte, setOuverte] = useState<{ partie: Partie; choix: Decision } | null>(null);
-  const verrouillee = data.phase === 'ACCEPTE';
+  // Oral à repasser : l'écrit déjà accepté reste acquis, l'API refuse de le retrancher.
+  const ecritFige =
+    !!data.oralARepasser && data.hrpStatus === 'APPROVED' && data.rpStatus === 'APPROVED';
+  const verrouillee = data.phase === 'ACCEPTE' || ecritFige;
   const deuxAttendent = data.hrpStatus === 'PENDING' && data.rpStatus === 'PENDING';
 
   async function priseAuto() {
@@ -253,7 +256,17 @@ export const PanneauDecision = forwardRef<
         )}
         {verrouillee && (
           <p className="help mt-3">
-            Candidature acceptée, oral compris. Pour la rouvrir : remise à zéro (menu ⋯).
+            {ecritFige ? (
+              <>
+                Oral à repasser : l’écrit reste accepté, seul l’oral se décide (douane, ou « Lever »
+                dans le bloc Douane). Pour rouvrir l’écrit : remise à zéro (menu ⋯).
+              </>
+            ) : (
+              <>
+                Candidature acceptée, oral compris. Pour la rouvrir : remise à zéro (menu ⋯).
+                {data.peutExigerOral && <> Pour lui faire repasser l’oral : menu ⋯ › Faire repasser l’oral.</>}
+              </>
+            )}
           </p>
         )}
       </div>

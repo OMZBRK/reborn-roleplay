@@ -23,7 +23,7 @@ import { api } from '@/lib/api';
 import { useDroits } from '@/lib/droits';
 import { dateHeure, ilYa } from '@/lib/format';
 import { estStaff, libelleGrade } from '@/lib/libelles';
-import { MOTIFS_CANDIDATURE, REPONSES_TYPES } from '@/lib/modeles';
+import { MOTIFS_CANDIDATURE, MOTIFS_ORAL_A_REPASSER, REPONSES_TYPES } from '@/lib/modeles';
 import { usePreferences } from '@/lib/preferences';
 import { statutCompte } from '@/lib/statuts';
 import type { PlayerListItem, Role } from '@/lib/types';
@@ -426,8 +426,10 @@ type FiltreModeles = 'tous' | 'candidatures' | 'tickets';
 
 function Modeles() {
   const [filtre, setFiltre] = useState<FiltreModeles>('tous');
+  const nbCandidatures = MOTIFS_CANDIDATURE.length + MOTIFS_ORAL_A_REPASSER.length;
   const lignes = [
     ...MOTIFS_CANDIDATURE.map((m) => ({ cle: `m:${m.id}`, nom: m.nom, type: 'Motif de candidature', texte: m.texte, genre: 'candidatures' as const })),
+    ...MOTIFS_ORAL_A_REPASSER.map((m) => ({ cle: `o:${m.id}`, nom: m.nom, type: 'Motif d’oral à repasser', texte: m.texte, genre: 'candidatures' as const })),
     ...REPONSES_TYPES.map((r) => ({ cle: `r:${r.code}`, nom: `/${r.code}`, type: 'Réponse de ticket', texte: r.texte, genre: 'tickets' as const })),
   ].filter((l) => filtre === 'tous' || l.genre === filtre);
   type Ligne = (typeof lignes)[number];
@@ -444,8 +446,8 @@ function Modeles() {
           valeur={filtre}
           onChange={setFiltre}
           options={[
-            { valeur: 'tous', label: 'Tous', n: MOTIFS_CANDIDATURE.length + REPONSES_TYPES.length },
-            { valeur: 'candidatures', label: 'Candidatures', n: MOTIFS_CANDIDATURE.length },
+            { valeur: 'tous', label: 'Tous', n: nbCandidatures + REPONSES_TYPES.length },
+            { valeur: 'candidatures', label: 'Candidatures', n: nbCandidatures },
             { valeur: 'tickets', label: 'Tickets', n: REPONSES_TYPES.length },
           ]}
         />

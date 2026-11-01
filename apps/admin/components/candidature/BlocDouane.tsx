@@ -29,15 +29,19 @@ import type { DouaneCandidature, SuiviCandidature } from '@/lib/types';
  * Bloc « Douane » de la fiche candidature : séance réservée et fenêtre
  * d'entrée, résultat de l'oral (examinateur, motif visible, notes privées),
  * historique des places, puis la carte « Oral hors jeu » repliée (enfant).
- * Lu sur GET /admin/douane/candidatures/:applicationId.
+ * Lu sur GET /admin/douane/candidatures/:applicationId. Un oral à repasser
+ * exigé par le staff s'affiche en tête (`oralARepasser`).
  */
 export function BlocDouane({
   applicationId,
   suivi,
+  oralARepasser,
   children,
 }: {
   applicationId: string;
   suivi: SuiviCandidature;
+  /** Ligne « Oral à repasser » en tête du bloc ; tant qu'elle est là, pas de « Oral réussi ». */
+  oralARepasser?: ReactNode;
   children?: ReactNode;
 }) {
   const { data, error, isLoading, refetch } = useQuery({
@@ -55,20 +59,31 @@ export function BlocDouane({
         <BadgeStatut statut={STATUT_PHASE[suivi.phase]} />
       </div>
       <div className="card-b flex flex-col gap-4">
+        {oralARepasser}
         {isLoading && <Chargement />}
         {error && <ErrorState erreur={error} onReessayer={() => void refetch()} />}
-        {data && <ContenuDouane data={data} suivi={suivi} />}
+        {data && <ContenuDouane data={data} suivi={suivi} repasser={!!oralARepasser} />}
         {children}
       </div>
     </section>
   );
 }
 
-function ContenuDouane({ data, suivi }: { data: DouaneCandidature; suivi: SuiviCandidature }) {
+function ContenuDouane({
+  data,
+  suivi,
+  repasser,
+}: {
+  data: DouaneCandidature;
+  suivi: SuiviCandidature;
+  /** Oral à repasser exigé : l'ancien oral réussi ne compte plus. */
+  repasser: boolean;
+}) {
   const enCours = data.reservations.find((r) => r.statut === 'BOOKED') ?? null;
   const manquees = data.reservations.filter((r) => r.statut === 'MISSED').length;
   const oral = data.oral;
   const oralTranche = oral.decidedAt !== null && oral.status !== 'PENDING';
+  const oralReussi = repasser ? null : data.oralPassedAt;
 
   return (
     <>
@@ -113,15 +128,15 @@ function ContenuDouane({ data, suivi }: { data: DouaneCandidature; suivi: SuiviC
         </>
       )}
 
-      {!enCours && (data.writtenApprovedAt || data.oralPassedAt || manquees > 0) && (
+      {!enCours && (data.writtenApprovedAt || oralReussi || manquees > 0) && (
         <ListeKV
           largeur={124}
           lignes={[
             data.writtenApprovedAt
               ? { cle: 'ecrit', label: 'Écrit accepté', valeur: dateHeure(data.writtenApprovedAt) }
               : null,
-            data.oralPassedAt
-              ? { cle: 'oral', label: 'Oral réussi', valeur: `${dateHeure(data.oralPassedAt)} · plus d’oral sur ce compte` }
+            oralReussi
+              ? { cle: 'oral', label: 'Oral réussi', valeur: `${dateHeure(oralReussi)} · pas d’autre oral, sauf s’il est exigé` }
               : null,
             suivi.phase === 'DOUANE_A_REVOIR' && suivi.reservableDes
               ? { cle: 'nouvelle', label: 'Nouvelle séance', valeur: `dès le ${jourLong(suivi.reservableDes)}` }

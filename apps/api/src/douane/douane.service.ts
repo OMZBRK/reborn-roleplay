@@ -154,6 +154,7 @@ export class DouaneService {
         role: true,
         oralPassedAt: true,
         whitelistRejectedAt: true,
+        oralRetakeRequestedAt: true,
         whitelistApp: {
           select: {
             id: true,
@@ -238,6 +239,7 @@ export class DouaneService {
           ? await this.dernierePlacePerdue(
               userId,
               app,
+              user.oralRetakeRequestedAt,
               reservation &&
                 placeManquee(reservation, maintenant, this.retardMaxMin)
                 ? reservation
@@ -254,7 +256,8 @@ export class DouaneService {
   }
 
   /**
-   * Dernière place perdue depuis la dernière décision (écrit ou oral) : la
+   * Dernière place perdue depuis la dernière décision (écrit, oral, ou oral à
+   * repasser exigé par le staff, qui efface la date de l'oral précédent) : la
    * place encore BOOKED dont l'entrée est fermée sans arrivée (manquée, pas
    * encore soldée), sinon la dernière MISSED ou CANCELLED créée depuis.
    */
@@ -266,6 +269,7 @@ export class DouaneService {
       oralDecidedAt: Date | null;
       writtenApprovedAt: Date | null;
     },
+    oralARepasserLe: Date | null,
     placeFermee: { convocationAt: Date } | null,
   ): Promise<DernierePlaceVue | null> {
     const vue = (
@@ -283,7 +287,12 @@ export class DouaneService {
     });
     if (placeFermee) return vue('MISSED', placeFermee.convocationAt, null);
 
-    const decisions = [app.reviewedAt, app.oralDecidedAt, app.writtenApprovedAt]
+    const decisions = [
+      app.reviewedAt,
+      app.oralDecidedAt,
+      app.writtenApprovedAt,
+      oralARepasserLe,
+    ]
       .filter((d): d is Date => d instanceof Date)
       .map((d) => d.getTime());
     const depuis =

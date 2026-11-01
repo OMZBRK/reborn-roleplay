@@ -10,7 +10,7 @@ import { Prisma } from '@prisma/client';
  * respectée », sans index partiel (Prisma ne sait pas le décrire).
  *
  * Ordre fixe pour éviter les interblocages : la candidature d'abord, la
- * séance ensuite.
+ * séance ou le compte ensuite.
  */
 
 /** Sérialise tout ce qui touche à l'oral d'un compte : réservation, changement de séance, décision. */
@@ -27,6 +27,18 @@ export async function verrouillerSeance(
   seanceId: string,
 ): Promise<void> {
   await tx.$queryRaw`SELECT "id" FROM "DouaneSeance" WHERE "id" = ${seanceId} FOR UPDATE`;
+}
+
+/**
+ * Fige le rôle et l'oral du compte (oral à repasser) : toujours après la
+ * candidature, dans l'ordre où decideOral et la décision de l'écrit écrivent
+ * le compte.
+ */
+export async function verrouillerCompte(
+  tx: Prisma.TransactionClient,
+  userId: string,
+): Promise<void> {
+  await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
 }
 
 /** Options des transactions de la douane : un peu d'attente permise sous la charge d'une ouverture de séance. */

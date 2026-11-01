@@ -25,6 +25,11 @@ import {
 } from '../douane/douane.regles';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  type OralARepasserVue,
+  refusRepasserOral,
+  vueOralARepasser,
+} from '../staff/oral-repasser.regles';
+import {
   calculerSuivi,
   PhaseCandidature,
   SuiviCandidature,
@@ -260,6 +265,10 @@ export interface WhitelistDetail {
     /** Dernier refus (écrit ou oral) : nouvelle candidature 1 jour plus tard. */
     whitelistRejectedAt: string | null;
   };
+  /** Nouvel oral exigé par le staff (décision du 01/11) : quand, qui, pourquoi ; null sinon. */
+  oralARepasser: OralARepasserVue | null;
+  /** POST /admin/players/:id/oral-a-repasser accepterait ce compte (refusRepasserOral). */
+  peutExigerOral: boolean;
   messages: Array<{
     id: string;
     authorType: MessageAuthor;
@@ -364,6 +373,12 @@ export interface PlayerDetail {
    * lecture journalisée. Il partait avec la fiche, lisible dès Helper.
    */
   lastKnownCountry: null;
+  /** Oral réussi sur ce compte ; null : jamais passé, ou de nouveau à passer. */
+  oralPassedAt: string | null;
+  /** Nouvel oral exigé par le staff (décision du 01/11) : quand, qui, pourquoi ; null sinon. */
+  oralARepasser: OralARepasserVue | null;
+  /** POST /admin/players/:id/oral-a-repasser accepterait ce compte (refusRepasserOral). */
+  peutExigerOral: boolean;
   whitelist: {
     id: string;
     status: AppStatus;
@@ -902,6 +917,9 @@ export class AdminService {
             role: true,
             oralPassedAt: true,
             whitelistRejectedAt: true,
+            oralRetakeRequestedAt: true,
+            oralRetakeRequestedById: true,
+            oralRetakeReason: true,
           },
         },
         assignedTo: { select: SELECT_COMPTE_STAFF },
@@ -922,6 +940,9 @@ export class AdminService {
           select: SELECT_COMPTE_STAFF,
         })
       : null;
+    const demandeurOral = await this.demandeurOral(
+      app.user.oralRetakeRequestedById,
+    );
     const suivi = calculerSuivi({
       role: app.user.role,
       oralPassedAt: app.user.oralPassedAt,
@@ -998,6 +1019,8 @@ export class AdminService {
         oralPassedAt: iso(app.user.oralPassedAt),
         whitelistRejectedAt: iso(app.user.whitelistRejectedAt),
       },
+      oralARepasser: vueOralARepasser(app.user, demandeurOral),
+      peutExigerOral: refusRepasserOral(app.user, app) === null,
       messages: app.messages.map((m) => ({
         id: m.id,
         authorType: m.authorType,
@@ -1086,6 +1109,9 @@ export class AdminService {
       },
     });
     if (!user) throw new NotFoundException('Joueur introuvable.');
+    const demandeurOral = await this.demandeurOral(
+      user.oralRetakeRequestedById,
+    );
     return {
       id: user.id,
       minecraftUsername: user.minecraftUsername,
@@ -1103,6 +1129,9 @@ export class AdminService {
       ipConnue: !!user.lastKnownIp,
       // Le pays suit l'IP : lecture à la demande, journalisée (revelerIp).
       lastKnownCountry: null,
+      oralPassedAt: user.oralPassedAt?.toISOString() ?? null,
+      oralARepasser: vueOralARepasser(user, demandeurOral),
+      peutExigerOral: refusRepasserOral(user, user.whitelistApp) === null,
       whitelist: user.whitelistApp
         ? {
             id: user.whitelistApp.id,
@@ -1124,6 +1153,20 @@ export class AdminService {
         lastMessagePreview: t.messages[0]?.content.slice(0, 140) ?? null,
       })),
     };
+  }
+
+  /**
+   * Compte staff qui a exigé un nouvel oral (bloc « Oral à repasser » des
+   * fiches) : une lecture par identifiant, la colonne n'a pas de relation.
+   */
+  private async demandeurOral(
+    id: string | null,
+  ): Promise<{ id: string; minecraftUsername: string } | null> {
+    if (!id) return null;
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, minecraftUsername: true },
+    });
   }
 
   /**

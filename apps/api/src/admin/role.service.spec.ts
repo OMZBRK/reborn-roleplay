@@ -8,7 +8,7 @@ import { RoleService } from './role.service';
 // de décision, sa voix suit la règle d'une décision finale (effacée 30 jours
 // plus tard, Q2) au lieu d'être gardée sans limite.
 
-function monter(cibleRole: Role) {
+function monter(cibleRole: Role, { oralARepasser = false } = {}) {
   const users: Record<
     string,
     { id: string; role: Role; minecraftUsername: string }
@@ -23,6 +23,10 @@ function monter(cibleRole: Role) {
       ),
       update: jest.fn(({ data }: { data: { role: Role } }) =>
         Promise.resolve({ ...users.cible, role: data.role }),
+      ),
+      // Levée conditionnelle de l'oral à repasser : une ligne si une exigence est en cours.
+      updateMany: jest.fn(() =>
+        Promise.resolve({ count: oralARepasser ? 1 : 0 }),
       ),
     },
     whitelistApplication: {
@@ -105,6 +109,75 @@ describe('RoleService — voix de la candidature', () => {
     await service.changeRoleByUserId('admin', 'cible', Role.HELPER);
     expect(prisma.whitelistApplication.updateMany).not.toHaveBeenCalled();
     expect(prisma.douaneReservation.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('RoleService — oral à repasser (01/11)', () => {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  /** Levée de l'oral à repasser : écriture conditionnelle, jugée en base. */
+  const levee = {
+    where: { id: 'cible', oralRetakeRequestedAt: { not: null } },
+    data: {
+      oralPassedAt: expect.any(Date) as Date,
+      oralRetakeRequestedAt: null,
+      oralRetakeRequestedById: null,
+      oralRetakeReason: null,
+    },
+  };
+
+  it('PLAYER → WHITELISTED : la promotion manuelle lève l’oral exigé comme « Lever » (oral réussi, indicateur effacé), dans la même transaction', async () => {
+    const { service, prisma, audit } = monter(Role.PLAYER, {
+      oralARepasser: true,
+    });
+    await service.changeRoleByUserId(
+      'admin',
+      'cible',
+      Role.WHITELISTED,
+      'Accepté hors douane',
+    );
+    expect(prisma.user.updateMany).toHaveBeenCalledWith(levee);
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'cible' },
+      data: { role: Role.WHITELISTED },
+      select: { id: true, minecraftUsername: true, role: true },
+    });
+    // En tête de la transaction (avant le rôle), avec la voix et la place rendue.
+    const ops = prisma.$transaction.mock.calls[0][0];
+    expect(ops).toHaveLength(4);
+    expect(ops[0]).toBe(prisma.user.updateMany.mock.results[0].value);
+    expect(ops[1]).toBe(prisma.user.update.mock.results[0].value);
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: {
+          from: Role.PLAYER,
+          to: Role.WHITELISTED,
+          motif: 'Accepté hors douane',
+          oralARepasserLeve: true,
+        },
+      }),
+    );
+  });
+
+  it('entre deux rôles au-dessus de PLAYER : une exigence posée entre-temps est levée aussi ; seul le rôle change sinon', async () => {
+    const { service, prisma } = monter(Role.WHITELISTED);
+    await service.changeRoleByUserId('admin', 'cible', Role.HELPER);
+    expect(prisma.user.updateMany).toHaveBeenCalledWith(levee);
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { role: Role.HELPER } }),
+    );
+  });
+
+  it('retour à PLAYER : l’oral ne se touche pas', async () => {
+    const { service, prisma } = monter(Role.WHITELISTED);
+    await service.changeRoleByUserId('admin', 'cible', Role.PLAYER);
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { role: Role.PLAYER } }),
+    );
   });
 });
 

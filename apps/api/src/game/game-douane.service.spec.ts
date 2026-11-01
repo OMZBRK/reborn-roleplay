@@ -13,6 +13,7 @@ import {
 } from '@prisma/client';
 import type { DecisionDouaneJeuDto } from './dto/game-douane.dto';
 import { GameDouaneService } from './game-douane.service';
+import { dossierDouaneVue } from './game-douane.vues';
 
 // Routes signées du jeu, côté métier (CANDIDATURE_ET_DOUANE.md §3.7, §3.8,
 // §3.9) : l'examinateur doit avoir le rôle web avec CE compte Minecraft, la
@@ -459,6 +460,31 @@ describe('GameDouaneService', () => {
     );
   });
 
+  it('dossier d’un oral à repasser (01/11) : le compte lu porte le motif du staff, repris en tête de la note', async () => {
+    const s = service();
+    const game = (s as unknown as { game: { findUserByMcUuid: jest.Mock } })
+      .game;
+    game.findUserByMcUuid.mockImplementation((u: string) =>
+      Promise.resolve(
+        u === UUID_CANDIDAT
+          ? {
+              ...comptes[u],
+              oralRetakeReason: 'Candidature de clan.',
+              oralRetakeRequestedAt: new Date('2026-10-31T23:30:00Z'),
+            }
+          : (comptes[u] ?? null),
+      ),
+    );
+    const d = await s.dossier(UUID_CANDIDAT, UUID_EXAMINATEUR, 'dev');
+    // Sur la même ligne : le Poste de garde publié ne coupe qu'aux espaces.
+    expect(d.noteEcrit).toEqual({
+      texte:
+        'Oral à repasser (demandé le 01/11/2026) : Candidature de clan. · ' +
+        'Creuser la motivation du départ du village.',
+      tronquee: false,
+    });
+  });
+
   it('dossier hors passage (écrit en attente) : 409', async () => {
     prisma.whitelistApplication.findUnique.mockResolvedValueOnce({
       ...candidature,
@@ -644,5 +670,42 @@ describe('GameDouaneService', () => {
         'dev',
       ),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+// Oral à repasser (01/11) : l'examinateur lit le motif du staff en tête de la
+// note de l'écrit (cas complet : test « dossier d'un oral à repasser » plus
+// haut). Vue seulement : le jeu affiche déjà `noteEcrit`.
+describe('dossierDouaneVue — oral à repasser', () => {
+  const options = { maintenant: H, retardMaxMin: 30, adminBaseUrl: null };
+  const candidat = { minecraftUuid: UUID_CANDIDAT, minecraftUsername: 'Kaito' };
+  const app = candidature as unknown as Parameters<typeof dossierDouaneVue>[0];
+  const exigence = {
+    oralRetakeReason: 'Candidature de clan.',
+    // 00 h 30 le 1er novembre à Paris : la date affichée est celle de Paris.
+    oralRetakeRequestedAt: new Date('2026-10-31T23:30:00Z'),
+  };
+
+  it('sans note privée : la ligne seule ; sans exigence : la note telle quelle', () => {
+    const sansNote = { ...app, writtenStaffNotes: null };
+    expect(
+      dossierDouaneVue(sansNote, { ...candidat, ...exigence }, place, options)
+        .noteEcrit,
+    ).toEqual({
+      texte: 'Oral à repasser (demandé le 01/11/2026) : Candidature de clan.',
+      tronquee: false,
+    });
+    expect(dossierDouaneVue(app, candidat, place, options).noteEcrit).toEqual({
+      texte: 'Creuser la motivation du départ du village.',
+      tronquee: false,
+    });
+    expect(
+      dossierDouaneVue(
+        sansNote,
+        { ...candidat, oralRetakeReason: null, oralRetakeRequestedAt: null },
+        place,
+        options,
+      ).noteEcrit,
+    ).toBeNull();
   });
 });

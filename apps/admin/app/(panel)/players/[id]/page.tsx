@@ -8,6 +8,13 @@ import { toast } from 'sonner';
 import { ChangerGrade, peutChangerGrade } from '@/components/ChangerGrade';
 import { Garde } from '@/components/Garde';
 import { MCAvatar } from '@/components/MCAvatar';
+import {
+  CaseRefaireOral,
+  FaireRepasserOral,
+  LigneOralARepasser,
+  descriptionRemiseAZero,
+  proposerRefaireOral,
+} from '@/components/candidature/RepasserOral';
 import { Badge, BadgeStatut } from '@/components/ui/Badge';
 import { BoutonIcone, Button, Mot } from '@/components/ui/Button';
 import { Card, ListeKV } from '@/components/ui/Card';
@@ -18,10 +25,11 @@ import { MenuPlus } from '@/components/ui/Menu';
 import { EmptyState, ErrorState, Chargement, Callout, messageErreur } from '@/components/ui/States';
 import { Tabs } from '@/components/ui/Tabs';
 import { api } from '@/lib/api';
-import { STATUT_GLOBAL } from '@/lib/candidature';
+import { PHASES_ORAL, STATUT_GLOBAL } from '@/lib/candidature';
 import { useDroits } from '@/lib/droits';
 import { dateHeure, dateJour, ilYa, pluriel, tempsDeJeu, uuidCourt } from '@/lib/format';
 import {
+  estStaff,
   libelleAction,
   libelleCategorie,
   libelleGrade,
@@ -38,6 +46,7 @@ import type {
   PersonnageJoueur,
   PersonnagesJoueur,
   PlayerDetail,
+  WhitelistDetail,
 } from '@/lib/types';
 
 /**
@@ -66,6 +75,7 @@ function Fiche({ id }: { id: string }) {
   const { confirmer } = useConfirm();
   const { moi, peut, peutUne } = useDroits();
   const [grade, setGrade] = useState(false);
+  const [oral, setOral] = useState(false);
 
   const { data: j, isLoading, error, refetch } = useQuery({
     queryKey: ['admin', 'players', id],
@@ -75,6 +85,16 @@ function Fiche({ id }: { id: string }) {
   const persos = useQuery({
     queryKey: ['admin', 'players', id, 'characters'],
     queryFn: () => api<PersonnagesJoueur>(`/admin/players/${id}/characters`),
+  });
+  // « Lever » valide l'oral hors jeu, refusé hors des phases de douane (écrit
+  // encore en relecture…) : la fiche joueur n'a pas la phase, on la lit sur la
+  // candidature (même requête et même cache que sa fiche), seulement quand un
+  // oral est à repasser.
+  const candidatureOral = j?.oralARepasser && peut('candidatures.relire') ? (j.whitelist?.id ?? null) : null;
+  const dossierOral = useQuery({
+    queryKey: ['admin', 'whitelist', candidatureOral],
+    queryFn: () => api<WhitelistDetail>(`/admin/whitelist/${candidatureOral}`),
+    enabled: candidatureOral !== null,
   });
 
   const onglets: Array<{ cle: Onglet; label: string; n?: number; icone?: NomIcone }> = [
@@ -90,17 +110,17 @@ function Fiche({ id }: { id: string }) {
   const onglet: Onglet = onglets.some((o) => o.cle === demande) ? demande! : 'apercu';
 
   const reset = useMutation({
-    mutationFn: (applicationId: string) =>
-      api<{ ok: boolean; roleDemoted: boolean }>(`/admin/whitelist/${applicationId}/reset`, {
-        method: 'POST',
-      }),
+    mutationFn: (v: { applicationId: string; refaireOral: boolean }) =>
+      api<{ ok: boolean; roleDemoted: boolean; oralReinitialise: boolean }>(
+        `/admin/whitelist/${v.applicationId}/reset`,
+        // Sans la case : aucun corps, comme avant.
+        { method: 'POST', body: v.refaireOral ? { refaireOral: true } : undefined },
+      ),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['admin', 'players', id] });
       qc.invalidateQueries({ queryKey: ['admin', 'whitelist'] });
       toast.success('Candidature remise à zéro', {
-        description: r.roleDemoted
-          ? 'Le joueur repasse joueur et peut envoyer une nouvelle candidature.'
-          : 'Grade staff conservé : le joueur peut envoyer une nouvelle candidature.',
+        description: descriptionRemiseAZero(r, j?.role ?? ''),
       });
     },
     onError: (e) => toast.error('Remise à zéro impossible', { description: messageErreur(e) }),
@@ -122,15 +142,27 @@ function Fiche({ id }: { id: string }) {
   }
 
   const changer = peutChangerGrade(moi, { id: j.id, role: j.role }, peut('grades.changer'));
+  const peutFaireRepasser = peut('candidatures.relire') && j.peutExigerOral;
   const entreesPlus = [];
+  if (peutFaireRepasser) {
+    entreesPlus.push({
+      cle: 'repasser-oral',
+      label: 'Faire repasser l’oral',
+      icone: 'landmark' as NomIcone,
+      onClick: () => setOral(true),
+    });
+  }
   if (j.whitelist && peut('candidatures.reinitialiser')) {
     const app = j.whitelist;
+    const proposerOral = proposerRefaireOral(j);
     entreesPlus.push({
       cle: 'reset',
       label: 'Remettre la candidature à zéro',
       icone: 'rotate-ccw' as NomIcone,
       danger: true,
       onClick: async () => {
+        // Lue une fois la remise confirmée (la case garde son état dans la fenêtre).
+        let refaireOral = false;
         const ok = await confirmer({
           titre: `Remettre à zéro la candidature de ${j.minecraftUsername} ?`,
           message:
@@ -138,11 +170,25 @@ function Fiche({ id }: { id: string }) {
           confirmer: 'Remettre à zéro',
           danger: true,
           retaper: j.minecraftUsername,
+          contenu: proposerOral ? (
+            <CaseRefaireOral
+              onChange={(v) => {
+                refaireOral = v;
+              }}
+            />
+          ) : undefined,
         });
-        if (ok) reset.mutate(app.id);
+        if (ok) reset.mutate({ applicationId: app.id, refaireOral });
       },
     });
   }
+
+  // Dernière partie : le personnage vu le plus récemment (tous serveurs).
+  const dernierePartie = (persos.data?.characters ?? []).reduce<string | null>(
+    (plusRecent, p) =>
+      p.lastSeenAt && (!plusRecent || Date.parse(p.lastSeenAt) > Date.parse(plusRecent)) ? p.lastSeenAt : plusRecent,
+    null,
+  );
 
   const statut = statutCompte(j);
 
@@ -199,6 +245,18 @@ function Fiche({ id }: { id: string }) {
         </div>
       )}
 
+      {j.oralARepasser && (
+        <LigneOralARepasser
+          o={j.oralARepasser}
+          applicationId={j.whitelist?.id ?? null}
+          pseudo={j.minecraftUsername}
+          // Lever valide l'oral hors jeu : seulement dans une phase où il se tranche
+          // (comme la fiche candidature) ; caché tant que la phase n'est pas lue.
+          peutLever={!!dossierOral.data && PHASES_ORAL.includes(dossierOral.data.phase)}
+          variante="page"
+        />
+      )}
+
       <Tabs
         label="Onglets de la fiche"
         onglets={onglets.map((o) => ({
@@ -238,6 +296,14 @@ function Fiche({ id }: { id: string }) {
           cible={{ id: j.id, pseudo: j.minecraftUsername, role: j.role }}
         />
       )}
+      {peutFaireRepasser && (
+        <FaireRepasserOral
+          ouvert={oral}
+          onFermer={() => setOral(false)}
+          cible={{ userId: j.id, pseudo: j.minecraftUsername }}
+          activite={{ lastLoginAt: j.lastLoginAt, dernierePartie }}
+        />
+      )}
     </div>
   );
 }
@@ -253,9 +319,10 @@ function Apercu({ j }: { j: PlayerDetail }) {
       cle: 'candidature',
       icone: 'scroll-text',
       titre: 'Candidature',
-      texte: j.whitelist
-        ? `${STATUT_GLOBAL[j.whitelist.status].label} · ${j.whitelist.firstName} ${j.whitelist.lastName}, ${j.whitelist.village} · envoyée le ${dateJour(j.whitelist.submittedAt)}`
-        : 'Aucune candidature envoyée',
+      texte:
+        (j.whitelist
+          ? `${STATUT_GLOBAL[j.whitelist.status].label} · ${j.whitelist.firstName} ${j.whitelist.lastName}, ${j.whitelist.village} · envoyée le ${dateJour(j.whitelist.submittedAt)}`
+          : 'Aucune candidature envoyée') + (j.oralARepasser ? ' · oral à repasser' : ''),
       href: `${base}?onglet=candidature`,
     },
     {
@@ -404,6 +471,23 @@ function OngletCandidature({ j, lienFiche }: { j: PlayerDetail; lienFiche: boole
           { cle: 'village', label: 'Village', valeur: w.village },
           { cle: 'envoi', label: 'Envoyée', valeur: dateHeure(w.submittedAt) },
           w.reviewedAt ? { cle: 'relue', label: 'Relue', valeur: dateHeure(w.reviewedAt) } : null,
+          {
+            cle: 'oral',
+            label: 'Oral',
+            // « À passer » pour un joueur seulement : le staff ne passe pas la douane,
+            // et un whitelisté sans oral réussi a reçu son grade à la main.
+            valeur: j.oralPassedAt ? (
+              <span title={dateHeure(j.oralPassedAt)}>Réussi le {dateJour(j.oralPassedAt)}</span>
+            ) : j.oralARepasser ? (
+              <span className="[overflow-wrap:anywhere]">À repasser · {j.oralARepasser.motif}</span>
+            ) : j.role === 'PLAYER' ? (
+              'À passer'
+            ) : estStaff(j.role) ? (
+              'Non requis (staff)'
+            ) : (
+              'Non passé · grade donné à la main'
+            ),
+          },
         ]}
       />
     </Card>

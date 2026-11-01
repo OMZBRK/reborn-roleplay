@@ -246,6 +246,14 @@ export function formatDateParis(d: Date): string {
   return `${dd}/${mm} à ${heureCourteParis(d)}`;
 }
 
+/** « 01/11/2026 » : le jour à Paris, avec l'année. */
+export function jourMoisAnParis(d: Date): string {
+  const p = partiesParis(d);
+  const dd = String(p.jour).padStart(2, '0');
+  const mm = String(p.mois).padStart(2, '0');
+  return `${dd}/${mm}/${p.an}`;
+}
+
 /**
  * Âge révolu à `now` (date de Paris) d'une date de naissance AAAA-MM-JJ.
  * null si la date est illisible. Sert à la lecture des anciens dossiers, qui

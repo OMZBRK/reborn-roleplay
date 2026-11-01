@@ -1,5 +1,6 @@
 import { AppStatus, Role, TicketStatus } from '@prisma/client';
 import {
+  IsBoolean,
   IsEnum,
   IsIn,
   IsInt,
@@ -26,6 +27,30 @@ export class ChangeRoleDto {
   @MinLength(3, { message: 'Motif : 3 caractères au moins.' })
   @MaxLength(500, { message: 'Motif : 500 caractères au plus.' })
   motif!: string;
+}
+
+/**
+ * Corps de POST /v1/admin/players/:id/oral-a-repasser (décision du 01/11) :
+ * le staff exige un nouvel oral. Motif obligatoire, montré au joueur et
+ * inscrit au journal.
+ */
+export class RepasserOralDto {
+  @IsString({ message: 'Le motif doit être un texte.' })
+  @MinLength(3, { message: 'Motif : 3 caractères au moins.' })
+  @MaxLength(500, { message: 'Motif : 500 caractères au plus.' })
+  motif!: string;
+}
+
+/**
+ * Corps (facultatif) de POST /v1/admin/whitelist/:id/reset. `refaireOral` :
+ * l'oral redevient aussi à passer (exception du 01/11 à la décision du 19/10),
+ * pour rejouer le cycle complet, écrit puis oral. Absent ou faux : l'oral déjà
+ * passé reste acquis.
+ */
+export class ResetWhitelistDto {
+  @IsOptional()
+  @IsBoolean({ message: 'refaireOral doit valoir true ou false.' })
+  refaireOral?: boolean;
 }
 
 /**
