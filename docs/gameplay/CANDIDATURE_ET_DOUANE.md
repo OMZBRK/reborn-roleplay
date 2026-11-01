@@ -127,6 +127,9 @@ Le launcher et le serveur lisent cette phase **au lieu du rôle**.
 **L'oral à la première whitelist seulement** (décision du 19/10) : si `User.oralPassedAt` est renseigné quand l'écrit
 est validé, on passe directement à `ACCEPTE`.
 
+**Exception du 01/11 : oral à repasser.** Le staff peut exiger un nouvel oral (§3.10) : le compte revient dans l'état
+« écrit validé, oral à passer » et suit les phases ci-dessus, sans nouvelle valeur de phase.
+
 ### 1.3 Ce qui change par rapport à aujourd'hui
 
 - **Ordre inversé**. Aujourd'hui, l'HRP « via test oral » est validé, puis le RP est examiné
@@ -822,7 +825,8 @@ s'y affiche déjà en générique (`StaffScreen.java:440-449`).
 | Ancien Guardian ou ancien ShinobiCore | **Refus par défaut** (§3.12) : sans preuve positive de `play`, pas de sélection. L'ordre de déploiement (§6.2) évite aussi qu'un jeton « douane » atteigne un serveur pas à jour |
 | API injoignable au pré-login | Délai HTTP court (2 à 3 s), puis **état d'attente neutre**. Seule l'attestation Guardian peut alors aiguiller. Sans aucune preuve au bout de 10 s : expulsion (§3.3) |
 | Compte staff | Rôle HELPER ou plus : `scope:"play"`, jamais la douane |
-| Recandidature après un oral réussi | `oralPassedAt` renseigné : pas de nouvel oral (décision du 19/10) |
+| Recandidature après un oral réussi | `oralPassedAt` renseigné : pas de nouvel oral (décision du 19/10), **sauf** oral à repasser exigé par le staff ou remise à zéro avec « Refaire aussi l'oral » (01/11, ligne suivante) |
+| Oral à repasser (01/11) | Panel › fiche du joueur ou de la candidature › ⋯ › « Faire repasser l'oral » (capacité `candidatures.relire`, motif obligatoire **visible du joueur**, journal `whitelist.oral.repasser`). Jamais sur un compte staff ni sur son propre compte ; refusé sur une candidature refusée (pour tout rejouer : remise à zéro avec la case). Compte non staff ayant une candidature : il redevient `PLAYER`, `oralPassedAt` est vidé et la candidature revient à « écrit validé, oral à passer » (`DOUANE_A_RESERVER`, aucune nouvelle phase : launcher 0.3.50 et jeu inchangés) ; `User.oralRetakeRequestedAt`, `…RequestedById`, `…Reason` gardent qui, quand, pourquoi ; l'oral effacé (date, voie, examinateur, motif, notes privées) est recopié au journal. Message au joueur (fil + MP) selon la phase. Pendant l'oral à repasser, l'écrit accepté ne se retranche plus (panel et bot) : le rouvrir = remise à zéro. Effet à la prochaine connexion. Oral validé, en jeu ou hors jeu : repromu `WHITELISTED`, indicateur effacé ; « Lever » = oral validé hors jeu (le joueur lit « Oral validé par le staff »). Un grade donné à la main pendant l'attente lève aussi l'exigence (`oralPassedAt` reposé). Personnages et inventaires intacts. Remise à zéro : case « Lui faire aussi repasser l'oral » (vide aussi `oralPassedAt`) |
 | Porte beta | `LAUNCHER_BETA_GATE` (`auth.service.ts:124-142`) refuse la **connexion au launcher** des comptes `PLAYER` : en prod, elle bloque la candidature elle-même, pas seulement la douane. Il n'y a pas d'API de dev (ETAT §3) : « couper la porte sur le dev » est impossible. Il faut une liste de comptes de test autorisés malgré la porte (🆕 `LAUNCHER_BETA_ALLOW`) |
 | Candidature de clan | Hors périmètre (DISCORD_JOUEURS §7 B) ; voir §2.9 |
 | Crash, micro du jeu en panne | Oral hors jeu de secours ? **Q9** |
