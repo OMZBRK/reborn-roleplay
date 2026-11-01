@@ -1,0 +1,6 @@
+{
+  "name": "reborn-suivi",
+  "version": "0.1.0",
+  "description": "Panneau Suivi Reborn : ce qui t'attend, ce que Claude fait en ce moment, l'avancement des chantiers et ce qui est en ligne",
+  "types": "./types/index.d.ts"
+}

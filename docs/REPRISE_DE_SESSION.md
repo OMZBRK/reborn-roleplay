@@ -77,16 +77,21 @@ git log --oneline -15       # qu'est-ce qui est arrivé depuis la dernière mise
 | Serveur dev | SFTP, mot de passe dans le gestionnaire d'identification Windows (`reborn-sftp-dev`, lu avec `keyring` en Python) ; logs `logs/latest.log` — [`operations/PUBLICATION.md`](./operations/PUBLICATION.md) §3 |
 | Python | `pip install --target <scratchpad>/pylib …` pour paramiko, keyring, pyyaml ; écrire les scripts dans un fichier (les heredocs longs cassent) |
 | Pas de serveur Paper 26.2 local | Le code serveur ne se teste qu'après déploiement sur le dev |
+| Panneau Suivi | Mod Claude Code `tools/claude-suivi`, chargé dans toutes les sessions par `CLAUDE_CODE_PLUGIN_DIRS` (`~/.claude/settings.json`) ; données `.claude/suivi/etat.json` ; `/suivi` le rouvre |
 
 ## 7. En fin de chantier ou de session
 
 1. **`CHANTIERS.md`** : mettre à jour la ligne du chantier (état, reste, décisions en attente) et le §0.
-2. **`pilotage/DECISIONS.md`** : une ligne par décision prise par l'utilisateur (barrer celle qu'elle remplace).
-3. **La fiche du système** (`gameplay/…`, `technique/…`) : ce qui est codé, réglages, commandes.
-4. Après une publication : **`ETAT_DES_LIEUX.md`** (commit `docs(etat)`) et une ligne dans
+2. **Le panneau Suivi**, à chaque jalon et pas seulement en fin de chantier : `.claude/suivi/etat.json` (local)
+   — ce qui attend l'utilisateur (`aToi`, avec la commande à coller dans `commande`), l'état et les étapes du
+   chantier (`estimation` en minutes, `toi`, `agent` pour une étape portée par un workflow). L'utilisateur suit le
+   projet dans ce panneau ([`../tools/claude-suivi/README.md`](../tools/claude-suivi/README.md)).
+3. **`pilotage/DECISIONS.md`** : une ligne par décision prise par l'utilisateur (barrer celle qu'elle remplace).
+4. **La fiche du système** (`gameplay/…`, `technique/…`) : ce qui est codé, réglages, commandes.
+5. Après une publication : **`ETAT_DES_LIEUX.md`** (commit `docs(etat)`) et une ligne dans
    **`pilotage/JOURNAL_DES_LIVRAISONS.md`**.
-5. **Boards** (Trello public / Miro) : cf. [`pilotage/BOARDS.md`](./pilotage/BOARDS.md).
-6. Donner à l'utilisateur la **liste « À tester »**.
+6. **Boards** (Trello public / Miro) : cf. [`pilotage/BOARDS.md`](./pilotage/BOARDS.md).
+7. Donner à l'utilisateur la **liste « À tester »**.
 
 ## 8. Prompts prêts à coller
 

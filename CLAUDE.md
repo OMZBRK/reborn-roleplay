@@ -41,6 +41,7 @@ Since 26.x the Mojang client ships **deobfuscated** — Yarn is gone, there is n
 - `minecraft/server-config` — server.properties / MagicSpells / Nexo templates
 - `tools/blockbench-reborn-compositor`, `tools/blockbench-handpaint` — Blockbench plugins (skin compositor, hand-paint AO/Shade)
 - `tools/claude-hooks` — Claude Code hook that pings Discord through the Reborn bot
+- `tools/claude-suivi` — Claude Code mod: the « Suivi Reborn » side panel the user manages the project from (featured workstream with % and ETA, Game Plan beta, what awaits the user, running workflows). It reads the local `.claude/suivi/etat.json`, which every session keeps up to date at each milestone (`docs/REPRISE_DE_SESSION.md` §7)
 - `scripts/` — `publish-launcher.ps1`, `publish-mod-manifest.ps1`
 - `infra/docker-compose.yml` — Postgres 16 + Redis 7 for local dev; `docker-compose.prod.yml` + Caddy for prod
 
