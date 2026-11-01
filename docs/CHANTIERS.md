@@ -18,16 +18,16 @@
 - **Date de référence : 17 octobre 2026.** Sprint 1 prolongé (décision : le finir avant le Sprint 2).
 - **Game Plan Reborn : [`GAMEPLAN.md`](./GAMEPLAN.md), on avance point par point dans l'ordre RedLine** (§54 du Game
   Plan).
-  - **n° 17, lot 1 — publié sur le dev le 01/11** (`reborn-hud` 0.4.194, manifest 3.1.152, ShinobiCore + ShinobiRadio) : ancre de tête
+  - **n° 17, lot 1 — publié sur le dev et validé en jeu le 01/11** (`reborn-hud` 0.4.194, manifest 3.1.152, ShinobiCore + ShinobiRadio) : ancre de tête
     (tout ce qui flotte suit la tête rendue, à terre et pendant les émotes), nom au regard au lieu du pseudo permanent,
     bulle voix / frappe et `/me` **sans fond** posés sur la tête (masqués derrière un mur ou un joueur plus proche),
     portées de Plasmo sur la touche H avec micro coloré, chuchoté imposé à terre, couper / rétablir la voix au Poste de
     garde ([`technique/MOD_HUD.md`](./technique/MOD_HUD.md) §9-§10, [`technique/PLUGINS_REFERENCE.md`](./technique/PLUGINS_REFERENCE.md)
-    §4 quater.1). 🟢 En recette (01/11 : « la majorité semble marcher », points en échec à relever). ❓ Douane :
+    §4 quater.1). ✅ Validé en jeu par l'utilisateur le 01/11. ❓ Douane :
     `douane.voix.couper` passe-t-il par `vmute` ? Ensuite lots 2 à 5 (HUD bas-droite et OST, Échap et touches,
     concentration, saut / Byakugan / arbres et murs).
   - **n° 17, lot 2 « reprises Ketto » — maquettes v2 validées le 01/11, code en cours (branches `feature/lot2-ketto` et `feature/lot2-narration`)** : annonces narratives au centre (taille Ketto re-mesurée : bloc de 340 px au plus en 1080p, police choisie sur planche parmi dix polices OFL, rendu FreeType maison « TexteRaster »), lecteur OST en haut à droite épuré (variante B : trois barres à gauche du titre), bas-droite « qui parle » + notifications sans voile + rappels de touches ; références `Maquettes/gameplan/ref_ketto_prologues/hd_*` (privées), maquettes `Maquettes/gameplan/17_lot2_ketto/` (`00_sommaire.png`, `LISEZMOI.md`). Choix du 01/11 (DECISIONS) : Alegreya Sans Bold Italic, 340 px, rappels permanents, OST variante B, titre = catégorie de la piste. ⚠️ Précision du 01/11 : le texte central de la salle sombre est celui d'une **plaque**, lisible **seulement en concentration en la visant** (principe de la concentration, lot 4 : traces de pas, plaques, menu d'interaction qui remplace la touche du menu R, effet d'écran propre) ; le rendu de texte du lot 2 se branche donc d'abord sur la lecture des plaques. ✅ 01/11 : `/narration` du staff **en plus** des plaques (commande, Poste de garde). Puis, en dernier sur la branche du lot 2 : renommage « nametag » du nom au-dessus de la tête dans le code et la doc (« plaque » = plaques du monde, lot 4).
-  - **Oral à repasser (panel staff) — codé le 01/11, à déployer (train web : API + panel, migration `20261101150000_oral_a_repasser`)** : « Faire repasser l'oral » sur la fiche du joueur ou de la candidature (motif visible du joueur, modèles clan / absence / test), « Lever », case « refaire aussi l'oral » à la remise à zéro ; launcher et jeu inchangés ([`gameplay/CANDIDATURE_ET_DOUANE.md`](./gameplay/CANDIDATURE_ET_DOUANE.md) §3.10). Captures : `Maquettes/panel/oral_a_repasser/`. 🟡 Tester avec un compte de test (pas staff, dans `LAUNCHER_BETA_ALLOW`).
+  - **Oral à repasser (panel staff) — codé et déployé le 01/11 (train web : API + panel, migration `20261101150000_oral_a_repasser`)** : « Faire repasser l'oral » sur la fiche du joueur ou de la candidature (motif visible du joueur, modèles clan / absence / test), « Lever », case « refaire aussi l'oral » à la remise à zéro ; launcher et jeu inchangés ([`gameplay/CANDIDATURE_ET_DOUANE.md`](./gameplay/CANDIDATURE_ET_DOUANE.md) §3.10). Captures : `Maquettes/panel/oral_a_repasser/`. 🟡 En test par l'utilisateur avec un compte de test (pas staff, dans `LAUNCHER_BETA_ALLOW`) ; qui peut l'exiger : décision n° 17 (§4).
   - **Recette du 17/10** (en jeu) : radio, boutiques, factions, cloche, volière et missives, marche sur l'eau, Test de
     la Feuille **validés** ; monnaie : bourse OK, **banque pas encore testée**
     ([`operations/RECETTE_GAMEPLAY.md`](./operations/RECETTE_GAMEPLAY.md) §0).
@@ -218,6 +218,7 @@ lieux placés « à l'œil », à corriger en jeu (`/carte set`).
 | 14 | **Vol d'yeux** (extraction sur corps KO / cadavre validée par le staff, cécité, bandage, greffe) dans la beta ? | Benchmark §5 lot E1 |
 | 15 | **Greffe d'ADN** (marchand type Kabuto) : compatible avec les clans sur candidature ? | Benchmark §2.6 |
 | 16 | **Porte de sortie** dans la demande de RPK (modèle Solve) | Benchmark §5 lot A4 |
+| 17 | **Oral à repasser** : ouvert à tout le staff qui relit les candidatures (`candidatures.relire`, comme aujourd'hui) ou réservé à la Direction ? | Relecture du 01/11 (ES1) : un recruteur peut aujourd'hui retirer une whitelist en deux gestes ; la décision du 01/11 dit « le staff » |
 
 ---
 

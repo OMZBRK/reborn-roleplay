@@ -51,8 +51,8 @@
 
 | Service | Adresse | Hébergeur |
 |---|---|---|
-| API | `https://api.reborn-rp.com/v1` (`/health` → `ok`) — `main` du 15/10 (`984e4b2` : familles de sessions, un replay de refresh token ne coupe plus que sa famille) | VPS OVH (Gravelines), Docker + Caddy |
-| Panel staff | `https://panel.reborn-rp.com` | même VPS |
+| API | `https://api.reborn-rp.com/v1` (`/health` → `ok`) — `main` du 01/11 (`c4906704` : oral à repasser, migration `20261101150000_oral_a_repasser`), déployé par l'utilisateur le 01/11 | VPS OVH (Gravelines), Docker + Caddy |
+| Panel staff | `https://panel.reborn-rp.com` — `main` du 01/11 (oral à repasser) | même VPS |
 | Serveur MC **build** (adresse principale du launcher) | `play.reborn-rp.com:27106` : les builders y construisent la carte ; cible « BUILD » du sélecteur staff du menu (hôte : `REBORN_SERVER_HOST` du `.env`, intégré au launcher à la publication — launcher 0.3.50 pour que le staff y retourne) ; la prod sera le dev une fois prêt (décision du 26/10) | Minestrator |
 | Serveur MC **dev** | port de jeu 25606 (hôte dans le `.env` : `REBORN_SERVER_DEV_HOST`) ; **pré-prod** (devient la prod une fois prêt, décision du 26/10) ; API : `REBORN_SERVER_IDS=prod,dev`, « Mes personnages » lit `dev` | Minestrator |
 | Postgres + Redis | internes au VPS, jamais exposés | Docker |

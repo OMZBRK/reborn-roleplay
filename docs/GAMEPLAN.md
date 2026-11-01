@@ -115,7 +115,7 @@ codés et attendent leurs tests à deux comptes.
 | Storage System | **Coffres configurables** (+ bibliothèques) | 🟠 Important | Player ID | ✍🏻 bibliothèques ✅ ; coffres de section ❌ (validés à coder 17/10) | validé 17/10 | §29 |
 | Treasure System | **Caches, reliques, coffre porté** | 🟠 Important | Sacoche, économie | ❌ | après la beta | §35 |
 | Faction / Crew System | **Faction** (villages, organisations, sections, grades de section) | 🟠 Important | Player ID | ✅ socle livré 16/10, validé en jeu 17/10 ; coffres et portes à clé ❌ | v3 validée 16/10 | §37 |
-| Proximity Chat | **PlasmoVoice** + chat RP en panneau | 🟠 Important | Player ID | 🟢 lot 1 publié sur le dev le 01/11 (portées Plasmo + touche H, micro coloré, chuchoté à terre, outils staff, bulle / `/me` / nom au regard), en recette ; volume par joueur ❌ | validé 31/10 | §17 |
+| Proximity Chat | **PlasmoVoice** + chat RP en panneau | 🟠 Important | Player ID | 🟢 lot 1 publié sur le dev et validé en jeu le 01/11 (portées Plasmo + touche H, micro coloré, chuchoté à terre, outils staff, bulle / `/me` / nom au regard) ; volume par joueur ❌ | validé 31/10 | §17 |
 | DenDen Mushi system | **Appel de service** (système à part) + **radio = escouades** (oreillettes) | 🟠 Important | Chat de proximité | ✅ radio livrée 15/10, validée en jeu 17/10 ; appel de service ❌ | radio décidée 14/10, maquettes v3 ([`RADIO.md`](./gameplay/RADIO.md)) ; appel de service à concevoir | §18 |
 | Medic Job | **Médical** (médics, paume, bandages, hôpitaux) | 🟠 Important | Déplacements | ✍🏻 base ✅ ; verrou de combat, `MedicalService` ❌ | proposition | §26 |
 | Journalist & Camera System | **Avis de recherche-objet**, photo-preuve | 🟠 Important | Déplacements | ✍🏻 mode photo client ✅ ; objets ❌ | proposition | §46 |
@@ -2105,7 +2105,7 @@ Minecraft, Nexo et le menu R.
 | 14 | Interaction (R) | §14 | ✍🏻 **validé et codé 24/10** (non publié) : porter / fouiller avec accord, masque = inconnu, volume vocal, Staff réservé au staff | §14.4 |
 | 15 | Duel | §15 | ✅ livré 14/10 | Tester à deux comptes |
 | 16 | Échange | §16 | ✅ **clos le 24/10** : « Tendre » et « Donner des ryo » au menu R (14/10) ; échange garanti à la banque (§20) | — |
-| 17 | Chat de proximité | §17 | 🟢 **validé 31/10, lot 1 publié sur le dev le 01/11** (en recette) : portées de Plasmo (touche H), micro coloré, chuchoté à terre, couper / rétablir la voix au Poste de garde, bulle et `/me` sans fond sur la tête, nom au regard | Volume par joueur ; « qui parle » en HUD bas-droite (lot 2) |
+| 17 | Chat de proximité | §17 | 🟢 **validé 31/10, lot 1 publié sur le dev et validé en jeu le 01/11** (lots 2 à 5 à suivre) : portées de Plasmo (touche H), micro coloré, chuchoté à terre, couper / rétablir la voix au Poste de garde, bulle et `/me` sans fond sur la tête, nom au regard | Volume par joueur ; « qui parle » en HUD bas-droite (lot 2) |
 | 18 | Transmissions | §18 | ✅ radio en escouades livrée 15/10, **validée en jeu 17/10** | Appel de service à part, à concevoir — [`gameplay/RADIO.md`](./gameplay/RADIO.md) |
 | 19 | Monnaie | §19 | ✅ livrée 15/10 ; **bourse validée en jeu 17/10** | — [`gameplay/MONNAIE_ET_BANQUE.md`](./gameplay/MONNAIE_ET_BANQUE.md) |
 | 20 | Banque | §20 | ✍🏻 livrée 15/10, **pas encore testée en jeu** | Recette de la fiche §20 (guichet, coffre à paliers, virement, échange garanti) |
