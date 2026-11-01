@@ -968,11 +968,19 @@ fn build_argv(
         ram_mb: user_prefs.ram_mb,
         width: user_prefs.width,
         height: user_prefs.height,
-        auto_connect: choisir_auto_connect(
-            runtime_server_override(),
-            tokens.adresse.clone(),
-            resolve_auto_connect(),
-        ),
+        auto_connect: if identity.is_staff && resolve_dev_server().is_some() {
+            // Staff avec le sélecteur Build / Dev du mod : « Build » reste le
+            // serveur inscrit au build du launcher (le serveur des builders) ;
+            // « Dev » est l'adresse dev. L'aiguillage de l'API (pré-prod) ne
+            // vise que les joueurs, sinon Build et Dev mèneraient au même dev.
+            choisir_auto_connect(runtime_server_override(), resolve_auto_connect(), None)
+        } else {
+            choisir_auto_connect(
+                runtime_server_override(),
+                tokens.adresse.clone(),
+                resolve_auto_connect(),
+            )
+        },
         dev_server: resolve_dev_server(),
         is_staff: identity.is_staff,
         play_token_path: Some(tokens.main.display().to_string()),
