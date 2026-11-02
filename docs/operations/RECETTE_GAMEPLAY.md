@@ -48,7 +48,7 @@ Les systèmes publiés après cette liste ont leur propre recette dans leur fich
 - [ ] 2.4 Supprimer un perso (staff) → son N° n'est jamais réattribué au suivant.
 - [ ] 2.5 **K** (fiche shinobi) : pastille « N° 000xx » à côté du nom ; clic → « Copié » ; coller au chat = le N°.
 - [ ] 2.6 Fiche : la ligne Natures affiche les **symboles octogonaux** canoniques (plus de kanji seul).
-- [ ] 2.7 Un joueur non staff ne voit jamais le N° des autres (chat, plaques, tablist, journal de bibliothèque).
+- [ ] 2.7 Un joueur non staff ne voit jamais le N° des autres (chat, nametags, tablist, journal de bibliothèque).
 - [ ] 2.8 Changer de personnage en combat (< 15 s après un coup), KO, gelé, porté, en duel → refusé.
 
 ## 3. Test de la Feuille

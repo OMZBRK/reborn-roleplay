@@ -1,7 +1,10 @@
 package fr.reborn.hud.menu.settings;
 
+import fr.reborn.hud.RebornHudClient;
 import fr.reborn.hud.chat.ChatSettingsScreen;
+import fr.reborn.hud.config.HudConfig;
 import fr.reborn.hud.crosshair.CrosshairScreen;
+import fr.reborn.hud.element.HudElement;
 import fr.reborn.hud.ui.HudEditScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -35,6 +38,16 @@ public class InterfaceTab extends SectionedTab {
         actionButton("→ Ouvrir l'éditeur de viseur",
             () -> open(new CrosshairScreen(parent)));
 
+        // Colonne bas-droite (lot 2) : mêmes interrupteurs que l'œil de l'éditeur de HUD (une seule source de vérité :
+        // la visibilité de l'élément dans la configuration du HUD).
+        section("Voix et touches");
+        row("Qui parle", "Noms de ceux qui parlent autour de toi, en bas à droite",
+            (cx, cy, cw) -> new ToggleBig(cx + cw - ToggleBig.DEFAULT_WIDTH, cy, visible(HudElement.QUI_PARLE),
+                v -> montrer(HudElement.QUI_PARLE, v)));
+        row("Rappels de touches", "Portée de la voix [H] et les touches utiles du moment",
+            (cx, cy, cw) -> new ToggleBig(cx + cw - ToggleBig.DEFAULT_WIDTH, cy, visible(HudElement.RAPPELS),
+                v -> montrer(HudElement.RAPPELS, v)));
+
         section("Tablist");
         row("Maintenir pour afficher", "Sinon : presser Tab ouvre le tablist interactif",
             (cx, cy, cw) -> new ToggleBig(cx + cw - ToggleBig.DEFAULT_WIDTH, cy,
@@ -60,8 +73,8 @@ public class InterfaceTab extends SectionedTab {
                     new SegmentedControl.Option("2", "Village"),
                     new SegmentedControl.Option("3", "Ruban"),
                 },
-                String.valueOf(RebornPrefs.INSTANCE.nameplateStyle),
-                v -> { RebornPrefs.INSTANCE.nameplateStyle = Integer.parseInt(v); RebornPrefs.INSTANCE.save(); }));
+                String.valueOf(RebornPrefs.INSTANCE.nametagStyle),
+                v -> { RebornPrefs.INSTANCE.nametagStyle = Integer.parseInt(v); RebornPrefs.INSTANCE.save(); }));
 
         spacer(4);
     }
@@ -69,5 +82,19 @@ public class InterfaceTab extends SectionedTab {
     private static void open(Screen screen) {
         Minecraft mc = Minecraft.getInstance();
         if (mc != null) mc.setScreenAndShow(screen);
+    }
+
+    private static boolean visible(HudElement e) {
+        try {
+            return RebornHudClient.config().stateOf(e).visible();
+        } catch (RuntimeException ex) {
+            return true;
+        }
+    }
+
+    private static void montrer(HudElement e, boolean v) {
+        HudConfig cfg = RebornHudClient.config();
+        cfg.setState(e, cfg.stateOf(e).withVisible(v));
+        cfg.save();
     }
 }

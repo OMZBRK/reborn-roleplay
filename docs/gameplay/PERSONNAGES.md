@@ -45,7 +45,7 @@ mod `staff/GardePersonnages.java` ; protocole [`../technique/PLUGINS_REFERENCE.m
 | Action | Grade | Motif | Effet |
 |---|---|---|---|
 | Consulter | Helper | — | liste, détail, fiche shinobi |
-| Identité… (nom, âge, taille en cm, sexe) | Modérateur | facultatif | nom unique sur le compte ; affichage (tab, plaque) et skin mis à jour si joué |
+| Identité… (nom, âge, taille en cm, sexe) | Modérateur | facultatif | nom unique sur le compte ; affichage (tab, nametag) et skin mis à jour si joué |
 | Clan et village… | Modérateur | facultatif | clan libre (un clan connu est corrigé, « aucun » le retire) ; 6 villages, Déserteur, aucun |
 | Art et affinité… | Modérateur | facultatif | étiquettes RP, sans effet sur les stats |
 | Jouer ce personnage… | Modérateur | **obligatoire** | bascule le joueur (en ligne) sur ce personnage ; refusé s'il est à terre, en combat, gelé, à l'écran de sélection, ou si le personnage est mort |
@@ -124,7 +124,7 @@ Maquettes validées : `Maquettes/personnage/01_selection … 09_creation_recapit
   grille, gravés sur le dais, dans le registre et le dossier ; taille ADULTE au cm (153–207, pas de 1 cm), taille
   actuelle selon l'âge, toise ; apparence en vignettes directes (peau, coiffures en têtes, palette de couleurs et
   d'yeux **par clan**, tenues en corps entiers, « au hasard »), plus aucune flèche ; nom 3 à 20 lettres
-  (espaces, apostrophe), « Nom libre » ; plaque de nom au-dessus de la tête.
+  (espaces, apostrophe), « Nom libre » ; nametag au-dessus de la tête.
 - **Carrure fine pour tous** (18/10, « mets aussi le skin homme en Alex… supprime le Steve ») : Homme comme Femme sont
   en **modèle Alex (bras de 3 px)** partout — création, sélection, en jeu chez soi et chez les autres, corps au sol,
   poupées et vignettes, main à la première personne, bout de bras du Test de la Feuille. La rangée **Carrure**

@@ -98,7 +98,7 @@ final class DouaneEcouteur implements Listener {
     public void onWorld(PlayerChangedWorldEvent e) {
         Player p = e.getPlayer();
         if (douane.mode().actif(p.getUniqueId()) && !douane.dansMonde(p)) douane.mode().sortir(p, true, false);
-        // Sortie du monde de la douane : « fin » au mod (plaque « Examinateur » et pseudos à la place d'« Inconnu »).
+        // Sortie du monde de la douane : « fin » au mod (nametag « Examinateur » et pseudos à la place d'« Inconnu »).
         if (douane.monde() != null && douane.monde().equals(e.getFrom())) douane.canal().sortie(p);
         douane.marquerSale();
     }

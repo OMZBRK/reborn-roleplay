@@ -190,8 +190,10 @@ public final class HudKeybinds {
     /**
      * Touche « Portée de la voix » : un cran plus bas parmi les portées du serveur Plasmo Voice, annoncé en bas à droite
      * (« Voix : chuchotée / normale / criée », « Voix : N blocs » au-delà de trois portées), micro à la couleur de la
-     * portée. À terre (chuchoté imposé) : refus posé à côté du micro à terre, les notifications étant masquées ; en
-     * notification sinon. Voix refusée par l'état (capacité {@code voc} = 0) : « Voix coupée — » et la raison du serveur.
+     * portée. Lot 2 : sur la ligne de rappel « Portée de la voix [H] » quand elle est affichée (elle devient « Voix : … »
+     * pendant 2,5 s, puce à la couleur de la portée, {@link RappelsTouches#voix}), en notification sinon. À terre
+     * (chuchoté imposé) : refus posé à côté du micro à terre, les notifications étant masquées. Voix refusée par l'état
+     * (capacité {@code voc} = 0) : « Voix coupée — » et la raison du serveur.
      */
     private static void voixPortee() {
         int r = fr.reborn.hud.voice.VoiceState.changerPortee();
@@ -202,28 +204,55 @@ public final class HudKeybinds {
                 if (fr.reborn.hud.ko.KoMasqueHud.masque()) {
                     fr.reborn.hud.ko.MicroATerreHud.refus(dite ? raison : "Voix coupée");
                 } else {
-                    fr.reborn.hud.notif.NotifHud.voix(fr.reborn.hud.runtime.VitalsHud.MIC_GRIS, "Voix coupée",
-                        dite ? "— " + raison : null);
+                    annonceVoix(fr.reborn.hud.runtime.VitalsHud.MIC_GRIS, "Voix coupée", dite ? "— " + raison : null);
                 }
             }
             case fr.reborn.hud.voice.VoiceState.REFUS_A_TERRE -> {
                 if (fr.reborn.hud.ko.KoMasqueHud.masque()) fr.reborn.hud.ko.MicroATerreHud.refus();
-                else fr.reborn.hud.notif.NotifHud.voix(fr.reborn.hud.runtime.VitalsHud.MIC_VERT, null,
-                    "À terre, tu ne peux que chuchoter");
+                else annonceVoix(fr.reborn.hud.runtime.VitalsHud.MIC_VERT, null, "À terre, tu ne peux que chuchoter");
             }
-            case fr.reborn.hud.voice.VoiceState.REFUS_PORTEE_FIXE -> fr.reborn.hud.notif.NotifHud.voix(
+            case fr.reborn.hud.voice.VoiceState.REFUS_PORTEE_FIXE -> annonceVoix(
                 fr.reborn.hud.runtime.VitalsHud.couleurPortee(fr.reborn.hud.voice.VoiceState.portee()), "Voix",
                 ": une seule portée ici");
-            case fr.reborn.hud.voice.VoiceState.REFUS_INDISPONIBLE -> fr.reborn.hud.notif.NotifHud.voix(
+            case fr.reborn.hud.voice.VoiceState.REFUS_INDISPONIBLE -> annonceVoix(
                 fr.reborn.hud.runtime.VitalsHud.MIC_GRIS, "Voix", ": indisponible");
             default -> {
                 int rang = fr.reborn.hud.voice.VoiceState.portee();
                 String quoi = fr.reborn.hud.voice.VoiceState.nombrePortees() > 3 ? r + " blocs"
                     : rang == fr.reborn.hud.voice.VoiceState.CHUCHOTE ? "chuchotée"
                     : rang == fr.reborn.hud.voice.VoiceState.CRIEE ? "criée" : "normale";
-                fr.reborn.hud.notif.NotifHud.voix(fr.reborn.hud.runtime.VitalsHud.couleurPortee(rang), "Voix", ": " + quoi);
+                annonceVoix(fr.reborn.hud.runtime.VitalsHud.couleurPortee(rang), "Voix", ": " + quoi);
             }
         }
+    }
+
+    /**
+     * Annonce de la touche H : sur la ligne de rappel si elle est affichée (« Voix : chuchotée », « Voix coupée — … » ;
+     * la typographie du moteur pose l'espace fine avant « : »), sinon la notification « Voix ».
+     */
+    private static void annonceVoix(int teinte, String gras, String texte) {
+        String ligne = gras == null ? texte : texte == null ? gras : gras + " " + texte;
+        if (!RappelsTouches.voix(teinte, ligne)) fr.reborn.hud.notif.NotifHud.voix(teinte, gras, texte);
+    }
+
+    /**
+     * Le serveur connaît-il {@code /stopemote} (ShinobiCore) ? Une émote en cours s'arrête alors à la touche
+     * « Animations » (lot 2), et le rappel « Arrêter l'animation [.] » s'affiche.
+     */
+    public static boolean arretEmoteDisponible(Minecraft mc) {
+        var conn = mc.getConnection();
+        return conn != null && conn.getCommands().getRoot().getChild("stopemote") != null;
+    }
+
+    /**
+     * Touche « Animations » pendant une émote (lot 2, brief §4.3) : elle l'arrête ({@code /stopemote}, comme la ligne
+     * « Arrêter l'emote » du menu) au lieu d'ouvrir le menu — ouvrir le menu pendant une émote demande donc deux appuis
+     * (risque 11 du brief, accepté). Faux s'il n'y a pas d'émote ou pas de commande : le menu s'ouvre comme avant.
+     */
+    private static boolean arreterEmote(Minecraft mc) {
+        if (!fr.reborn.hud.animation.MovementAnimations.isEmotePlaying(mc.player) || !arretEmoteDisponible(mc)) return false;
+        mc.getConnection().sendCommand("stopemote");
+        return true;
     }
 
     public static void registerClient() {
@@ -324,7 +353,7 @@ public final class HudKeybinds {
             }
             while (ANIMATIONS.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.gui.screen() == null && mc.player != null) {
+                if (mc.gui.screen() == null && mc.player != null && !arreterEmote(mc)) {
                     mc.setScreenAndShow(new fr.reborn.hud.animation.AnimationMenuScreen(null));
                 }
             }

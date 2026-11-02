@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Joueurs dont le visage est caché (GAMEPLAN §14, 24/10) : un objet dans l'emplacement Masque de la sacoche RP. Tenu à
  * jour par {@code InventoryManager} à chaque diffusion des cosmétiques ; lu par {@link CharacterDisplay} (tchat, /me) et
- * la liste des joueurs (plaques du mod) : un masqué reste « Inconnu », même pour ceux qui le connaissent.
+ * la liste des joueurs (nametags du mod) : un masqué reste « Inconnu », même pour ceux qui le connaissent.
  */
 public final class Masques {
 

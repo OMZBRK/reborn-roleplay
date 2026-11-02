@@ -1,6 +1,6 @@
 package fr.reborn.hud.douane;
 
-import fr.reborn.hud.nameplate.Nameplates;
+import fr.reborn.hud.nametag.Nametags;
 import fr.reborn.hud.skin.RebornSkins;
 import fr.reborn.hud.skin.SkinSpec;
 import fr.reborn.hud.staff.GardeDouaneDebug;
@@ -22,8 +22,8 @@ import java.util.UUID;
  * Banc de captures de la douane (lot E, 25/10), <b>inactif en production</b> ({@code REBORN_DOUANE_DEBUG=1}, monde solo
  * de dev, jamais de serveur) : rejoue des messages du canal {@code reborn:douane} au format exact du protocole v1
  * (PLUGINS_REFERENCE §4 decies.4 à .6) et capture chaque écran dans {@code run/screenshots/douane_*.png}, puis ferme le
- * jeu. Côté candidat : hall (ligne, rappel, plaque du pseudo sur un mannequin), hall fermé, vérification de l'accès,
- * appel et fondu, bureau (plaque « Examinateur »), question, Bienvenue, résultats. Côté examinateur : onglet Douane du
+ * jeu. Côté candidat : hall (ligne, rappel, nametag du pseudo sur un mannequin), hall fermé, vérification de l'accès,
+ * appel et fondu, bureau (nametag « Examinateur »), question, Bienvenue, résultats. Côté examinateur : onglet Douane du
  * Poste de garde (file, survol), dossier en volet élargi, questions et décision, envoi en attente, retrait, indicateur
  * du mode, puis la file et la ligne en 1366 × 768. Les demandes C → S sont interceptées (journal).
  *
@@ -109,7 +109,7 @@ public final class DouaneDebug {
                 Entity m = mannequinProche(mc);
                 mannequin = m == null ? null : m.getUUID();
                 if (mannequin != null) DouaneClient.DEBUG_NOMS.put(mannequin, "Sora_Kaze");
-                Nameplates.debugAvatars = true;
+                Nametags.debugAvatars = true;
                 regarder(mc);
                 recu("{\"t\":\"plaques\",\"v\":1,\"examinateurs\":[]}");
                 recu("{\"t\":\"ligne\",\"v\":1,\"etat\":\"attente\",\"texte\":\"DOUANE · En attente · 3ᵉ\",\"rang\":3,\"total\":5}");
@@ -121,7 +121,7 @@ public final class DouaneDebug {
             }
             case 92 -> shot(mc, "douane_02_hall_ferme");
             case 94 -> {
-                // avant l'admission : ni ligne ni plaques, l'écran neutre seul
+                // avant l'admission : ni ligne ni nametags, l'écran neutre seul
                 DouaneClient.debugEffacer();
                 if (mannequin != null) DouaneClient.DEBUG_NOMS.put(mannequin, "Sora_Kaze");
                 recu("{\"t\":\"attente\",\"v\":1,\"on\":true,\"texte\":\"Vérification de l'accès…\"}");
@@ -142,7 +142,7 @@ public final class DouaneDebug {
             case 128 -> shot(mc, "douane_05_appel_fondu");
             case 130 -> {
                 // la téléportation au bureau, côté serveur, environ 10 ticks après l'appel ; l'autre candidat devient
-                // l'examinateur du bureau (plaque « Examinateur »)
+                // l'examinateur du bureau (nametag « Examinateur »)
                 recu("{\"t\":\"ligne\",\"v\":1,\"etat\":\"bureau\",\"texte\":\"DOUANE · Entretien en cours\"}");
                 if (mannequin != null) recu("{\"t\":\"plaques\",\"v\":1,\"examinateurs\":[\"" + mannequin + "\"]}");
             }
@@ -168,7 +168,7 @@ public final class DouaneDebug {
             // ───────────── examinateur : l'onglet Douane (J6)
             case 330 -> {
                 DouaneClient.debugEffacer();
-                Nameplates.debugAvatars = false;
+                Nametags.debugAvatars = false;
                 micros();
                 recu("{\"t\":\"mode\",\"v\":1,\"examinateur\":true}");
                 // textes tels que ShinobiCore les écrit (ReglesDouane.libelle, SuiteDecision.report)
@@ -240,7 +240,7 @@ public final class DouaneDebug {
             case 524 -> {
                 mc.setScreenAndShow(null);
                 DouaneClient.debugEffacer();
-                Nameplates.debugAvatars = true;
+                Nametags.debugAvatars = true;
                 if (mannequin != null) DouaneClient.DEBUG_NOMS.put(mannequin, "Sora_Kaze");
                 recu("{\"t\":\"plaques\",\"v\":1,\"examinateurs\":[]}");
                 recu("{\"t\":\"ligne\",\"v\":1,\"etat\":\"attente\",\"texte\":\"DOUANE · En attente · 3ᵉ\",\"rang\":3,\"total\":5}");
@@ -250,7 +250,7 @@ public final class DouaneDebug {
             case 560 -> {
                 DouaneClient.debugEffacer();
                 DouaneClient.debugEnvoi = null;
-                Nameplates.debugAvatars = false;
+                Nametags.debugAvatars = false;
                 VoiceState.DEBUG_MICROS.clear();
                 for (UUID u : new UUID[]{KAZUKI, SORA, LUNAA, SHIRO, NEKO, MIRAI, PATOCHE}) RebornSkins.clear(u);
                 c.sendCommand("kill @e[type=minecraft:mannequin,distance=..40]");
@@ -410,7 +410,7 @@ public final class DouaneDebug {
         return best;
     }
 
-    /** Le viseur sur la poitrine du mannequin (la plaque n'apparaît que si on le regarde vraiment, de près). */
+    /** Le viseur sur la poitrine du mannequin (le nametag n'apparaît que si on le regarde vraiment, de près). */
     private static void regarder(Minecraft mc) {
         Entity m = mannequinProche(mc);
         if (m == null) return;

@@ -63,7 +63,7 @@ blasons de clan faits d'un simple kanji faute de canon sont à trancher (PERSONN
 fiche, réglages ; pictos communs dans `tools/pictos.py`) ; **plaque de fermeture = croix** ; **sceau à sens = picto**
 dans la laque (blessures, résultat de la chirurgie, accès « membres » au cadenas, cible du menu d'interaction, « à toi » /
 « porté » de l'échoppe) ; **signe dans une séquence = losange** (Volonté) ou **numéro** (étapes de la chirurgie) ; état
-d'un joueur sur sa plaque de nom = **mot** ; signes des mains = **noms français** ; tampon de coin de planche, sceau de
+d'un joueur sur son nametag = **mot** ; signes des mains = **noms français** ; tampon de coin de planche, sceau de
 titre, kanji de grade ou de mérite = **retirés**, le texte se recale. Aucun caractère chinois ou japonais n'est plus
 posé par le code ni cuit par les générateurs (hors blasons canoniques). Restent, comme symboles : les blasons de clan
 (dont les 6 faits d'un kanji, à trancher), les symboles canoniques des natures, les tours des Kage peintes dans les
@@ -149,7 +149,7 @@ refaite :
   formulaires pleine largeur.
 - **HUD en jeu (règle 9)** : annonce = une ligne fine en haut (minuscule sceau 告 global / 伝 perso, titre en petites
   capitales d'or, filet d'or d'1 px qui se résorbe) ; écran noir = fondu, texte centré Inter 9 crème + filet ; séisme =
-  légère secousse de caméra (réglage vanilla « Effets de distorsion ») ; plaques staff = une ligne Inter 7 sur voile
+  légère secousse de caméra (réglage vanilla « Effets de distorsion ») ; nametags staff = une ligne Inter 7 sur voile
   léger « 00042 · nom · état » + jauge de PV d'1 px. Captures : `Maquettes/gameplan/04_staff/avant|apres/`.
 
 **Poste de garde v3 — direction A « le volet » (14/10, non publié)** — remplace le Poste de garde clarifié ci-dessus
@@ -246,7 +246,10 @@ L'utilisateur veut rester en pixel art, **sans coût de performance**. Règles d
    très léger** ou rien, avec au plus un minuscule sceau et un **filet d'or d'1 px** ; pas de cadre épais, pas de
    bouton-plaque : un choix cliquable est un **mot souligné au survol**. Rien ne couvre plus que nécessaire, rien de
    plus large qu'environ **1/4 de l'écran** (hors texte), fondu d'entrée et de sortie. Les plaques laquées restent
-   pour les **menus** (écrans ouverts). Référence : `duel/DuelHud.java` v2.
+   pour les **menus** (écrans ouverts). Référence : `duel/DuelHud.java` v2. **Effets plein écran** (vignette de la
+   narration, bords assombris de la concentration) : posés **sous le HUD**, sur le monde seul — jamais sur les vitals,
+   la colonne bas-droite ou l'OST (revue du 02/11) ; la vignette suit la narration entière, seul le texte fait ses
+   fondus de page.
 
 ## 7. Identité de marque Reborn : logo, palette, typo, gabarit réseaux (19/10, v3 violet du 22/10)
 

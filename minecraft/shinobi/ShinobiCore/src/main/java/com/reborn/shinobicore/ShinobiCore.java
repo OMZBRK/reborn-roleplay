@@ -420,7 +420,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (!buildMode) Bukkit.getPluginManager().registerEvents(new CharacterLifecycleListener(this), this);
         // Character nickname rendering: rewrites chat to show
         // "Name Clan »" instead of the Minecraft username, and re-applies
-        // display-name on join / world change so tab + nameplate stay in sync.
+        // display-name on join / world change so tab + nametag stay in sync.
         Bukkit.getPluginManager().registerEvents(new CharacterNicknameListener(this), this);
 
         // 7b. Lore calendar + custom tab list (keeps the vanilla roster but

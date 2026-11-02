@@ -32,10 +32,27 @@ automatiquement (cf `build.gradle.kts`).
 À la première exécution, le mod crée la structure de dossiers + un
 `README.txt` qui rappelle ce format.
 
-> **À venir** : le launcher Reborn alimentera ce dossier via le
-> manifest signé. Trade-off à trancher : embed des 43 .ogg dans le jar
-> (~74 MB) vs DL séparé via une archive listée dans le manifest. Cf
-> `PLAN_CONCEPTION_LAUNCHER.md §9.6`.
+> **Livraison (0.2.6, 01/11)** : les pistes arrivent par le manifest signé
+> du launcher (`reborn/ost/<catégorie>/*.ogg`, fichiers `required`
+> téléchargés avant tout lancement : le bouton Jouer ne lance le jeu que
+> lorsque le plan de téléchargement est vide). L'ancien seed de 43 pistes
+> (`assets/reborn-ost/seed-bundle/`, 71 Mo) n'était plus jamais extrait
+> (bibliothèque déjà peuplée) : il reste dans les sources mais est exclu du
+> jar (73,5 Mo → ~0,1 Mo) et `OstSeedExtractor` est retiré. En dev
+> (`runClient`), déposer soi-même une piste dans `run/reborn/ost/<catégorie>/`.
+
+## Lecteur en haut à droite (0.2.6)
+
+Le lecteur est dessiné par `reborn-hud` (élément « Musique » de l'éditeur
+de HUD, `ost/OstHud`). Ce mod publie l'état de la lecture dans
+l'`ObjectShare` de Fabric Loader, clé `reborn-ost:lecture` =
+`Object[]{String[]{trackId, titreHud}, long[]{état 0/1/2, audible 0/1,
+changéÀ}}`, deux tableaux partagés par référence et mis à jour à chaque fin
+de tick (`OstLecture`). Le titre du HUD est la catégorie de la piste
+(« Mystère », « Combat »…), jamais le nom de fichier. Le bandeau
+`ui/OstHudOverlay` ne sert plus que de secours : il n'est dessiné que si
+`reborn-hud` n'a pas déposé `reborn-hud:ost-rendu` au `CLIENT_STARTED`
+(reborn-hud 0.4.194 ou plus ancien). Banc : `REBORN_OST_BANC=1`.
 
 ## Keybind
 
@@ -54,6 +71,16 @@ Par défaut `M` (remappable via Options → Commandes Minecraft → catégorie
 Décodage Ogg Vorbis via `org.lwjgl.stb.STBVorbis` + lecture via
 `org.lwjgl.openal.AL10` directement — pas de dépendance externe (LWJGL
 est déjà bundlé par Minecraft). Cf `OstAudioEngine`.
+
+**Lecture en flux** (0.2.6, revue du 02/11) : le .ogg est gardé en mémoire
+(quelques Mo) et décodé par tranches de 8 192 images (≈ 0,19 s) dans 12
+tampons OpenAL en file sur la source (≈ 2,2 s d'avance). Au lancement,
+4 tranches seulement sont décodées sur le fil qui appelle ; le fil
+`Reborn-OST` remplit le reste toutes les 40 ms. Avant, toute la piste était
+décodée d'un coup sur le fil principal (≈ 109 Mo de PCM et plusieurs
+secondes de gel pour une piste de 10 min). Saut et rattrapage par
+`stb_vorbis_seek` ; une source arrêtée faute de son repart, seule la fin du
+fichier est une fin de piste.
 
 ### Atténuation positionnelle (Phase 1, livrée 2026-06-11)
 

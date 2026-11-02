@@ -41,6 +41,7 @@ gradlew     text eol=lf
 *.dll       binary
 *.pdf       binary
 *.emotecraft binary
+*.kern      binary
 *.aseprite  binary
 *.ase       binary
 

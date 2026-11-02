@@ -57,6 +57,8 @@ public final class EffetsStaff implements Listener {
     private static boolean ecoute(Player p, String canal) { return p.getListeningPluginChannels().contains(canal); }
 
     private void envoyer(Player p, String canal, JsonObject o) {
+        // arrêt du plugin (finNoir depuis arreter) : un plugin désactivé ne peut plus envoyer, le reste de la levée doit suivre
+        if (!plugin.isEnabled()) return;
         p.sendPluginMessage(plugin, canal, o.toString().getBytes(StandardCharsets.UTF_8));
     }
 

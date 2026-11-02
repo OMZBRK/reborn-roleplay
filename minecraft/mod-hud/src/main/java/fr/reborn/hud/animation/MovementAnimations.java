@@ -465,10 +465,12 @@ public final class MovementAnimations {
 
     /**
      * {@code true} si une emote EmoteCraft joue actuellement sur cet avatar. Sert à
-     * faire céder le layer démarches (cf. {@link #computeState}). Enveloppé en
-     * {@code try/catch} → {@code false} propre si EmoteCraft est absent.
+     * faire céder le layer démarches (cf. {@link #computeState}), et depuis le lot 2 au rappel
+     * « Arrêter l'animation [.] » et à la touche « . » qui arrête l'émote ({@code keybind/HudKeybinds}).
+     * Enveloppé en {@code try/catch} → {@code false} propre si EmoteCraft est absent.
      */
-    private static boolean isEmotePlaying(AbstractClientPlayer player) {
+    public static boolean isEmotePlaying(AbstractClientPlayer player) {
+        if (player == null) return false;
         try {
             return ((io.github.kosmx.emotes.main.mixinFunctions.IPlayerEntity) player).isPlayingEmote();
         } catch (Throwable t) {

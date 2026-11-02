@@ -49,9 +49,9 @@ public final class KoDebug {
 
     private static String u(net.minecraft.world.entity.Entity e) { return "{\"u\":\"" + e.getUUID() + "\"}"; }
 
-    /** Plaque de nom RP simulée pour un mannequin du banc (TablistData). */
+    /** Nametag RP simulé pour un mannequin du banc (TablistData). */
     private static void nom(net.minecraft.world.entity.Entity e) {
-        // Nameplates.debugAvatars donne « Ren Hyūga » aux mannequins (sans toucher aux données du tab, qui allumeraient
+        // Nametags.debugAvatars donne « Ren Hyūga » aux mannequins (sans toucher aux données du tab, qui allumeraient
         // les vitals et la caméra épaule du serveur)
     }
 
@@ -84,7 +84,7 @@ public final class KoDebug {
                 c.sendCommand("effect give @s resistance infinite 255 true");
                 gone(c);
                 c.sendCommand("clear @s");
-                fr.reborn.hud.nameplate.Nameplates.debugAvatars = true;
+                fr.reborn.hud.nametag.Nametags.debugAvatars = true;
             }
             case 60 -> c.sendCommand("execute rotated ~ 0 run summon mannequin ^ ^ ^3 {Rotation:[90f,0f],Tags:[\"ko_test\"]}");
             case 70 -> { corps("", "", "\"d\":1"); KoClient.event(KoClient.EV_DOULEUR); }
@@ -194,7 +194,7 @@ public final class KoDebug {
             case 648 -> {
                 im.debugClose();
                 gone(c);
-                fr.reborn.hud.nameplate.Nameplates.debugAvatars = false;
+                fr.reborn.hud.nametag.Nametags.debugAvatars = false;
             }
             case 660 -> mc.stop();
             default -> { }
@@ -244,7 +244,7 @@ public final class KoDebug {
                 if (im.isActive()) im.deactivate();
             }
             case 112 -> shot(mc);                                   // carte « À terre »
-            case 190 -> shot(mc);                                   // à terre : plaque + vignette
+            case 190 -> shot(mc);                                   // à terre : nametag + vignette
             case 200 -> { KoClient.event(KoClient.EV_KO); KoClient.update(ko(2, 0, 170, 300, true)); }
             case 212 -> shot(mc);                                   // carte « K.O. »
             case 290 -> shot(mc);                                   // inconscient + /hopital

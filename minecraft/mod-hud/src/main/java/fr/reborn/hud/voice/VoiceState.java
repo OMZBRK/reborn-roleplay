@@ -34,6 +34,11 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>L'état est relu <b>une fois par tick</b> ({@link #tick}, appelé par {@code HudKeybinds}) dans des champs et un
  * ensemble réutilisés : le HUD le lit à chaque image sans rien allouer ni rappeler Plasmo Voice.
+ *
+ * <p><b>Qui parle, en bas à droite</b> (lot 2, 01/11, {@link QuiParleHud}) : les orateurs de la ligne de proximité sont
+ * aussi gardés par UUID, avec leur heure d'arrivée et le niveau réel de leur voix ({@link VoixNiveaux}) — y compris
+ * ceux dont l'entité n'est pas chargée (au-delà de la portée de suivi des entités, la voix porte encore : brief §8,
+ * risque 9), que la bulle, elle, ignore.
  */
 public final class VoiceState {
 
@@ -104,6 +109,7 @@ public final class VoiceState {
         coupee = coupeeParEtat();
         int lus = 0;
         boolean ok = false;
+        nOra = 0;
         if (!absent) {
             try {
                 lus = Pv.tick(mc);
@@ -119,11 +125,15 @@ public final class VoiceState {
             distance = -1;
             nombre = 0;
             rang = NORMALE;
+            nOra = 0;
+            niveauSoi = -1f;
         }
         // Voix refusée par l'état (VOCAL = 0) : le serveur jette chaque trame (ShinobiRadio VoixATerre) — micro éteint,
         // aucune bulle sur soi, comme si le micro était coupé.
         if (coupee) parle = false;
         majParlent(lus);
+        orateursBanc(mc);
+        arrivees(System.currentTimeMillis());
     }
 
     /**
@@ -390,6 +400,104 @@ public final class VoiceState {
         nMembres = n;
     }
 
+    // ── Qui parle, en bas à droite (lot 2, 01/11) ──────────────────
+    /**
+     * Banc : orateurs simulés sans entité (UUID → distance en blocs ; négative = entité non chargée, comme un orateur
+     * au-delà de la portée de suivi des entités). Ils parlent sur la ligne de proximité ; leur nom vient de
+     * {@code Nametags.DEBUG_NOMS}, leur vumètre de l'égaliseur factice (ou de {@code QuiParleHud.DEBUG_VU}).
+     */
+    public static final java.util.Map<UUID, Float> DEBUG_ORATEURS = new ConcurrentHashMap<>();
+
+    /**
+     * Orateurs de la ligne de proximité relus à ce tick (soi exclu) : UUID, entité (-1 si elle n'est pas chargée),
+     * heure d'arrivée (gardée d'un tick à l'autre), niveau 0..1 de la voix telle qu'on l'entend (crête × volume effectif
+     * de la source ; -1 inconnu : banc, mannequin). Tableaux réutilisés ; la copie « avant » garde les arrivées.
+     */
+    private static UUID[] oraUuid = new UUID[8], oraUuidAvant = new UUID[8];
+    private static int[] oraEntite = new int[8];
+    private static long[] oraDepuis = new long[8], oraDepuisAvant = new long[8];
+    private static float[] oraNiveau = new float[8];
+    private static int nOra, nOraAvant;
+    /** Niveau 0..1 de son propre micro (-1 inconnu). */
+    private static float niveauSoi = -1f;
+
+    /** Nombre d'orateurs de proximité à ce tick (soi exclu), entités non chargées comprises. */
+    public static int nombreOrateurs() { return nOra; }
+
+    /** Banc : plus aucun orateur tout de suite (sans attendre le prochain tick), entre deux états capturés. */
+    public static void debugViderOrateurs() {
+        nOra = 0;
+        nOraAvant = 0;
+    }
+
+    public static UUID orateur(int i) { return oraUuid[i]; }
+
+    /** Id de l'entité de l'orateur, -1 si elle n'est pas chargée (distance inconnue). */
+    public static int orateurEntite(int i) { return oraEntite[i]; }
+
+    /** Heure (ms, horloge système) depuis laquelle il parle sans interruption. */
+    public static long orateurDepuis(int i) { return oraDepuis[i]; }
+
+    /** Niveau 0..1 de sa voix telle qu'on l'entend, -1 inconnu (le vumètre prend alors l'égaliseur factice). */
+    public static float orateurNiveau(int i) { return oraNiveau[i]; }
+
+    /** Niveau 0..1 de son propre micro pendant qu'on émet, -1 inconnu (banc : on ne transmet pas vraiment). */
+    public static float niveauSoi() { return parle ? niveauSoi : -1f; }
+
+    private static void ajouterOrateur(UUID u, int entite, float niveau) {
+        for (int i = 0; i < nOra; i++) {
+            if (oraUuid[i].equals(u)) {          // deux sources de proximité pour le même joueur : la plus forte
+                if (niveau > oraNiveau[i]) oraNiveau[i] = niveau;
+                if (oraEntite[i] < 0) oraEntite[i] = entite;
+                return;
+            }
+        }
+        if (nOra == oraUuid.length) {
+            int n = nOra * 2;
+            oraUuid = Arrays.copyOf(oraUuid, n);
+            oraUuidAvant = Arrays.copyOf(oraUuidAvant, n);
+            oraEntite = Arrays.copyOf(oraEntite, n);
+            oraDepuis = Arrays.copyOf(oraDepuis, n);
+            oraDepuisAvant = Arrays.copyOf(oraDepuisAvant, n);
+            oraNiveau = Arrays.copyOf(oraNiveau, n);
+        }
+        oraUuid[nOra] = u;
+        oraEntite[nOra] = entite;
+        oraNiveau[nOra] = niveau;
+        nOra++;
+    }
+
+    /** Mannequins du banc qui parlent ({@link #DEBUG_PARLE}) et orateurs simulés ({@link #DEBUG_ORATEURS}). */
+    private static void orateursBanc(Minecraft mc) {
+        if (!DEBUG_PARLE.isEmpty() && mc != null && mc.level != null) {
+            for (Integer id : DEBUG_PARLE) {
+                net.minecraft.world.entity.Entity e = id == null ? null : mc.level.getEntity(id);
+                if (e != null) ajouterOrateur(e.getUUID(), id, -1f);
+            }
+        }
+        if (!DEBUG_ORATEURS.isEmpty()) {
+            for (UUID u : DEBUG_ORATEURS.keySet()) ajouterOrateur(u, -1, -1f);
+        }
+    }
+
+    /** Heure d'arrivée : gardée pour qui parlait déjà au tick précédent, sinon maintenant. */
+    private static void arrivees(long now) {
+        for (int i = 0; i < nOra; i++) {
+            long d = now;
+            for (int j = 0; j < nOraAvant; j++) {
+                if (oraUuidAvant[j].equals(oraUuid[i])) {
+                    d = oraDepuisAvant[j];
+                    break;
+                }
+            }
+            oraDepuis[i] = d;
+        }
+        System.arraycopy(oraUuid, 0, oraUuidAvant, 0, nOra);
+        System.arraycopy(oraDepuis, 0, oraDepuisAvant, 0, nOra);
+        for (int j = nOra; j < nOraAvant; j++) oraUuidAvant[j] = null;
+        nOraAvant = nOra;
+    }
+
     /**
      * Tout ce qui nomme une classe de Plasmo Voice. Chargée et vérifiée au premier appel seulement : sans Plasmo Voice,
      * elle échoue (NoClassDefFoundError, rattrapé par l'appelant, qui note {@link #absent}) sans emporter VoiceState.
@@ -433,15 +541,19 @@ public final class VoiceState {
             distance = d;
             nombre = n;
             rang = r;
+            niveauSoi = VoixNiveaux.INSTANCE.soi(System.currentTimeMillis());
             return c != null && mc != null && mc.level != null ? lireSources(c, mc) : 0;
         }
 
         /**
          * Sources de Plasmo Voice actives → ids d'entités (dans {@link #lus}), avec leur ligne (proximité ou non : la
-         * radio a la sienne ; son chuchoté autour de l'orateur, lui, est en proximité) ; renvoie leur nombre.
+         * radio a la sienne ; son chuchoté autour de l'orateur, lui, est en proximité) ; renvoie leur nombre. Les
+         * joueurs qui parlent en proximité vont aussi dans la liste de qui parle (lot 2), même sans entité chargée.
          */
         private static int lireSources(PlasmoVoiceClient c, Minecraft mc) {
             int n = 0;
+            long now = System.currentTimeMillis();
+            UUID moi = mc.player != null ? mc.player.getUUID() : null;
             try {
                 for (ClientAudioSource<?> source : c.getSourceManager().getSources()) {
                     if (source == null || !source.isActivated()) continue;
@@ -453,6 +565,12 @@ public final class VoiceState {
                         UUID uuid = p.getPlayerInfo().getPlayerId();
                         Player pl = uuid != null ? mc.level.getPlayerByUUID(uuid) : null;
                         if (pl != null) n = ajouterId(n, pl.getId(), proche);
+                        // qui parle (lot 2) : ligne de proximité seulement (la radio est dans l'élément Escouade),
+                        // jamais soi ; une entité hors de la portée de suivi garde sa ligne (distance inconnue)
+                        if (proche && uuid != null && !uuid.equals(moi)) {
+                            float v = VoixNiveaux.INSTANCE.niveau(info.getId(), now);
+                            ajouterOrateur(uuid, pl != null ? pl.getId() : -1, v < 0f ? -1f : v * source.getEffectiveVolume());
+                        }
                     }
                 }
             } catch (RuntimeException ignored) {

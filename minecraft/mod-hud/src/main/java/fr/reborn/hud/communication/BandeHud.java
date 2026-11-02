@@ -35,7 +35,28 @@ public final class BandeHud {
     private static final List<Bande> BANDES = new ArrayList<>();
     private static final CommArt.Plume PZ = new CommArt.Plume();
 
+    /*
+     * Pile dessinée à la dernière image, en pixels écran : le lecteur OST (ost/OstHud) passe dessous quand elle le
+     * touche (brief §3.2 : petits écrans, une bande pleine largeur à 1280×720). Relevée par render, sans allocation.
+     */
+    private static int pileX0, pileX1, pileBas;
+    private static long pileVueA;
+    /** Largeur (unités menu) de la dernière bande peinte. */
+    private static float largeurPeinte;
+
     private BandeHud() {}
+
+    /** Une pile de bandes a été dessinée il y a moins de 250 ms ({@code System.currentTimeMillis()}). */
+    public static boolean pileVisible(long now) { return now - pileVueA < 250; }
+
+    /** Bord gauche de la pile (la plus large des bandes), en pixels écran. */
+    public static int pileX0() { return pileX0; }
+
+    /** Bord droit de la pile, en pixels écran. */
+    public static int pileX1() { return pileX1; }
+
+    /** Bas de la dernière bande de la pile, en pixels écran. */
+    public static int pileBas() { return pileBas; }
 
     static void effacer() { synchronized (BANDES) { BANDES.clear(); } }
 
@@ -98,9 +119,19 @@ public final class BandeHud {
         int km = DaKit.echelleMenu();
         int sw = mc.getWindow().getWidth() / km;
         DaKit.unites(g, km);
-        float y = 13;
-        for (Bande b : l) y += peindre(g, mc.font, b, sw / 2f, y, now, sw) + 4;
+        float y = 13, wMax = 0;
+        for (Bande b : l) {
+            largeurPeinte = 0;
+            y += peindre(g, mc.font, b, sw / 2f, y, now, sw) + 4;
+            wMax = Math.max(wMax, largeurPeinte);
+        }
         DaKit.finUnites(g);
+        if (wMax > 0) {
+            pileX0 = Math.round((sw / 2f - wMax / 2f) * km) - km;
+            pileX1 = Math.round((sw / 2f + wMax / 2f) * km) + km;
+            pileBas = Math.round((y - 4 + 1.5f) * km);   // ombre d'un pixel comprise
+            pileVueA = now;
+        }
     }
 
     /** Une bande centrée en (cx, y) ; renvoie sa hauteur (unités menu). */
@@ -121,6 +152,7 @@ public final class BandeHud {
         boolean signeSeule = ws > 0 && wDerniere + ws > maxTexte;
         float wl = Math.max(wt, signeSeule ? ws - 9 : wDerniere + ws);
         float w = tete + wl + 9;
+        largeurPeinte = w;
         float h = 18 + (lignes.size() - 1 + (signeSeule ? 1 : 0)) * 9.5f;
         float x = Math.round(cx - w / 2f), y0 = Math.round(y);
         // fond uni aux bords francs, ombre d'un pixel, arête haute

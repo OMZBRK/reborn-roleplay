@@ -21,7 +21,8 @@ class GardeOutils {
 
     /** {id, icône, titre} ; null = séparateur avec titre {@code ["", "", "TITRE"]}. */
     static final String[][] LISTE = {
-            {"", "", "Communication"}, {"annonces", "annonce", "Annonces"}, {"chat", "chat", "Chat staff"},
+            {"", "", "Communication"}, {"annonces", "annonce", "Annonces"}, {"narration", "noter", "Narration"},
+            {"chat", "chat", "Chat staff"},
             {"seisme", "seisme", "Séisme"},
             {"", "", "Infirmerie"}, {"blesses", "infirmerie", "Blessés"}, {"zones", "zones", "Zones d'entraînement et de repos"},
             {"hopitaux", "hopital", "Hôpitaux et lits"}, {"reglages", "reglages", "Réglages du KO"},
@@ -32,12 +33,15 @@ class GardeOutils {
     private EditBox chatBox, cmdBox;
     /** Outil Factions (16/10) : canal reborn:faction. */
     final GardeFactions factionsVue;
+    /** Outil Narration (lot 2) : texte en grand au centre de l'écran des joueurs. */
+    final GardeNarration narrationVue;
 
-    GardeOutils(StaffScreen s) { this.s = s; this.factionsVue = new GardeFactions(s); }
+    GardeOutils(StaffScreen s) { this.s = s; this.factionsVue = new GardeFactions(s); this.narrationVue = new GardeNarration(s); }
 
     void init() {
         chatBox = s.box(chatBox, "Écrire au staff…", 200);
         cmdBox = s.box(cmdBox, "Chercher : ata, zone, météo…", 40);
+        narrationVue.init();
     }
 
     String titre(String id) {
@@ -47,7 +51,8 @@ class GardeOutils {
 
     int hauteurOutils() { return s.outil == null ? 0 : "cmds".equals(s.outil) ? 38 : 16; }
 
-    boolean pleineHauteur() { return s.outil != null && ("chat".equals(s.outil) || "cmds".equals(s.outil) || "blesses".equals(s.outil) || "factions".equals(s.outil)); }
+    boolean pleineHauteur() { return s.outil != null && ("chat".equals(s.outil) || "cmds".equals(s.outil) || "blesses".equals(s.outil) || "factions".equals(s.outil)
+            || "narration".equals(s.outil)); }
 
     String pied() {
         if (s.outil == null) return "Clic : ouvrir l'outil";
@@ -55,6 +60,7 @@ class GardeOutils {
             case "chat" -> null;
             case "cmds" -> "Clic : copier la commande, à coller dans le tchat";
             case "factions" -> factionsVue.pied();
+            case "narration" -> "Ctrl + Entrée : envoyer  ·  Échap : retour aux outils";
             default -> "Échap : retour aux outils";
         };
     }
@@ -78,6 +84,7 @@ class GardeOutils {
         if (s.outil == null) return liste(snap, y);
         return switch (s.outil) {
             case "annonces" -> s.annoncesVue.annonces(snap, y + 2);
+            case "narration" -> narrationVue.corps(snap, y + 2);
             case "seisme" -> s.annoncesVue.seisme(snap, y + 2);
             case "chat" -> chat(snap, y);
             case "cmds" -> commandes(snap, y);
@@ -97,6 +104,10 @@ class GardeOutils {
     protected Object[] resume(String id, JsonObject snap) {
         return switch (id) {
             case "annonces" -> new Object[]{0, "À tout le serveur ou à un joueur, avec aperçu"};
+            case "narration" -> {
+                int n = StaffScreen.arr(StaffClient.narrations(), "actives").size();
+                yield new Object[]{n, n > 0 ? n + " en cours · texte en grand au centre de l'écran" : "Texte en grand au centre de l'écran des joueurs"};
+            }
             case "chat" -> {
                 JsonArray c = StaffScreen.arr(snap, "chat");
                 String last = c.isEmpty() ? "Aucun message" : StaffScreen.str(c.get(c.size() - 1).getAsJsonObject(), "name") + " : "
@@ -146,6 +157,7 @@ class GardeOutils {
         if ("chat".equals(id)) s.setFocused(chatBox);
         if ("cmds".equals(id)) s.setFocused(cmdBox);
         if ("factions".equals(id)) factionsVue.ouvrir();
+        if ("narration".equals(id)) narrationVue.ouvrir();
         RebornSounds.uiClick();
     }
 
@@ -257,7 +269,7 @@ class GardeOutils {
         pz.texte("Mode staff", ix + 13, y + 5, 15, CREME, true);
         pz.texteD(staff ? "actif" : "inactif", ix + iw, y + 5, 12, staff ? OK : GRIS_2, false);
         y += 13;
-        for (String l : List.of("Invisible aux joueurs, vol, invulnérable, plaques « N° · nom · état » au-dessus des têtes.",
+        for (String l : List.of("Invisible aux joueurs, vol, invulnérable, nametags « N° · nom · état » au-dessus des têtes.",
                 "Aucune mécanique RP : ni coup, ni technique, ni menu d'interaction, ni duel, ni ramassage, ni objet, ni bloc RP, ni monture, ni tchat RP (tes messages vont au chat staff). Personne ne peut te cibler.")) {
             for (String li : s.wrap(l, iw - 13, 12)) { pz.texte(li, ix + 13, y + 3, 12, GRIS_2, false); y += 9; }
             y += 2;

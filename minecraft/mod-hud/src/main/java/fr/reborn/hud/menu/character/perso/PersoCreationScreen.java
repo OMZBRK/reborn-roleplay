@@ -206,7 +206,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     /** Hors staff, « Autre » = « Sans clan » : le champ porte le nom de famille, soumis aux règles du prénom. */
     private boolean familleLibre() { return isCustomClan() && !CharacterData.staffExempt(); }
 
-    /** Nom affiché (registre, plaque) : prénom, puis nom de famille quand il n'y a pas de clan. */
+    /** Nom affiché (registre, nametag) : prénom, puis nom de famille quand il n'y a pas de clan. */
     private String nomComplet() {
         String n = name.trim();
         return familleLibre() && !customClan.isBlank() ? n + " " + customClan.trim() : n;
@@ -1305,7 +1305,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     }
 
     private void etapeNom(GuiGraphicsExtractor g, Font f, long now, int hautFig) {
-        // plaque de nom au-dessus de la tête (aperçu de la plaque flottante)
+        // nametag au-dessus de la tête (aperçu du nametag flottant)
         int ny = Math.max(150, hautFig - 18 - T);
         String n = name.trim().isEmpty() ? "…" : nomComplet();
         float nw = largeur(f, inter(n), 9) + 14;

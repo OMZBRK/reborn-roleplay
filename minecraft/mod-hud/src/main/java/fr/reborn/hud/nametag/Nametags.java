@@ -1,4 +1,4 @@
-package fr.reborn.hud.nameplate;
+package fr.reborn.hud.nametag;
 
 import fr.reborn.hud.anchor.TeteAncre;
 import fr.reborn.hud.douane.DouaneClient;
@@ -6,6 +6,7 @@ import fr.reborn.hud.ko.CorpsClient;
 import fr.reborn.hud.menu.settings.RebornPrefs;
 import fr.reborn.hud.menu.tablist.TabEntry;
 import fr.reborn.hud.menu.tablist.TablistData;
+import fr.reborn.hud.recit.RecitHud;
 import fr.reborn.hud.ui.Da;
 import fr.reborn.hud.ui.DaKit;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -40,12 +41,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.LongSupplier;
 
 /**
- * Plaques de nom RP au-dessus des têtes — remplacent le pseudo Minecraft (masqué
+ * Nametags RP au-dessus des têtes — remplacent le pseudo Minecraft (masqué
  * côté serveur par une équipe {@code NAME_TAG_VISIBILITY=NEVER} et côté client par
  * {@code EntityNameTagHideMixin}). Rendu <b>2D HUD</b> (projection de la tête à l'écran).
  *
  * <p>Quatre styles au choix (Options → Interface → Noms au-dessus des têtes,
- * {@link RebornPrefs#nameplateStyle}) :
+ * {@link RebornPrefs#nametagStyle}) :
  * <ol start="0">
  *   <li><b>Détouré</b> : le nom seul, contour sombre, petit carré à la couleur du clan.</li>
  *   <li><b>Filet doré</b> : nom, filet d'or à losange à la couleur du clan.</li>
@@ -67,17 +68,17 @@ import java.util.function.LongSupplier;
  *
  * <p><b>Ancre</b> : sommet de la tête réellement rendue ({@link TeteAncre} : émotes, ramper, à terre, allongé), dans
  * la pile commune de {@link CalqueTete} (3 px au-dessus du chapeau, la bulle et le /me au-dessus). L'ancre est calée
- * une fois au pixel physique puis la plaque est dessinée en coordonnées locales entières : le contour du style
- * « Détouré » ne scintille plus quand la plaque bouge. Les quatre dessins sont inchangés.
+ * une fois au pixel physique puis le nametag est dessiné en coordonnées locales entières : le contour du style
+ * « Détouré » ne scintille plus quand le nametag bouge. Les quatre dessins sont inchangés.
  */
-public final class Nameplates {
+public final class Nametags {
 
-    private Nameplates() {}
+    private Nametags() {}
 
     // ── regard (réglages) ───────────────────────────────────────
     /** Le regard s'accroche à un joueur dont le centre de tête est à 6 blocs au plus de l'œil. */
     private static final double PORTEE_REGARD = 6.0;
-    /** Au-delà, une plaque en maintien s'efface sans attendre. */
+    /** Au-delà, un nametag en maintien s'efface sans attendre. */
     private static final double PORTEE_MAINTIEN = 9.0;
     /** Marge autour de la boîte de collision : accroche à 0,30, décroche à 0,45 (hystérésis). */
     private static final double REGARD_ENTREE = 0.30, REGARD_SORTIE = 0.45;
@@ -95,7 +96,7 @@ public final class Nameplates {
     private static final long FONDU_CEDE_MS = 110L;
     /**
      * Le regard doit tenir 90 ms avant que le nom ne s'allume : un viseur qui balaie un groupe n'allume pas chaque
-     * plaque pour 2,5 s (0 = immédiat).
+     * nametag pour 2,5 s (0 = immédiat).
      */
     private static final long DELAI_REGARD_MS = 90L;
     /** Atténuation avec la distance : pleine jusqu'à 3 blocs, puis −1/12 par bloc, 60 % au moins. */
@@ -119,7 +120,7 @@ public final class Nameplates {
     /** Horloge des fondus (ms), commune à la pile ({@link CalqueTete#maintenant}) : un banc l'impose. */
     public static LongSupplier horloge = System::currentTimeMillis;
 
-    /** Banc d'essai (KoDebug) : plaques aussi sur les mannequins. */
+    /** Banc d'essai (KoDebug) : nametags aussi sur les mannequins. */
     public static boolean debugAvatars;
     /** Banc d'essai : le mannequin est vu comme un inconnu (masque porté, GAMEPLAN §14). */
     public static boolean debugInconnu;
@@ -127,13 +128,13 @@ public final class Nameplates {
     public static final Map<UUID, TablistData.RpName> DEBUG_NOMS = new ConcurrentHashMap<>();
     private static final TablistData.RpName DEBUG_REN = new TablistData.RpName("Ren Hyūga",
         TabEntry.Relation.CONNAISSANCE, 0x5577DD, "Hyūga", "Konoha");
-    /** Teinte du nom pendant le dessin d'une plaque (état KO ; 0 = crème). */
+    /** Teinte du nom pendant le dessin d'un nametag (état KO ; 0 = crème). */
     private static int teinte;
 
     // ── état par joueur ─────────────────────────────────────────
     private static final byte CACHEE = 0, ENTREE = 1, MAINTIEN = 2, SORTIE = 3;
 
-    /** Déroulé d'une plaque : entrée (et visible tant qu'on regarde), maintien, sortie. */
+    /** Déroulé d'un nametag : entrée (et visible tant qu'on regarde), maintien, sortie. */
     private static final class Etat {
         boolean regarde;
         /** En sortie parce qu'il cède la place au nom regardé ({@link #FONDU_CEDE_MS}). */
@@ -160,9 +161,9 @@ public final class Nameplates {
     public static void render(GuiGraphicsExtractor ctx) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || mc.options == null || mc.gui.hud.isHidden()) return;
-        // Sans data serveur (hors serveur Shinobi / solo), on ne remplace rien — sauf dans la douane (plaques du canal
+        // Sans data serveur (hors serveur Shinobi / solo), on ne remplace rien — sauf dans la douane (nametags du canal
         // reborn:douane : « Examinateur », ou le pseudo à la place d'« Inconnu »).
-        if (!TablistData.hasData() && !debugAvatars && !DouaneClient.plaquesActives()) return;
+        if (!TablistData.hasData() && !debugAvatars && !DouaneClient.nametagsActifs()) return;
         Camera cam = mc.gameRenderer.mainCamera();
         if (cam == null || !cam.isInitialized()) return;
 
@@ -312,7 +313,7 @@ public final class Nameplates {
         boolean discret = e.isCrouching() || e.isInvisible() || e.isSpectator() || !CalqueTete.teteDegagee(e);
         avancer(s, regarde && now - s.regardDepuis >= DELAI_REGARD_MS, discret, d > PORTEE_MAINTIEN);
         // Un autre nom s'allume là où celui-ci se maintient (deux têtes proches à l'écran) : il lui cède la place, vite.
-        if (s.phase == MAINTIEN && cibleEntite != null && CalqueTete.recouvre(e, CalqueTete.PLAQUE, cibleEntite, CalqueTete.PLAQUE)) {
+        if (s.phase == MAINTIEN && cibleEntite != null && CalqueTete.recouvre(e, CalqueTete.NAMETAG, cibleEntite, CalqueTete.NAMETAG)) {
             sortir(s, FONDU_CEDE_MS);
             s.cede = true;
         }
@@ -324,7 +325,7 @@ public final class Nameplates {
         }
         float att = Math.max(ATTENUATION_MIN, Math.min(1f, 1f - ((float) d - ATTENUATION_DEBUT) / ATTENUATION_PENTE));
         if (s.cede && s.phase == SORTIE && cibleEntite != null
-            && CalqueTete.recouvre(e, CalqueTete.PLAQUE, cibleEntite, CalqueTete.PLAQUE)) {
+            && CalqueTete.recouvre(e, CalqueTete.NAMETAG, cibleEntite, CalqueTete.NAMETAG)) {
             cedeImage = Math.max(cedeImage, a * att);   // il s'efface par-dessus le nom regardé
         } else if (regarde && cedePrec > 0f) {
             a *= 1f - cedePrec;                           // le nom regardé attend qu'il soit parti
@@ -404,8 +405,8 @@ public final class Nameplates {
         String name = known ? rp.name() : null;
         int clanCol = known && rp.clanColor() != 0 ? (0xFF000000 | rp.clanColor()) : NEUTRAL_CLAN;
         String village = known ? villageKey(rp.village()) : null;
-        // Douane (PLUGINS_REFERENCE §4 decies.4, plaques) : « Examinateur » (carré d'or), sinon le pseudo du profil.
-        String douane = DouaneClient.nomPlaque(e);
+        // Douane (PLUGINS_REFERENCE §4 decies.4, message « plaques ») : « Examinateur » (carré d'or), sinon le pseudo du profil.
+        String douane = DouaneClient.nomNametag(e);
         if (douane != null) {
             name = douane;
             clanCol = DouaneClient.examinateur(u) ? Da.GOLD : NEUTRAL_CLAN;
@@ -426,15 +427,19 @@ public final class Nameplates {
                 default -> { }
             }
         }
-        int style = Math.floorMod(RebornPrefs.INSTANCE.nameplateStyle, 4);
+        int style = Math.floorMod(RebornPrefs.INSTANCE.nametagStyle, 4);
         int gs = Math.max(1, Minecraft.getInstance().getWindow().getGuiScale());
         float sc = Da.title(), px = 1f / gs;
         String s0 = name != null ? name : (style == 2 ? "Inconnu" : "???");
         float demi = largeur(font, s0, sc) / 2f + (style == 1 ? 7 : style == 2 ? 11 : style == 3 ? 12 : 9)
             + (mot >= 0 ? largeurMot(font, mot) * 0.75f + 10 : 0f);
-        CalqueTete.occuper(e, CalqueTete.PLAQUE, hautStyle(style, sc, px), demi);
-        float a = alpha * CalqueTete.place(e, CalqueTete.PLAQUE);
-        float base = CalqueTete.base(e, CalqueTete.PLAQUE);
+        float haut = hautStyle(style, sc, px);
+        CalqueTete.occuper(e, CalqueTete.NAMETAG, haut, demi);
+        float a = alpha * CalqueTete.place(e, CalqueTete.NAMETAG);
+        float base = CalqueTete.base(e, CalqueTete.NAMETAG);
+        // centre dégagé (lot 2) : à 25 % s'il touche le texte au centre élargi de 12 px
+        float yb = A.y - CalqueTete.calePx(base);
+        a *= RecitHud.attenuation(A.x - demi, yb - haut, A.x + demi, yb);
         if (a <= 0.004f) {
             teinte = 0;
             return;
@@ -489,13 +494,13 @@ public final class Nameplates {
     private static int creme() { return teinte != 0 ? teinte : Da.CREAM; }
 
     /**
-     * Plaque au style choisi par le joueur, centrée en {@code (x, y)} (bas de la plaque) — pour les écrans qui
+     * Nametag au style choisi par le joueur, centré en {@code (x, y)} (bas du nametag) — pour les écrans qui
      * montrent un perso hors du monde (sélection du personnage).
      */
-    public static void drawPlate(GuiGraphicsExtractor g, Font f, float x, float y, String name, int clanCol,
+    public static void drawNametag(GuiGraphicsExtractor g, Font f, float x, float y, String name, int clanCol,
                                  String village, float alpha) {
         int col = 0xFF000000 | clanCol;
-        switch (Math.floorMod(RebornPrefs.INSTANCE.nameplateStyle, 4)) {
+        switch (Math.floorMod(RebornPrefs.INSTANCE.nametagStyle, 4)) {
             case 1 -> drawFilet(g, f, x, y, name, col, alpha);
             case 2 -> drawVillage(g, f, x, y, name, col, villageKey(village), alpha);
             case 3 -> drawRuban(g, f, x, y, name, alpha);
@@ -504,7 +509,7 @@ public final class Nameplates {
     }
 
     /** Style « Village » quel que soit le réglage (emblème + nom). */
-    public static void drawVillagePlate(GuiGraphicsExtractor g, Font f, float x, float y, String name, int clanCol,
+    public static void drawVillageNametag(GuiGraphicsExtractor g, Font f, float x, float y, String name, int clanCol,
                                         String village, float alpha) {
         drawVillage(g, f, x, y, name, 0xFF000000 | clanCol, villageKey(village), alpha);
     }
@@ -638,7 +643,7 @@ public final class Nameplates {
 
     /**
      * Texte ArcadePix centré avec contour (lisible sur tout fond). Origine calée une seule fois au pixel physique,
-     * contour à ±2 px physiques exacts : sur une plaque déjà posée sur une ancre calée, il reste symétrique et ne
+     * contour à ±2 px physiques exacts : sur un nametag déjà posé sur une ancre calée, il reste symétrique et ne
      * change plus avec la position sous-pixel (il scintillait dès l'échelle 3).
      */
     private static void outlined(GuiGraphicsExtractor g, Font f, String s, float cx, float y, float sc,
@@ -662,7 +667,7 @@ public final class Nameplates {
         g.pose().popMatrix();
     }
 
-    /** Atténue l'alpha (plaque plus discrète de loin, fondus). */
+    /** Atténue l'alpha (nametag plus discret de loin, fondus). */
     private static int fade(int argb, float f) {
         int al = (int) (((argb >>> 24) & 0xFF) * f);
         return (al << 24) | (argb & 0xFFFFFF);

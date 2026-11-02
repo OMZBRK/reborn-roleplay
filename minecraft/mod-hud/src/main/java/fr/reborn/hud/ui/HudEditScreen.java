@@ -279,6 +279,15 @@ public class HudEditScreen extends Screen {
             HudElementBounds bb = HudElementBounds.currentFor(HudElement.BOUSSOLE, bou, this.width, this.height);
             fr.reborn.hud.boussole.BoussoleHud.apercu(ctx, bb.x(), bb.y(), bou.scale());
         }
+        // 1quater) Lecteur OST (lot 2) : le bloc à 100 % sur « Mystère », à sa place en pixels écran.
+        HudElementState ost = config.stateOf(HudElement.OST);
+        if (ost.visible()) fr.reborn.hud.ost.OstHud.apercu(ctx, ost);
+        // 1quinquies) Colonne bas-droite (lot 2) : qui parle (trois lignes, soi en bas) et rappels de touches (portée de
+        // la voix, arrêter l'animation), vides la plupart du temps comme Escouade.
+        HudElementState qui = config.stateOf(HudElement.QUI_PARLE);
+        if (qui.visible()) fr.reborn.hud.voice.QuiParleHud.apercu(ctx, qui);
+        HudElementState rap = config.stateOf(HudElement.RAPPELS);
+        if (rap.visible()) fr.reborn.hud.keybind.RappelsTouches.apercu(ctx, rap);
 
         // 2) Boîtes HUD (dessinées avant le panneau : le panneau opaque couvre
         //    tout débordement à droite).
@@ -754,6 +763,11 @@ public class HudEditScreen extends Screen {
     /** Banc d'essai (REBORN_RADIO_DEBUG) : sélectionne un élément comme un clic dans la liste. */
     public void debugSelectionner(HudElement element) {
         selectElement(element);
+    }
+
+    /** Banc d'essai (REBORN_FEATURE_PREVIEW) : replie ou déplie le panneau, comme sa languette (élément au bord droit). */
+    public void debugReplier(boolean replie) {
+        if (sidePanel.isCollapsed() != replie) sidePanel.toggleCollapsed();
     }
 
     private void selectElement(HudElement element) {

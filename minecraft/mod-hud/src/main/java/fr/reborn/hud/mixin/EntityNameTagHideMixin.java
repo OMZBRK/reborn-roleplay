@@ -10,9 +10,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Masque le <b>pseudo Minecraft</b> flottant au-dessus des JOUEURS quand les plaques Reborn le remplacent
- * ({@link fr.reborn.hud.nameplate.Nameplates} : « Prénom Clan » ou « ??? », plaques de la douane). Gardé sur
- * {@link TablistData#hasData()} (serveur Reborn) ou {@code DouaneClient.plaquesActives()} ; ailleurs, en solo, pseudos
+ * Masque le <b>pseudo Minecraft</b> flottant au-dessus des JOUEURS quand les nametags Reborn le remplacent
+ * ({@link fr.reborn.hud.nametag.Nametags} : « Prénom Clan » ou « ??? », nametags de la douane). Gardé sur
+ * {@link TablistData#hasData()} (serveur Reborn) ou {@code DouaneClient.nametagsActifs()} ; ailleurs, en solo, pseudos
  * vanilla normaux. Seuls les {@link Player} : mannequins et entités à nom personnalisé gardent leur nom.
  *
  * <p><b>Point visé (31/10)</b> : {@code AvatarRenderer#shouldShowName(Avatar, double)}, qui porte la décision pour
@@ -37,7 +37,7 @@ public abstract class EntityNameTagHideMixin {
 
     @Inject(method = "shouldShowName(Lnet/minecraft/world/entity/Avatar;D)Z", at = @At("HEAD"), cancellable = true)
     private void reborn$hidePlayerNameTag(Avatar entity, double distanceSq, CallbackInfoReturnable<Boolean> cir) {
-        if (entity instanceof Player && (TablistData.hasData() || fr.reborn.hud.douane.DouaneClient.plaquesActives())) {
+        if (entity instanceof Player && (TablistData.hasData() || fr.reborn.hud.douane.DouaneClient.nametagsActifs())) {
             cir.setReturnValue(false);
         }
     }

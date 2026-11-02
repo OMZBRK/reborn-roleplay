@@ -1,4 +1,4 @@
-package fr.reborn.hud.nameplate;
+package fr.reborn.hud.nametag;
 
 import com.google.gson.JsonObject;
 import fr.reborn.hud.anchor.TeteAncre;
@@ -32,38 +32,38 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Banc des plaques, bulles et /me (31/10), <b>inactif en production</b> : seulement avec {@code REBORN_PLAQUES_DEBUG=1}
+ * Banc des nametags, bulles et /me (31/10), <b>inactif en production</b> : seulement avec {@code REBORN_NAMETAG_DEBUG=1}
  * (client de dev, monde solo « New World »). Vue épaule Reborn (RP forcé), 1920×1080, échelle GUI 2, horloge des fondus
- * imposée ({@link Nameplates#horloge}) : les films sont image par image. Cinq mannequins « autres joueurs » à ~3,5 blocs
- * (debout, debout derrière, à terre, allongé sans lit, accroupi), chacun avec son nom ({@link Nameplates#DEBUG_NOMS}).
+ * imposée ({@link Nametags#horloge}) : les films sont image par image. Cinq mannequins « autres joueurs » à ~3,5 blocs
+ * (debout, debout derrière, à terre, allongé sans lit, accroupi), chacun avec son nom ({@link Nametags#DEBUG_NOMS}).
  *
- * <p>Cas, dans l'ordre des captures {@code run/screenshots/plaques_<nn>_<cas>.png} : aucun regard ; fondu entrant à
- * 0, 80, 160 et 240 ms ; plaque pleine ; maintien puis fondu sortant ; 1re personne ; accroupi (aucune) ; à terre et
+ * <p>Cas, dans l'ordre des captures {@code run/screenshots/nametags_<nn>_<cas>.png} : aucun regard ; fondu entrant à
+ * 0, 80, 160 et 240 ms ; nametag plein ; maintien puis fondu sortant ; 1re personne ; accroupi (aucun) ; à terre et
  * inconscient avec la croix de l'ancre ({@link TeteAncre#debugCroix} : sur la tête, pas au-dessus des pieds) ; émote
  * ({@link CombatAnimations} sur le mannequin : garde tenue, coup) ; parle (3 barres) et écrit (3 points), <b>sans
  * nom</b> (le regard quitte la cible avant que l'horloge n'avance) ; /me court à plusieurs instants, /me long ; pile
  * complète ; masqué (« ??? ») ; /me à terre ; fond clair (neige, en plongée) et nuit ; auteur d'un /me qui parle,
  * caché derrière un mannequin plus proche (3e puis 1re personne, sans puis avec le nom de celui de devant : ni bulle ni
  * /me sur celui de devant, masqués comme derrière un mur — journal « tête de derrière cachée par un corps : oui ») ; nom
- * en maintien quand un autre passe devant (21a : montre un défaut de {@link Nameplates}, le nom se pose sur son visage) ;
+ * en maintien quand un autre passe devant (21a : montre un défaut de {@link Nametags}, le nom se pose sur son visage) ;
  * orateur à 12 blocs (la voix de proximité garde sa bulle, atténuée ; la frappe non) ; auteur devant le joueur lui-même en
  * vue épaule, tête qui dépasse (bulle et /me au-dessus) puis cachée (rien) ; soi en 3e personne ; micro des vitals vert,
  * jaune, rouge, qui parle ; micro à terre (vitals masqués) ; marche avec balancement de vue ; petit écran 1366×768 ;
- * échelle GUI 3 ; mur ; les trois autres styles de plaque.
+ * échelle GUI 3 ; mur ; les trois autres styles de nametag.
  *
  * <p>À la fin, tout est rendu : mannequins tués, drapeaux, style, échelle, fenêtre, balancement, caméra, mode de jeu,
  * heure, météo, et le joueur à sa position d'origine <b>en absolu</b> (vérifiée hors du sol), puis le jeu se ferme.
  * Le mur provisoire est en béton gris posé seulement sur de l'air, puis retiré : le monde n'est pas modifié. Journal
- * {@code [plaques-banc]} (origine, chaque photo avec la cible retenue, ancres des corps au sol, cas cachés avec la valeur
+ * {@code [nametags-banc]} (origine, chaque photo avec la cible retenue, ancres des corps au sol, cas cachés avec la valeur
  * attendue, orateur lointain, position finale).
  */
-final class PlaquesDebug {
+final class NametagsDebug {
 
     private record Pas(int attente, Runnable action) {}
 
     /** Visées : poitrine (boîte de collision), centre de la tête, à côté (au-dessus à gauche : le mannequin reste à l'écran). */
     private static final int POITRINE = 0, TETE = 1, A_COTE = 2;
-    /** Délai de regard des plaques ({@code Nameplates.DELAI_REGARD_MS}) : avancé à la main dans les films gelés. */
+    /** Délai de regard des nametags ({@code Nametags.DELAI_REGARD_MS}) : avancé à la main dans les films gelés. */
     private static final int DELAI = 90;
     private static final String COURT = "serre le poing et fixe l'horizon.";
     private static final String LONG = "se tourne lentement vers la porte, la main posée sur la garde de son sabre, prêt à "
@@ -111,12 +111,13 @@ final class PlaquesDebug {
     private static boolean marche;
     private static final Vector3d V = new Vector3d();
 
-    private PlaquesDebug() {}
+    private NametagsDebug() {}
 
     static void init() {
-        if (!"1".equals(System.getenv("REBORN_PLAQUES_DEBUG"))) return;
-        ClientTickEvents.END_CLIENT_TICK.register(PlaquesDebug::tick);
-        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("reborn-hud", "plaques-banc"), (g, dt) -> images++);
+        // REBORN_PLAQUES_DEBUG : ancien nom (avant le 02/11), gardé comme alias déprécié
+        if (!"1".equals(System.getenv("REBORN_NAMETAG_DEBUG")) && !"1".equals(System.getenv("REBORN_PLAQUES_DEBUG"))) return;
+        ClientTickEvents.END_CLIENT_TICK.register(NametagsDebug::tick);
+        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("reborn-hud", "nametags-banc"), (g, dt) -> images++);
     }
 
     private static void tick(Minecraft mc) {
@@ -161,9 +162,9 @@ final class PlaquesDebug {
         hauteurAvant = mc.getWindow().getScreenHeight();
         typeAvant = mc.options.getCameraType();
         camAvant = RebornCamera.INSTANCE.mode();
-        styleAvant = RebornPrefs.INSTANCE.nameplateStyle;
+        styleAvant = RebornPrefs.INSTANCE.nametagStyle;
         echelleAvant = mc.options.guiScale().get();
-        System.out.println(String.format(Locale.ROOT, "[plaques-banc] origine %.4f %.4f %.4f (%.1f / %.1f) mode=%s heure=%d "
+        System.out.println(String.format(Locale.ROOT, "[nametags-banc] origine %.4f %.4f %.4f (%.1f / %.1f) mode=%s heure=%d "
             + "pluie=%b orage=%b fenêtre=%dx%d échelle=%d caméra=%s/%s", oX, oY, oZ, oLacet, oTangage, modeAvant, heureAvant,
             pluieAvant, orageAvant, largeurAvant, hauteurAvant, echelleAvant, camAvant, typeAvant));
 
@@ -173,12 +174,12 @@ final class PlaquesDebug {
         cmd.sendCommand("execute positioned over motion_blocking_no_leaves run tp @s ~ ~ ~ -90 8");
         // restes d'un banc interrompu : sous le monde puis tués (constaté le 31/10 : un mannequin survit plusieurs secondes
         // sous le monde ; « kill » le retire tout de suite, hors de la vue)
-        cmd.sendCommand("execute as @e[tag=plaque_test] run tp @s ~ -300 ~");
-        cmd.sendCommand("kill @e[tag=plaque_test]");
+        cmd.sendCommand("execute as @e[tag=nametag_test] run tp @s ~ -300 ~");
+        cmd.sendCommand("kill @e[tag=nametag_test]");
         // reste du banc du combat (husk sans IA, jamais retiré) : il entrerait dans le champ ; sous le monde, sans butin
         cmd.sendCommand("execute as @e[type=minecraft:husk,distance=..96,nbt={NoAI:1b}] run tp @s ~ -300 ~");
         horloge = System.currentTimeMillis();
-        Nameplates.horloge = () -> horloge;
+        Nametags.horloge = () -> horloge;
         RebornSession.debugForceRp = true;
         VitalsFeed.update(82, 100, 64, 100);
         RebornCamera.INSTANCE.setMode(RebornCamera.Mode.SHOULDER);
@@ -186,7 +187,7 @@ final class PlaquesDebug {
         // l'orbite de la caméra épaule tire le lacet du joueur : on la tient sur −90 pour que les mannequins se placent
         // devant lui et le regardent
         regarderVers(-90f, 8f);
-        RebornPrefs.INSTANCE.nameplateStyle = 0;
+        RebornPrefs.INSTANCE.nametagStyle = 0;
         mc.options.guiScale().set(2);
         mc.resizeGui();
         programme(mc);
@@ -201,7 +202,7 @@ final class PlaquesDebug {
             if (y != mc.player.getY()) {
                 cmd.sendCommand(String.format(Locale.ROOT, "tp @s %.4f %.4f %.4f -90 8", mc.player.getX(), y, mc.player.getZ()));
             }
-            String f = "execute rotated -90 0 run summon mannequin %s {Rotation:[90f,0f],NoGravity:1b,Tags:[\"plaque_test\"],hide_description:1b%s}";
+            String f = "execute rotated -90 0 run summon mannequin %s {Rotation:[90f,0f],NoGravity:1b,Tags:[\"nametag_test\"],hide_description:1b%s}";
             cmd.sendCommand(String.format(Locale.ROOT, f, "^-0.6 ^ ^3.6", ""));
             cmd.sendCommand(String.format(Locale.ROOT, f, "^-1.5 ^ ^7.5", ""));
             cmd.sendCommand(String.format(Locale.ROOT, f, "^1.8 ^ ^4.6", ",pose:\"swimming\""));
@@ -230,9 +231,9 @@ final class PlaquesDebug {
             nom(d, "Sora Kaze", 0x8E7CC3, "Suna");
             if (b != null && c != null) CorpsClient.debugReceive("{\"t\":\"bodies\",\"b\":[{\"u\":\"" + b.getUUID()
                 + "\",\"ph\":1,\"rpk\":0},{\"u\":\"" + c.getUUID() + "\",\"ph\":2,\"rpk\":0}],\"dl\":[],\"me\":{}}");
-            Nameplates.debugAvatars = true;
+            Nametags.debugAvatars = true;
             ailleurs();
-            System.out.println(String.format(Locale.ROOT, "[plaques-banc] base %.4f %.4f %.4f ; mannequins a=%d e=%d b=%d c=%d d=%d",
+            System.out.println(String.format(Locale.ROOT, "[nametags-banc] base %.4f %.4f %.4f ; mannequins a=%d e=%d b=%d c=%d d=%d",
                 bX, bY, bZ, id(a), id(e), id(b), id(c), id(d)));
         });
 
@@ -243,11 +244,11 @@ final class PlaquesDebug {
         pas(3, () -> horloge += DELAI);
         pas(3, () -> photo(mc, "02_apparition_t000"));
         film(mc, "02_apparition_t", new int[] {80, 80, 80});
-        // ── 03 : plaque pleine (regard tenu, horloge rendue)
+        // ── 03 : nametag plein (regard tenu, horloge rendue)
         pas(20, () -> gelee = false);
-        pas(3, () -> photo(mc, "03_plaque_pleine"));
+        pas(3, () -> photo(mc, "03_nametag_plein"));
         // ── 04–05 : le regard part : maintien (1 s), puis fondu sortant à horloge gelée (0 / 150 / 300 / 450 ms)
-        pas(20, PlaquesDebug::ailleurs);
+        pas(20, NametagsDebug::ailleurs);
         pas(3, () -> photo(mc, "04_maintien_1s"));
         pas(3, () -> { gelee = true; horloge += 1600; });
         pas(3, () -> photo(mc, "05_effacement_t000"));
@@ -260,7 +261,7 @@ final class PlaquesDebug {
         });
         pas(3, () -> photo(mc, "06_premiere_personne"));
         pas(12, () -> { RebornCamera.INSTANCE.setMode(RebornCamera.Mode.SHOULDER); ailleurs(); });
-        pas(12, PlaquesDebug::oublier);
+        pas(12, NametagsDebug::oublier);
         // ── 07 : accroupi → aucun nom (règle)
         pas(18, () -> viser(d, POITRINE));
         pas(3, () -> photo(mc, "07_accroupi"));
@@ -268,12 +269,12 @@ final class PlaquesDebug {
         // tête, pas au-dessus des pieds (en gris, l'ancien ancrage « œil + 0,62 »)
         pas(18, () -> { TeteAncre.debugCroix = true; viser(b, TETE); });
         pas(3, () -> { photo(mc, "08_a_terre"); journalAncre(b); });
-        pas(12, PlaquesDebug::ailleurs);
-        pas(12, PlaquesDebug::oublier);
+        pas(12, NametagsDebug::ailleurs);
+        pas(12, NametagsDebug::oublier);
         pas(18, () -> viser(c, TETE));
         pas(3, () -> { photo(mc, "09_inconscient"); journalAncre(c); });
         pas(12, () -> { TeteAncre.debugCroix = croixAvant; ailleurs(); });
-        pas(12, PlaquesDebug::oublier);
+        pas(12, NametagsDebug::oublier);
         // ── 10 : émote (CombatAnimations sur le mannequin) : garde tenue, puis coup (la croix suit la tête)
         pas(14, () -> { viser(a, POITRINE); CombatAnimations.INSTANCE.playByEntityId(id(a), CombatAnimations.ANIM_BLOCK_ON); });
         pas(3, () -> photo(mc, "10_emote_garde"));
@@ -283,7 +284,7 @@ final class PlaquesDebug {
         // ── 11–12 : parle (3 barres), puis écrit (3 points), SANS nom : le regard quitte « a » d'abord (l'orbite converge
         // en quelques ticks), PUIS l'horloge avance de 3 s — sinon le maintien de 2,5 s repart après coup
         pas(12, () -> { viser(a, A_COTE); parle(a, true); });
-        pas(22, PlaquesDebug::oublier);
+        pas(22, NametagsDebug::oublier);
         pas(3, () -> photo(mc, "11_parle"));
         pas(12, () -> { parle(a, false); ecrit(a); });
         pas(3, () -> photo(mc, "12_ecrit"));
@@ -298,16 +299,16 @@ final class PlaquesDebug {
         // ── 15 : pile complète (nom, bulle de voix, deux /me) sans chevauchement, sur le ciel de jour
         pas(18, () -> { viser(a, POITRINE); parle(a, true); me(a, COURT); });
         pas(3, () -> photo(mc, "15_pile_complete"));
-        // ── 16 : masqué : « ??? » sur la plaque, /me d'un inconnu
-        pas(16, () -> { Nameplates.debugInconnu = true; MeBulles.vider(); me(a, "ajuste son masque.", true); });
+        // ── 16 : masqué : « ??? » sur le nametag, /me d'un inconnu
+        pas(16, () -> { Nametags.debugInconnu = true; MeBulles.vider(); me(a, "ajuste son masque.", true); });
         pas(3, () -> photo(mc, "16_masque"));
-        pas(12, () -> { Nameplates.debugInconnu = false; parle(a, false); MeBulles.vider(); ailleurs(); });
-        pas(12, PlaquesDebug::oublier);
+        pas(12, () -> { Nametags.debugInconnu = false; parle(a, false); MeBulles.vider(); ailleurs(); });
+        pas(12, NametagsDebug::oublier);
         // ── 17 : /me sur un mannequin à terre (ancré sur la tête qui rampe)
         pas(18, () -> { viser(b, TETE); me(b, "rampe vers la porte en serrant les dents."); });
         pas(3, () -> photo(mc, "17_me_a_terre"));
         pas(12, () -> { MeBulles.vider(); ailleurs(); });
-        pas(12, PlaquesDebug::oublier);
+        pas(12, NametagsDebug::oublier);
         // ── 18 : fond clair (la bulle et le /me n'ont pas de fond) : 1re personne, 3 blocs plus haut, plongée sur « a » —
         // la neige derrière toute la pile. Les corps au sol et l'accroupi ne servent plus : sous le monde ; « e » écarté.
         pas(14, () -> {
@@ -338,7 +339,7 @@ final class PlaquesDebug {
         pas(20, () -> { cmd.sendCommand("time set 18000"); viser(a, POITRINE); parle(a, true); me(a, COURT); });
         pas(3, () -> photo(mc, "19_nuit"));
         pas(12, () -> { cmd.sendCommand("time set 6000"); parle(a, false); MeBulles.vider(); viser(a, A_COTE); });
-        pas(14, PlaquesDebug::oublier);
+        pas(14, NametagsDebug::oublier);
         // ── 20–21 : l'auteur d'un /me, qui parle aussi, est caché derrière un mannequin plus proche (« e » posé dans
         // l'axe caméra → « a », 3 blocs derrière) : rien ne doit se poser sur le visage ou le corps de « a » — la tête de
         // « e » est cachée par un corps (TeteAncre.cacheeParUnCorps), sa bulle et son /me s'effacent comme derrière un mur.
@@ -350,7 +351,7 @@ final class PlaquesDebug {
         pas(18, () -> aligner(mc, e, a, 3.0));
         pas(3, () -> { photo(mc, "20_cache_3e_nom"); journalCache(mc, e, a, true); });
         pas(12, () -> { RebornCamera.INSTANCE.setMode(RebornCamera.Mode.FIRST); viser(a, A_COTE); });
-        pas(14, PlaquesDebug::oublier);
+        pas(14, NametagsDebug::oublier);
         pas(18, () -> aligner(mc, e, a, 3.0));
         pas(3, () -> { photo(mc, "21_cache_1re"); journalCache(mc, e, a, true); });
         pas(12, () -> viser(a, POITRINE));
@@ -379,7 +380,7 @@ final class PlaquesDebug {
             placer(mc, e, bX + 10.0, eY, bZ + 7.0);
             viser(e, A_COTE);
         });
-        pas(12, PlaquesDebug::oublier);
+        pas(12, NametagsDebug::oublier);
         pas(18, () -> parle(e, true));
         pas(3, () -> { photo(mc, "21b_voix_12_blocs"); journalLoin(mc); });
         pas(12, () -> { parle(e, false); ecrit(e); });
@@ -393,7 +394,7 @@ final class PlaquesDebug {
             TypingState.clear();
             MeBulles.vider();
             placer(mc, e, eX, eY, eZ);
-            Nameplates.debugAvatars = false;
+            Nametags.debugAvatars = false;
             regarderVers(-90f, 8f);
         });
         pas(16, () -> aligner(mc, a, mc.player, 3.0));
@@ -405,10 +406,10 @@ final class PlaquesDebug {
             parle(a, false);
             MeBulles.vider();
             placer(mc, a, aX, aY, aZ);
-            Nameplates.debugAvatars = true;
+            Nametags.debugAvatars = true;
             regarderVers(-140f, 14f);   // les mannequins sortent du cadre : rien derrière sa propre tête
         });
-        pas(12, PlaquesDebug::oublier);
+        pas(12, NametagsDebug::oublier);
         // ── 22 : soi en 3e personne : bulle de voix et /me sur soi
         pas(18, () -> { VoiceState.DEBUG_SOI_PARLE = true; me(mc.player, "s'étire longuement en bâillant."); });
         pas(3, () -> photo(mc, "22_soi_3e_personne"));
@@ -452,7 +453,7 @@ final class PlaquesDebug {
             vol(mc, true);
             viser(a, A_COTE);
         });
-        pas(10, PlaquesDebug::oublier);
+        pas(10, NametagsDebug::oublier);
         // ── 29 : petit écran (1366×768, échelle 2) : pile complète
         pas(20, () -> {
             mc.getWindow().setWindowed(1366, 768);
@@ -471,18 +472,18 @@ final class PlaquesDebug {
         pas(14, () -> murer(mc, true));
         pas(3, () -> photo(mc, "31_mur"));
         pas(12, () -> murer(mc, false));
-        // ── 32–34 : les trois autres styles de plaque (inchangés), sous la même pile
-        pas(12, () -> RebornPrefs.INSTANCE.nameplateStyle = 1);
+        // ── 32–34 : les trois autres styles de nametag (inchangés), sous la même pile
+        pas(12, () -> RebornPrefs.INSTANCE.nametagStyle = 1);
         pas(3, () -> photo(mc, "32_style_filet"));
-        pas(12, () -> RebornPrefs.INSTANCE.nameplateStyle = 2);
+        pas(12, () -> RebornPrefs.INSTANCE.nametagStyle = 2);
         pas(3, () -> photo(mc, "33_style_village"));
-        pas(12, () -> RebornPrefs.INSTANCE.nameplateStyle = 3);
+        pas(12, () -> RebornPrefs.INSTANCE.nametagStyle = 3);
         pas(3, () -> photo(mc, "34_style_ruban"));
 
         // ── remise en état
         pas(10, () -> rendreClient(mc));
         pas(12, () -> {
-            cmd.sendCommand("kill @e[tag=plaque_test]");
+            cmd.sendCommand("kill @e[tag=nametag_test]");
             cmd.sendCommand("gamemode " + modeAvant);
             if (heureAvant >= 0) cmd.sendCommand("time set " + Math.min(Integer.MAX_VALUE, heureAvant));
             cmd.sendCommand(orageAvant ? "weather thunder" : pluieAvant ? "weather rain" : "weather clear");
@@ -492,7 +493,7 @@ final class PlaquesDebug {
             // jamais dans le sol : si les pieds touchent un bloc à l'origine, au premier seizième de bloc libre (absolu)
             var j = mc.player;
             double y = hauteurLibre(mc);
-            System.out.println(String.format(Locale.ROOT, "[plaques-banc] fin : %.4f %.4f %.4f (origine %.4f %.4f %.4f), bloc aux "
+            System.out.println(String.format(Locale.ROOT, "[nametags-banc] fin : %.4f %.4f %.4f (origine %.4f %.4f %.4f), bloc aux "
                 + "pieds %s, %s", j.getX(), j.getY(), j.getZ(), oX, oY, oZ, mc.level.getBlockState(j.blockPosition()),
                 y == j.getY() ? "hors du sol" : String.format(Locale.ROOT, "pieds dans un bloc → remonté à %.4f", y)));
             if (y != j.getY()) {
@@ -511,9 +512,9 @@ final class PlaquesDebug {
         mc.options.keyUp.setDown(false);
         murer(mc, false);
         descendre(mc);
-        Nameplates.debugAvatars = false;
-        Nameplates.debugInconnu = false;
-        Nameplates.DEBUG_NOMS.clear();
+        Nametags.debugAvatars = false;
+        Nametags.debugInconnu = false;
+        Nametags.DEBUG_NOMS.clear();
         VoiceState.DEBUG_PARLE.clear();
         VoiceState.DEBUG_SOI_PARLE = false;
         VoiceState.DEBUG_PORTEE = null;
@@ -522,8 +523,8 @@ final class PlaquesDebug {
         KoClient.clear();
         CorpsClient.debugReceive("{\"t\":\"bodies\",\"b\":[],\"dl\":[],\"me\":{}}");
         TeteAncre.debugCroix = croixAvant;
-        mc.player.connection.sendCommand("execute as @e[tag=plaque_test] run tp @s ~ -300 ~");
-        RebornPrefs.INSTANCE.nameplateStyle = styleAvant;
+        mc.player.connection.sendCommand("execute as @e[tag=nametag_test] run tp @s ~ -300 ~");
+        RebornPrefs.INSTANCE.nametagStyle = styleAvant;
         if (largeurAvant > 0 && (mc.getWindow().getScreenWidth() != largeurAvant || mc.getWindow().getScreenHeight() != hauteurAvant)) {
             mc.getWindow().setWindowed(largeurAvant, hauteurAvant);
         }
@@ -536,7 +537,7 @@ final class PlaquesDebug {
         if (typeAvant != null) mc.options.setCameraType(typeAvant);
         RebornSession.debugForceRp = false;
         VitalsFeed.clear();
-        Nameplates.horloge = System::currentTimeMillis;
+        Nametags.horloge = System::currentTimeMillis;
         vol(mc, false);
     }
 
@@ -560,7 +561,7 @@ final class PlaquesDebug {
         tangage = p;
     }
 
-    /** Laisse passer le maintien des plaques (horloge avancée de 3 s) — seulement une fois le regard parti. */
+    /** Laisse passer le maintien des nametags (horloge avancée de 3 s) — seulement une fois le regard parti. */
     private static void oublier() { horloge += 3000; }
 
     private static void viser(Entity cible, int mode) {
@@ -637,7 +638,7 @@ final class PlaquesDebug {
     private static void nom(Entity m, String nom, int couleur, String village) {
         if (m == null) return;
         String clan = nom.substring(nom.indexOf(' ') + 1);
-        Nameplates.DEBUG_NOMS.put(m.getUUID(), new TablistData.RpName(nom, TabEntry.Relation.CONNAISSANCE, couleur, clan, village));
+        Nametags.DEBUG_NOMS.put(m.getUUID(), new TablistData.RpName(nom, TabEntry.Relation.CONNAISSANCE, couleur, clan, village));
     }
 
     /** Le mannequin « parle » (VoiceState, relu au tick suivant : chaque pas attend plusieurs ticks avant sa capture). */
@@ -695,7 +696,7 @@ final class PlaquesDebug {
     private static void journalAncre(Entity m) {
         if (m == null) return;
         TeteAncre.Qualite q = TeteAncre.centre(m, V);
-        System.out.println(String.format(Locale.ROOT, "[plaques-banc] ancre %d (%s) : tête %.3f %.3f %.3f, pieds %.3f %.3f %.3f, "
+        System.out.println(String.format(Locale.ROOT, "[nametags-banc] ancre %d (%s) : tête %.3f %.3f %.3f, pieds %.3f %.3f %.3f, "
             + "écart horizontal %.3f, hauteur %.3f, %s", m.getId(), m.getPose(), V.x, V.y, V.z, m.getX(), m.getY(), m.getZ(),
             Math.hypot(V.x - m.getX(), V.z - m.getZ()), V.y - m.getY(), q));
     }
@@ -709,7 +710,7 @@ final class PlaquesDebug {
         Vec3 cp = mc.gameRenderer.mainCamera().position();
         double dx = devant.getX() - cp.x, dz = devant.getZ() - cp.z, cx = cache.getX() - cp.x, cz = cache.getZ() - cp.z;
         double ecart = Math.toDegrees(Math.atan2(dx * cz - dz * cx, dx * cx + dz * cz));
-        System.out.println(String.format(Locale.ROOT, "[plaques-banc] caché : caméra %.2f %.2f %.2f, devant (%d) à %.2f, derrière (%d) "
+        System.out.println(String.format(Locale.ROOT, "[nametags-banc] caché : caméra %.2f %.2f %.2f, devant (%d) à %.2f, derrière (%d) "
             + "à %.2f, écart angulaire %.2f°, tête de derrière cachée par un corps : %s (attendu : %s)", cp.x, cp.y, cp.z,
             devant.getId(), Math.hypot(dx, dz), cache.getId(), Math.hypot(cx, cz), ecart,
             TeteAncre.cacheeParUnCorps(cache) ? "oui" : "non", attendu ? "oui" : "non"));
@@ -722,7 +723,7 @@ final class PlaquesDebug {
         var j = mc.player;
         double d = Math.sqrt(V.distanceSquared(j.getX(), j.getEyeY(), j.getZ()));
         // tête visible = rendue et sans bloc devant (le relief à 12 blocs n'est pas connu d'avance), puis les corps
-        System.out.println(String.format(Locale.ROOT, "[plaques-banc] loin : e à %.2f blocs de l'œil, voix de proximité %s, "
+        System.out.println(String.format(Locale.ROOT, "[nametags-banc] loin : e à %.2f blocs de l'œil, voix de proximité %s, "
             + "tête visible %s, cachée par un corps %s", d, VoiceState.voixDeProximite(e.getId()) ? "oui" : "non",
             TeteAncre.visible(e) ? "oui" : "non", TeteAncre.cacheeParUnCorps(e) ? "oui" : "non"));
     }
@@ -773,9 +774,9 @@ final class PlaquesDebug {
     }
 
     private static void photo(Minecraft mc, String nom) {
-        Screenshot.grab(mc.gameDirectory, "plaques_" + nom + ".png", mc.gameRenderer.mainRenderTarget(), 1, m -> { });
-        System.out.println(String.format(Locale.ROOT, "[plaques-banc] photo %s : cible=%d visée=%d fps=%d fenêtre=%dx%d échelle=%d",
-            nom, Nameplates.debugCible(), id(vise), mc.getFps(), mc.getWindow().getWidth(), mc.getWindow().getHeight(),
+        Screenshot.grab(mc.gameDirectory, "nametags_" + nom + ".png", mc.gameRenderer.mainRenderTarget(), 1, m -> { });
+        System.out.println(String.format(Locale.ROOT, "[nametags-banc] photo %s : cible=%d visée=%d fps=%d fenêtre=%dx%d échelle=%d",
+            nom, Nametags.debugCible(), id(vise), mc.getFps(), mc.getWindow().getWidth(), mc.getWindow().getHeight(),
             mc.getWindow().getGuiScale()));
     }
 }

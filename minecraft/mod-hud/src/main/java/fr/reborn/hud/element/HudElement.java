@@ -39,7 +39,16 @@ public enum HudElement {
     // GAMEPLAN §4 (19/10) : zone d'effets sous les vitals (icônes 10 px + minuteur), à la place qu'elle avait dans les
     // vitals (×0,80 comme eux) ; boussole horizontale en haut, facultative, MASQUÉE par défaut.
     EFFETS        ("effets",          "Effets",       "Icônes des effets et états, avec minuteur",  HudAnchor.TOP_LEFT, 0, 0, 0.80f),
-    BOUSSOLE      ("boussole",        "Boussole",     "Boussole horizontale (cap, marqueur, lieux)", HudAnchor.TOP_CENTER, 0, 0, 1.00f, false);
+    BOUSSOLE      ("boussole",        "Boussole",     "Boussole horizontale (cap, marqueur, lieux)", HudAnchor.TOP_CENTER, 0, 0, 1.00f, false),
+    // Lot 2 « Reprises Ketto » (01/11) : lecteur OST en haut à droite (variante B : trois barres, titre = catégorie,
+    // filet d'or), tracé par ost/OstHud en pixels écran à l'échelle kHud ; option « Masquer après 10 s » dans l'inspecteur.
+    OST           ("ost",             "Musique",      "Titre de la musique en cours (OST)",         HudAnchor.TOP_RIGHT, 0, 0, 1.00f),
+    // Lot 2, étape 2b (01/11) : colonne bas-droite, une seule échelle (kHud) — qui parle en haut (voix de proximité,
+    // noms dans la police du récit, vumètre) et les rappels de touches en bas (« Portée de la voix [H] » permanent,
+    // lignes du moment au-dessus), les notifications entre les deux ; tracés en pixels écran par voice/QuiParleHud et
+    // keybind/RappelsTouches.
+    QUI_PARLE     ("qui_parle",       "Qui parle",    "Noms de ceux qui parlent autour de toi (voix de proximité)", HudAnchor.BOTTOM_RIGHT, 0, 0, 1.00f),
+    RAPPELS       ("rappels",         "Rappels de touches", "Portée de la voix [H] et les touches utiles du moment", HudAnchor.BOTTOM_RIGHT, 0, 0, 1.00f);
 
     private final String id;
     private final String displayName;
@@ -50,6 +59,8 @@ public enum HudElement {
     private final float defScale;
     /** Visible par défaut (faux pour les éléments facultatifs : boussole). */
     private final boolean defVisible;
+    /** État par défaut, partagé (record immuable) : {@code HudConfig.stateOf} le rend à chaque image sans allouer. */
+    private final HudElementState defState;
 
     HudElement(String id, String displayName, String description, HudAnchor defaultAnchor) {
         this(id, displayName, description, defaultAnchor, 0, 0, 1.0f);
@@ -70,11 +81,12 @@ public enum HudElement {
         this.defY          = defY;
         this.defScale      = defScale;
         this.defVisible    = defVisible;
+        this.defState      = new HudElementState(defX, defY, defScale, defVisible, null);
     }
 
     /** État par défaut (placement + taille) proposé pour cet élément aux nouveaux joueurs. */
     public HudElementState defaultState() {
-        return new HudElementState(defX, defY, defScale, defVisible, null);
+        return defState;
     }
 
     /** Identifiant stable utilisé dans le JSON de config — ne JAMAIS renommer. */

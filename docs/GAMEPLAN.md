@@ -1040,7 +1040,7 @@ L'utilisateur : « ok pour tout ». Captures : `Maquettes/gameplan/14_interactio
   garde « Porter (sans accord) » et la lutte.
 - **Fouille consentie** : la sacoche de la personne en **lecture seule** (« Tu regardes, tu ne prends rien »), la
   personne fouillée affichée à gauche ; le pillage reste réservé aux corps à terre.
-- **Masque** : un objet dans l'emplacement Masque cache l'identité — plaque « ??? », liste des joueurs, tchat et `/me`
+- **Masque** : un objet dans l'emplacement Masque cache l'identité — nametag « ??? », liste des joueurs, tchat et `/me`
   en « Inconnu », amis compris (`character.masque-cache-nom`, `character/Masques`). Les autres écrans qui lisent le
   nom connu (banque, duel, factions…) ne sont pas encore masqués.
 - **Volume de sa voix** : 100 / 75 / 50 / 25 %, jamais coupée, chez soi seulement (config de Plasmo Voice).

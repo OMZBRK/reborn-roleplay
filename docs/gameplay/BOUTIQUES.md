@@ -250,7 +250,7 @@ cadeau au Japon, en petit dans l'en-tête.
 ### 6.3 Ce qu'on y vend (proposition)
 
 - **Tenues** et **cosmétiques 3D** exclusifs (masques de fête, kimonos de cérémonie, haori brodés, accessoires de dos),
-  **animations** (emotes) et **démarches**, styles de plaque de nom.
+  **animations** (emotes) et **démarches**, styles de nametag.
 - **Jamais** : une tenue d'**institution**, de **clan**, de **grade** ou de **village** (elle ferait passer pour ce qu'on
   n'est pas), une **arme**, un **objet**, du **ryo**, des **points**, un **tirage**, une **réinitialisation** (§2).
 - Les cosmétiques de compte se **portent** dans les mêmes emplacements que les autres (onglet Cosmétique de la sacoche),

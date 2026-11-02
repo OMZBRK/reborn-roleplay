@@ -2,7 +2,6 @@ package fr.reborn.ost;
 
 import fr.reborn.ost.audio.OstAudioEngine;
 import fr.reborn.ost.audio.OstLibrary;
-import fr.reborn.ost.audio.OstSeedExtractor;
 import fr.reborn.ost.config.OstConfig;
 import fr.reborn.ost.keybind.OstKeybinds;
 import fr.reborn.ost.network.OstNetworking;
@@ -27,8 +26,15 @@ import java.nio.file.Path;
  *   <li>Instancie le moteur audio OpenAL ({@link OstAudioEngine}).</li>
  *   <li>Enregistre le canal {@code reborn:ost} S2C pour recevoir les
  *       broadcasts serveur.</li>
- *   <li>Enregistre la keybind {@code M} et l'overlay HUD.</li>
+ *   <li>Enregistre la keybind {@code N}, publie l'état de la lecture
+ *       ({@link OstLecture}, lu par le lecteur de reborn-hud) et le
+ *       bandeau de secours (seulement sans reborn-hud ≥ lot 2).</li>
  * </ol>
+ *
+ * <p>Les pistes arrivent par le manifest du launcher
+ * ({@code reborn/ost/<catégorie>/*.ogg}, fichiers obligatoires téléchargés
+ * avant le lancement du jeu) : l'ancien seed de 43 pistes embarqué dans le
+ * jar (71 Mo) n'était plus jamais extrait et a été retiré en 0.2.6.
  *
  * <p>Les singletons {@code library()}, {@code audioEngine()}, {@code config()}
  * sont exposés statiquement — ils sont nécessaires depuis le Screen UI
@@ -54,14 +60,9 @@ public final class RebornOstClient implements ClientModInitializer {
         Path root = FabricLoader.getInstance().getGameDir().resolve("reborn").resolve("ost");
         LIBRARY = new OstLibrary(root);
         LIBRARY.ensureLayout();
-        LIBRARY.scan(); // premier scan pour decider si on extrait le seed
-        int extracted = OstSeedExtractor.extractIfEmpty(LIBRARY);
-        if (extracted > 0) {
-            LIBRARY.scan(); // re-scan apres extraction
-        }
+        LIBRARY.scan();
         int count = LIBRARY.allTracks().size();
-        LOGGER.info("library ready : {} tracks under {} (seed extracted: {})",
-            count, root, extracted);
+        LOGGER.info("library ready : {} tracks under {}", count, root);
 
         // 3. Audio engine.
         AUDIO_ENGINE = new OstAudioEngine();
@@ -70,21 +71,30 @@ public final class RebornOstClient implements ClientModInitializer {
         // 4. Networking S2C.
         OstNetworking.registerClient(LIBRARY, AUDIO_ENGINE, CONFIG);
 
-        // 5. Keybind + HUD overlay.
+        // 5. Keybind, état publié pour le HUD (reborn-ost:lecture) et bandeau de
+        //    secours (dessiné seulement si reborn-hud ne dessine pas le lecteur).
         OstKeybinds.registerClient();
-        new OstHudOverlay(AUDIO_ENGINE).registerClient();
+        OstLecture.publier();
+        OstHudOverlay overlay = new OstHudOverlay(AUDIO_ENGINE);
+        overlay.registerClient();
 
         // 6. Tick handler — recalcule le gain par distance pour les broadcasts
         //    positionnels. OpenAL n'attenue pas les buffers stéréo (spec AL),
         //    on bricole donc à la main : 20Hz suffit largement pour suivre
-        //    le déplacement du joueur sans artefact audible.
+        //    le déplacement du joueur sans artefact audible. Puis relevé de
+        //    l'état publié (piste, lecture / pause, audible).
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // Lecture continue (auto-next / repeat) — indépendant du joueur.
             fr.reborn.ost.audio.OstPlayback.INSTANCE.tick(AUDIO_ENGINE, CONFIG);
-            if (client.player == null) return;
-            Vec3 pos = client.player.getEyePosition();
-            AUDIO_ENGINE.tickPositional(pos.x, pos.y, pos.z);
+            if (client.player != null) {
+                Vec3 pos = client.player.getEyePosition();
+                AUDIO_ENGINE.tickPositional(pos.x, pos.y, pos.z);
+            }
+            OstLecture.maj(AUDIO_ENGINE);
         });
+        OstBanc.init(LIBRARY, AUDIO_ENGINE, CONFIG, overlay);   // banc REBORN_OST_BANC (dev)
+        // fermeture : piste arrêtée et fil de la pompe du flux coupé avant que le SoundEngine ne ferme OpenAL
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(c -> AUDIO_ENGINE.fermer());
 
         LOGGER.info("Reborn OST mod ready.");
     }

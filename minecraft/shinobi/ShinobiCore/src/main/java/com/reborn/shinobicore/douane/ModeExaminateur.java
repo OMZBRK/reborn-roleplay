@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * <b>Mode examinateur</b> ({@code /modeexaminateur}, CANDIDATURE_ET_DOUANE.md §3.5), sur le modèle du mode animation :
- * l'examinateur est <b>visible</b> des candidats, porte la plaque « Examinateur », n'a <b>aucune mécanique RP</b>
+ * l'examinateur est <b>visible</b> des candidats, porte le nametag « Examinateur », n'a <b>aucune mécanique RP</b>
  * (cadre {@code HORS_JEU.DOUANE}, comme les candidats) et <b>tout est journalisé</b> (entrée, sortie, appels,
  * questions, décisions). Grade Helper au minimum et permission {@code reborn.douane.examinateur}. Exclusif avec le
  * mode staff et le mode animation ; tombe à la déconnexion, à la sortie du monde de la douane et à la perte des droits.
@@ -31,7 +31,7 @@ final class ModeExaminateur {
 
     private record Avant(Location lieu, GameMode mode, long depuis) {}
 
-    private static final Component PLAQUE = Component.text("Examinateur", NamedTextColor.GOLD);
+    private static final Component NAMETAG = Component.text("Examinateur", NamedTextColor.GOLD);
 
     private final ShinobiCore plugin;
     private final DouaneManager douane;
@@ -81,7 +81,7 @@ final class ModeExaminateur {
         actifs.put(id, new Avant(retour, p.getGameMode(), System.currentTimeMillis()));
         if (!douane.dansMonde(p)) p.teleport(douane.pointHall());
         p.setGameMode(GameMode.ADVENTURE);
-        poserPlaque(p);
+        poserNametag(p);
         p.sendActionBar(Component.text("Mode examinateur : visible, aucune mécanique RP, tout est journalisé.", NamedTextColor.GOLD));
         Journal.entree(Categorie.STAFF, "MODE_EXAMINATEUR").acteur(p).detail("entrée").lieu(p.getLocation()).ecrire();
         if (plugin.staffPanel() != null) plugin.staffPanel().system(p.getName() + " passe en mode examinateur.");
@@ -115,7 +115,7 @@ final class ModeExaminateur {
 
     /**
      * Toutes les secondes : droits (un examinateur rétrogradé en plein mode, grade ou permission retirés, n'encadre
-     * plus le hall), exclusivité (mode staff ou animation pris entre-temps) et plaque.
+     * plus le hall), exclusivité (mode staff ou animation pris entre-temps) et nametag.
      */
     void verifier() {
         var outils = plugin.outilsStaff();
@@ -132,15 +132,15 @@ final class ModeExaminateur {
                 sortir(p, true, false);
                 continue;
             }
-            if (!PLAQUE.equals(p.customName())) poserPlaque(p);
+            if (!NAMETAG.equals(p.customName())) poserNametag(p);
         }
     }
 
-    private static void poserPlaque(Player p) {
-        try { p.displayName(PLAQUE); } catch (Throwable ignored) { }
-        try { p.playerListName(PLAQUE); } catch (Throwable ignored) { }
+    private static void poserNametag(Player p) {
+        try { p.displayName(NAMETAG); } catch (Throwable ignored) { }
+        try { p.playerListName(NAMETAG); } catch (Throwable ignored) { }
         try {
-            p.customName(PLAQUE);
+            p.customName(NAMETAG);
             p.setCustomNameVisible(true);
         } catch (Throwable ignored) { }
     }

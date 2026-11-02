@@ -103,6 +103,9 @@ final class StaffDemo {
                 }
             }
             case "cherche" -> StaffClient.debugReceive(cherche(o).toString());
+            case "narration" -> narration(o);
+            case "narration_fin" -> narrationFin(o);
+            case "narrations" -> StaffClient.debugReceive(narrations("").toString());
             case "kill" -> toast("ok".equals(StaffScreen.str(o, "v")) ? "Mise à mort validée." : "Mise à mort refusée.");
             case "dismiss" -> toast("Alerte ignorée.");
             case "profile" -> { if (profil != null) StaffClient.debugReceive(profil); }
@@ -294,6 +297,108 @@ final class StaffDemo {
         }
         r.add("joueurs", js);
         return r;
+    }
+
+    /* ---------------------------------------------------------------- narration (lot 2, PLUGINS_REFERENCE §4 bis.2) */
+
+    /** Narrations actives du serveur simulé, la plus récente d'abord : {id, portée, joueurs, s, reste, mode, texte, par, moi}. */
+    private static final List<JsonObject> NARRATIONS = new ArrayList<>();
+    private static int narrationN = 40;
+
+    /** Banc : deux narrations en cours (une à soi, une d'un autre staff, tenue). */
+    static void narrationsExemple() {
+        NARRATIONS.clear();
+        NARRATIONS.add(active("n41", "ici · 30 blocs", 12, 0, 9, "file", "Le vent tourne. Quelque chose approche de la porte Est.", "Omar", true));
+        NARRATIONS.add(active("n40", "tout le serveur", 37, -1, -1, "remplace", "Trois coups de gong résonnent depuis la tour du Hokage. "
+                + "Les portes du village se ferment jusqu'à l'aube…", "Hiro", false));
+    }
+
+    static void narrationsVider() { NARRATIONS.clear(); }
+
+    private static JsonObject active(String id, String portee, int joueurs, int sec, int reste, String mode, String texte, String par, boolean moi) {
+        JsonObject a = new JsonObject();
+        a.addProperty("id", id);
+        a.addProperty("portee", portee);
+        a.addProperty("joueurs", joueurs);
+        a.addProperty("s", sec);
+        a.addProperty("reste", reste);
+        a.addProperty("mode", mode);
+        a.addProperty("texte", texte.length() > 80 ? texte.substring(0, 79) + "…" : texte);
+        a.addProperty("par", par);
+        a.addProperty("moi", moi);
+        return a;
+    }
+
+    /** État {@code narrations} : « arreter » = l'auteur, ou Modérateur et plus (grade de l'instantané). */
+    private static JsonObject narrations(String dernier) {
+        boolean modo = StaffScreen.grade(StaffClient.snapshot()) >= 2;
+        JsonObject r = new JsonObject();
+        r.addProperty("t", "narrations");
+        r.addProperty("dernier", dernier);
+        JsonArray l = new JsonArray();
+        for (JsonObject a : NARRATIONS) {
+            JsonObject c = a.deepCopy();
+            c.addProperty("arreter", modo || StaffScreen.bool(a, "moi"));
+            l.add(c);
+        }
+        r.add("actives", l);
+        return r;
+    }
+
+    /** Requête {@code narration} : mêmes contrôles et mêmes réponses que {@code StaffPanel#narration} (toast puis état). */
+    private static void narration(JsonObject o) {
+        JsonObject snap = StaffClient.snapshot();
+        int g = StaffScreen.grade(snap);
+        boolean anim = StaffScreen.bool(snap, "modeAnim");
+        String portee = StaffScreen.str(o, "portee");
+        if ("tous".equals(portee) && !StaffScreen.bool(o, "confirme")) { toast("Tout le serveur : confirme d'abord l'envoi."); return; }
+        if (("monde".equals(portee) || "tous".equals(portee)) && g < 2 || "ici".equals(portee) && g < 2 && !anim) {
+            toast("Réservé aux modérateurs et plus."); return;
+        }
+        int sec = StaffScreen.num(o, "s");
+        if (sec == -1 && g < 2) { toast("Tenir : réservé aux modérateurs et plus."); return; }
+        StringBuilder t = new StringBuilder();
+        int n = 0;
+        for (var e : StaffScreen.arr(o, "segs")) {
+            String x = e.getAsJsonArray().get(0).getAsString();
+            t.append(x);
+            n += x.codePointCount(0, x.length());
+        }
+        if (n == 0) { toast("Texte vide."); return; }
+        int joueurs = switch (portee) { case "joueur" -> 1; case "ici" -> 12; case "monde" -> 23; default -> 37; };
+        String libelle = switch (portee) {
+            case "joueur" -> "joueur " + ("".equals(StaffScreen.str(o, "pid")) ? "Raiden_FR" : "#" + StaffScreen.str(o, "pid"));
+            case "ici" -> "ici · " + StaffScreen.num(o, "r") + " blocs";
+            case "monde" -> "monde world";
+            default -> "tout le serveur";
+        };
+        long auto = Math.max(5000, Math.min(60000, 3000 + n * 1000L / 12));
+        int reste = sec == -1 ? -1 : sec == 0 ? (int) (auto / 1000) : sec;
+        String id = "n" + (++narrationN);
+        boolean remplace = "remplace".equals(StaffScreen.str(o, "mode"));
+        if (remplace && g >= 2) NARRATIONS.clear();
+        NARRATIONS.add(0, active(id, libelle, joueurs, sec, reste, remplace && g >= 2 ? "remplace" : "file",
+                aPlat(t.toString()), "Omar", true));
+        toast("Narration envoyée à " + joueurs + " joueur(s) · " + (sec == 0 ? "auto (" + auto / 1000 + " s)" : sec == -1 ? "tenue" : sec + " s") + ".");
+        StaffClient.debugReceive(narrations(id).toString());
+    }
+
+    /** Texte à plat de l'état : un paragraphe devient « / », un retour à la ligne une espace. */
+    private static String aPlat(String t) {
+        return t.replace("\n\n", " / ").replace('\n', ' ');
+    }
+
+    private static void narrationFin(JsonObject o) {
+        String id = StaffScreen.str(o, "id");
+        int avant = NARRATIONS.size();
+        if (id.isEmpty()) {
+            if (StaffScreen.grade(StaffClient.snapshot()) >= 2) NARRATIONS.clear();
+            else NARRATIONS.removeIf(a -> StaffScreen.bool(a, "moi"));
+        } else NARRATIONS.removeIf(a -> id.equals(StaffScreen.str(a, "id")));
+        int k = avant - NARRATIONS.size();
+        toast(k == 0 ? (id.isEmpty() ? "Aucune narration en cours de ta part." : "Aucune narration récente sous ce nom : " + id + ".")
+                : k + " narration(s) arrêtée(s) · " + (k * 12) + " joueur(s) prévenu(s).");
+        StaffClient.debugReceive(narrations("").toString());
     }
 
     private static void toast(String m) {

@@ -303,7 +303,7 @@ public class CharacterManager implements CharacterService {
             // nickname listener's cross-world safety net doesn't run; if
             // we apply before the teleport, any client display state
             // reset during the teleport leaks the Mojang username into
-            // tab / nameplate. Apply-after keeps the last write winning.
+            // tab / nametag. Apply-after keeps the last write winning.
             teleportToLastPositionIfAny(player, character);
             CharacterDisplay.apply(player, character);
             // Late-binding safety retry — some clients finish syncing the

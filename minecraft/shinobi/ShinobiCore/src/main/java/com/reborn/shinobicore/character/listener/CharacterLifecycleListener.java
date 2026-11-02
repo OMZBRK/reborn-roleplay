@@ -87,7 +87,7 @@ public class CharacterLifecycleListener implements Listener {
             // something up could lose up to a minute of inventory.
             c.captureInventoryFrom(p);
         }
-        // Revert chat / tab / nameplate to the vanilla Minecraft username so
+        // Revert chat / tab / nametag to the vanilla Minecraft username so
         // the player rejoins cleanly if they reconnect before we re-apply.
         CharacterDisplay.reset(p);
         mgr.unload(p.getUniqueId());

@@ -11,6 +11,7 @@ import com.reborn.shinobicore.character.ShinobiCharacter;
 import com.reborn.shinobicore.inventory.Notifs;
 import com.reborn.shinobicore.ko.KoState;
 import com.reborn.shinobicore.ko.ata.AtaManager;
+import com.reborn.shinobicore.staff.outils.Narrations;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -143,6 +144,8 @@ public final class StaffPanel implements Listener, PluginMessageListener {
     }
 
     void send(Player p, JsonObject o) {
+        // arrêt du plugin (sortie du mode staff / animation → envoyerMode) : un plugin désactivé ne peut plus envoyer
+        if (!plugin.isEnabled()) return;
         p.sendPluginMessage(plugin, CHANNEL, gson.toJson(o).getBytes(StandardCharsets.UTF_8));
     }
 
@@ -218,6 +221,17 @@ public final class StaffPanel implements Listener, PluginMessageListener {
                 plugin.outilsStaff().effets().annonceGlobale(p, str(in, "titre"), m, intDe(in, "s", 8));
                 toast(p, "Annonce envoyée à tous.");
             }
+            case "narration" -> narration(p, grade, in);
+            case "narration_fin" -> {
+                if (plugin.outilsStaff() == null) return;
+                Narrations.Arret r = plugin.outilsStaff().narrations().finir(p, str(in, "id"));
+                toast(p, r.erreur() != null ? r.erreur()
+                        : r.narrations() + " narration(s) arrêtée(s) · " + r.joueurs() + " joueur(s) prévenu(s).");
+                send(p, plugin.outilsStaff().narrations().etat(p, ""));
+            }
+            case "narrations" -> {
+                if (plugin.outilsStaff() != null) send(p, plugin.outilsStaff().narrations().etat(p, ""));
+            }
             case "seisme" -> {
                 if (grade < com.reborn.shinobicore.staff.outils.OutilsStaff.G_SEISME) { toast(p, "Réservé aux admins et plus."); return; }
                 if (plugin.outilsStaff() == null) return;
@@ -287,6 +301,88 @@ public final class StaffPanel implements Listener, PluginMessageListener {
     static long longDe(JsonObject o, String k) {
         try { JsonElement e = o.get(k); return e == null || e.isJsonNull() ? 0L : e.getAsLong(); }
         catch (RuntimeException e) { return 0L; }
+    }
+
+    static boolean boolDe(JsonObject o, String k) {
+        try { JsonElement e = o.get(k); return e != null && !e.isJsonNull() && e.getAsBoolean(); }
+        catch (RuntimeException e) { return false; }
+    }
+
+    /** {@link #entier} : présent, mais pas un nombre entier JSON. */
+    private static final int INVALIDE = Integer.MIN_VALUE;
+
+    /** Entier JSON strict : absent ou null → {@code def} ; chaîne, booléen, nombre à virgule non entier… → {@link #INVALIDE}. */
+    static int entier(JsonObject o, String k, int def) {
+        JsonElement e = o.get(k);
+        if (e == null || e.isJsonNull()) return def;
+        if (!e.isJsonPrimitive() || !e.getAsJsonPrimitive().isNumber()) return INVALIDE;
+        try { return e.getAsBigDecimal().intValueExact(); }
+        catch (ArithmeticException | NumberFormatException ex) { return INVALIDE; }
+    }
+
+    /**
+     * Outil « Narration » du volet (lot 2, PLUGINS_REFERENCE §4 bis.3 bis) : mêmes droits que {@code /narration}
+     * ({@link Narrations#refus}, garde-fou {@link Narrations#refusEnvoi}) ; « tous » exige {@code confirme:true} (le volet
+     * demande la confirmation, comme pour l'annonce). Un refus de droits ou de garde-fou est journalisé
+     * ({@code NARRATION_REFUS} : rien d'autre ne trace une requête du volet). Réponses : {@code toast}, puis
+     * {@code narrations} si elle est partie.
+     */
+    private void narration(Player p, int grade, JsonObject in) {
+        var outils = plugin.outilsStaff();
+        if (outils == null) { toast(p, "Outils staff indisponibles."); return; }
+        Narrations nar = outils.narrations();
+        Narrations.Type type = Narrations.Type.lire(str(in, "portee"));
+        if (type == null) { toast(p, "Portée inconnue : joueur, ici, monde ou tous."); return; }
+        int rayon = type == Narrations.Type.ICI ? entier(in, "r", Narrations.RAYON_DEFAUT) : 0;
+        if (rayon == INVALIDE) { toast(p, "Rayon : un nombre entier de 1 à " + Narrations.RAYON_MAX + "."); return; }
+        boolean anim = nar.enAnimation(p);
+        String demande = type.name().toLowerCase(java.util.Locale.ROOT) + (type == Narrations.Type.ICI ? " · " + rayon + " blocs" : "")
+                + " · " + StaffGrades.name(grade) + (anim ? " en mode animation" : "") + " · Poste de garde";
+        String refus = Narrations.refus(grade, anim, type, rayon);
+        if (refus != null) { toast(p, refus); Narrations.journalRefus(p, demande, refus); return; }
+        if (type == Narrations.Type.TOUS && !boolDe(in, "confirme")) { toast(p, "Tout le serveur : confirme d'abord l'envoi."); return; }
+        int s = entier(in, "s", Narrations.AUTO);
+        if (s == INVALIDE || !Narrations.dureeValide(s)) { toast(p, "Durée : 0 (auto), -1 (tenir) ou un nombre entier de 2 à 180."); return; }
+        Integer pos = null;   // absent ou null : position par défaut du mod
+        if (in.has("pos") && !in.get("pos").isJsonNull()) {
+            int v = entier(in, "pos", INVALIDE);
+            if (v == INVALIDE || v < 0 || v > 100) { toast(p, "Position : un nombre entier de 0 à 100."); return; }
+            pos = v;
+        }
+        JsonElement segs = in.get("segs");
+        Narrations.Analyse an = segs != null && !segs.isJsonNull() ? Narrations.depuisJson(segs) : Narrations.analyser(str(in, "texte"));
+        if (!an.ok()) { toast(p, an.erreur()); return; }
+        Player tp = null;
+        Narrations.Portee portee;
+        if (type == Narrations.Type.JOUEUR) {
+            String pid = str(in, "pid").trim();
+            if (!pid.isEmpty()) {
+                // un N° vise le personnage : le joueur qui le joue en ce moment (comme /narration joueur #N°), pas le compte
+                tp = com.reborn.shinobicore.character.PlayerIds.online(p, pid.startsWith("#") ? pid : "#" + pid);
+                if (tp == null) { toast(p, "Personnage " + (pid.startsWith("#") ? pid : "#" + pid) + " hors ligne."); return; }
+            } else {
+                UUID t = cible(in);
+                tp = t == null ? null : Bukkit.getPlayer(t);
+                if (tp == null) { toast(p, "Joueur introuvable ou hors ligne."); return; }
+            }
+            portee = Narrations.Portee.joueur(tp);
+        } else {
+            portee = switch (type) {
+                case TOUS -> Narrations.Portee.tous();
+                case MONDE -> Narrations.Portee.monde(p.getWorld());
+                default -> Narrations.Portee.ici(p.getLocation(), rayon);
+            };
+        }
+        String frein = nar.refusEnvoi(p, grade, type, tp, s);
+        if (frein != null) { toast(p, frein); Narrations.journalRefus(p, demande, frein); return; }
+        Narrations.Envoi e = nar.diffuser(p, portee, an.segments(), s, Narrations.Mode.lire(str(in, "mode")), pos,
+                boolDe(in, "tchat"));
+        String file = e.file();
+        toast(p, "Narration envoyée à " + e.joueurs() + " joueur(s) · " + e.duree()
+                + (e.sansMod() > 0 ? " · " + e.sansMod() + " sans le mod (tchat)" : "")
+                + (e.remplacees() > 0 ? " · " + e.remplacees() + " des tiennes remplacée(s)" : "")
+                + (file.isEmpty() ? "" : " · " + file) + ".");
+        send(p, nar.etat(p, e.id()));
     }
 
     /** Cible d'une requête : {@code t} (UUID du compte) ou {@code pid} (N°, avec ou sans #). */
@@ -435,7 +531,7 @@ public final class StaffPanel implements Listener, PluginMessageListener {
         return j;
     }
 
-    /** État de la fiche : un seul constructeur avec les plaques du mode staff (ETATS_JOUEUR §2.4 n° 13). */
+    /** État de la fiche : un seul constructeur avec les nametags du mode staff (ETATS_JOUEUR §2.4 n° 13). */
     private String stateOf(UUID id, ShinobiCharacter c) {
         return com.reborn.shinobicore.etat.EtatTexte.resume(plugin, id, c, true);
     }
@@ -1177,13 +1273,16 @@ public final class StaffPanel implements Listener, PluginMessageListener {
                 {"Joueurs et modération", "/journal [#N°] [catégorie] [h:24]", "Journal universel (tout est tracé)", "1"},
                 {"Joueurs et modération", "/note <#N°> ajouter <texte>", "Notes staff sur un personnage", "1"},
                 {"Joueurs et modération", "/annoncejoueur <joueur> <message>", "Message à un seul joueur", "1"},
-                {"Joueurs et modération", "/modestaff", "Mode staff : invisible, aucune mécanique RP, plaques au-dessus des têtes", "1"},
+                {"Joueurs et modération", "/modestaff", "Mode staff : invisible, aucune mécanique RP, nametags au-dessus des têtes", "1"},
                 {"Joueurs et modération", "/modeanim", "Mode animation (animateur / MJ) : jouer pour un event, tout est journalisé", "1"},
+                {"Joueurs et modération", "/narration joueur <joueur> [30s|2m] [+remplace] <texte>", "Narration au centre de l'écran d'un joueur (<rouge> <or> <ombre> <gris>, \\n = à la ligne ; 3 s entre deux, 5 joueurs par minute)", "1"},
+                {"Joueurs et modération", "/narration fin [id]", "Arrêter ses narrations (Modérateur : toutes)", "1"},
                 {"Joueurs et modération", "/ramener <joueur>", "Ramener un joueur (/retour <joueur> pour le renvoyer)", "2"},
                 {"Joueurs et modération", "/geler <joueur> [motif]", "Gel persistant (/degeler)", "2"},
                 {"Joueurs et modération", "/voirsac <joueur>", "Voir barre, sacoche et équipement", "2"},
                 {"Joueurs et modération", "/noir <joueur> [secondes|off] [message]", "Écran noir forcé", "2"},
                 {"Joueurs et modération", "/annonce <message>", "Annonce à tous", "2"},
+                {"Joueurs et modération", "/narration <ici [rayon]|monde|tous> [+tenir|30s|2m] <texte>", "Narration autour de toi (64 blocs au plus), à ce monde ou à tous (confirmation) ; +tenir = jusqu'à l'arrêt", "2"},
                 {"Joueurs et modération", "/tenue <joueur> <id|main|retirer>", "Imposer une tenue", "2"},
                 {"Joueurs et modération", "/emoteforcee <joueur> <emote|stop>", "Forcer une emote", "2"},
                 {"Joueurs et modération", "F7 › fiche › Personnages", "Personnages du joueur : consulter (Helper), modifier (Modo), grade, mort RP, emplacements, créer, remettre à zéro, supprimer (Admin)", "1"},

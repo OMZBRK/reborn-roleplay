@@ -30,7 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * <b>mécaniques RP sont permises</b> (coups, techniques, menu d'interaction, objets…). En échange, tout est
  * <b>journalisé</b> en plus du journal habituel : entrée et sortie ({@code STAFF / MODE_ANIMATION}), chaque commande
  * tapée, chaque message, chaque coup porté ({@code STAFF / ANIMATION}). Indicateur discret : « Animation » dans l'état
- * du joueur (Poste de garde, plaques du mode staff) et ligne fine en haut à droite de son propre écran (mod, message
+ * du joueur (Poste de garde, nametags du mode staff) et ligne fine en haut à droite de son propre écran (mod, message
  * {@code mode} du canal {@code reborn:staff}).
  *
  * <p>Permission dédiée {@code reborn.staff.animation} (OP par défaut) : un animateur n'a pas besoin d'un grade staff.

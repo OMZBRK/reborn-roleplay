@@ -744,7 +744,7 @@ lore:
 character:
   auto-save-seconds: 60
   # GAMEPLAN §14 (24/10) : un masque porté (emplacement Masque de la sacoche) cache l'identité ; les autres voient
-  # « Inconnu » (plaque, liste des joueurs, tchat, /me), même ceux qui connaissent le personnage.
+  # « Inconnu » (nametag, liste des joueurs, tchat, /me), même ceux qui connaissent le personnage.
   masque-cache-nom: true
 
 # /me (31/10) : la ligne de tchat part à tous ; la bulle au-dessus de la tête (mod reborn-hud, canal reborn:me) ne part

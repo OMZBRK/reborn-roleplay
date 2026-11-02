@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * <b>Un seul constructeur</b> du résumé d'état lisible (docs/technique/ETATS_JOUEUR.md §2.4 n° 13, §7.4) : plaques du
+ * <b>Un seul constructeur</b> du résumé d'état lisible (docs/technique/ETATS_JOUEUR.md §2.4 n° 13, §7.4) : nametags du
  * mode staff ({@code ModeStaff.etat}) et fiche du Poste de garde ({@code StaffPanel.stateOf}) disaient deux vérités.
  * Désormais : l'état principal résolu par le service, puis ce que le staff veut voir en plus (ATA et repos, duel,
  * prison, gel, muet, voix coupée, écran noir, animation).
@@ -24,7 +24,7 @@ public final class EtatTexte {
     private EtatTexte() { }
 
     /**
-     * @param detail vrai pour la fiche (repos de l'ATA, minutes de prison), faux pour les plaques (court)
+     * @param detail vrai pour la fiche (repos de l'ATA, minutes de prison), faux pour les nametags (court)
      */
     public static String resume(ShinobiCore plugin, UUID id, ShinobiCharacter c, boolean detail) {
         List<String> parts = new ArrayList<>();
@@ -55,7 +55,7 @@ public final class EtatTexte {
         if (o != null && o.gels().gele(id)) parts.add("Gelé");
         if (detail && plugin.staffPanel() != null && plugin.staffPanel().mutedUntil(id) > System.currentTimeMillis())
             parts.add("Muet");
-        // Voix coupée par le staff (31/10, Plasmo Voice via ShinobiRadio) : plaques et fiche.
+        // Voix coupée par le staff (31/10, Plasmo Voice via ShinobiRadio) : nametags et fiche.
         var voix = plugin.staffPanel() != null ? plugin.staffPanel().voix() : null;
         var coupure = voix != null ? voix.etat(id) : null;
         if (coupure != null) parts.add(!detail ? "Voix coupée" : coupure.permanente() ? "Voix coupée · sans fin"

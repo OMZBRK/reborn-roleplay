@@ -22,7 +22,7 @@ import java.util.Map;
 /**
  * Client du Poste de garde (panel staff) : canal {@link StaffPayload}, touche F7, dernier état reçu (instantané,
  * fiche, Infirmerie, réponse du journal universel, notes par N°). Les effets en jeu (annonces, écran noir, séisme,
- * plaques staff) sont dans {@link EffetsStaff} et {@link PlaquesStaff}. Le serveur décide de tout (grade, actions
+ * nametags staff) sont dans {@link EffetsStaff} et {@link NametagsStaff}. Le serveur décide de tout (grade, actions
  * possibles) ; le client affiche et envoie des demandes. Protocole : {@code docs/technique/PLUGINS_REFERENCE.md} §4 bis.
  */
 public final class StaffClient {
@@ -36,6 +36,9 @@ public final class StaffClient {
     private static volatile JsonObject cherche;
     /** Dernière réponse {@code persos} (fiche › Personnages, 15/10). */
     private static volatile JsonObject persos;
+    /** Dernier état {@code narrations} (outil « Narration », lot 2) et son heure d'arrivée (le « reste » en part). */
+    private static volatile JsonObject narrations;
+    private static volatile long narrationsA;
     /** Son des nouvelles alertes quand le Poste de garde est ouvert (cloche de l'onglet Alertes). */
     static boolean cloche = true;
     /** Modes du joueur local (message {@code mode} du serveur) : indicateur discret en jeu. */
@@ -50,13 +53,19 @@ public final class StaffClient {
 
     private StaffClient() {}
 
+    /** Mode staff ou mode animation actif (rappel « Poste de garde [F7] » du bas-droite, lot 2). */
+    public static boolean modeActif() { return modeStaff || modeAnim; }
+
+    /** Touche du Poste de garde (F7 par défaut), null avant l'initialisation. */
+    public static KeyMapping touche() { return key; }
+
     public static void init() {
         PayloadTypeRegistry.clientboundPlay().register(StaffPayload.ID, StaffPayload.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(StaffPayload.ID, StaffPayload.CODEC);
         ClientPlayNetworking.registerGlobalReceiver(StaffPayload.ID,
                 (payload, ctx) -> ctx.client().execute(() -> receive(payload.json())));
         ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> {
-            snapshot = null; profile = null; journal = null; cherche = null;
+            snapshot = null; profile = null; journal = null; cherche = null; narrations = null;
             modeStaff = false; modeAnim = false;
             ficheDemandee = null; actionDemandee = null; actionEnAttente = null; horsGarde = 0;
             synchronized (ALERTES_VUES) { ALERTES_VUES.clear(); }
@@ -70,7 +79,7 @@ public final class StaffClient {
             }
         });
         EffetsStaff.init();
-        PlaquesStaff.init();
+        NametagsStaff.init();
     }
 
     private static void receive(String raw) {
@@ -116,6 +125,7 @@ public final class StaffClient {
                 lancerEnAttente(o, mc);
             }
             case "persos" -> persos = o;
+            case "narrations" -> { narrations = o; narrationsA = System.currentTimeMillis(); }
             case "journal" -> journal = o;
             case "notes" -> {
                 String pid = o.has("pid") ? o.get("pid").getAsString() : "";
@@ -191,6 +201,15 @@ public final class StaffClient {
     }
 
     public static JsonObject koSnapshot() { return koSnapshot; }
+
+    /**
+     * Dernier état {@code narrations} (outil « Narration » : actives, la plus récente d'abord ; PLUGINS_REFERENCE
+     * §4 bis.2), null tant qu'il n'est pas arrivé.
+     */
+    static JsonObject narrations() { return narrations; }
+
+    /** Heure d'arrivée (ms, horloge murale) du dernier état {@code narrations}. */
+    static long narrationsA() { return narrationsA; }
 
     /** Dernière réponse {@code journal} reçue (null si le serveur ne la gère pas encore). */
     public static JsonObject journal() { return journal; }

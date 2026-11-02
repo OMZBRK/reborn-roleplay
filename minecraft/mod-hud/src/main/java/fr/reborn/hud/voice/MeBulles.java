@@ -3,7 +3,8 @@ package fr.reborn.hud.voice;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import fr.reborn.hud.anchor.TeteAncre;
-import fr.reborn.hud.nameplate.CalqueTete;
+import fr.reborn.hud.nametag.CalqueTete;
+import fr.reborn.hud.recit.RecitHud;
 import fr.reborn.hud.ui.DaKit;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
@@ -25,7 +26,7 @@ import java.util.UUID;
  * s'écrit au-dessus de son auteur, sobre et propre (référence Ketto) — texte blanc doux en Inter, <b>sans fond</b>
  * (décision du 31/10 au soir), posé directement au-dessus de la tête comme le nom ; une ombre portée d'1 px écran et un
  * contour sombre très discret sur les 4 côtés (35 %) le gardent lisible sur la neige, le sable ou le ciel clair, sans
- * jamais faire un pavé ; pas de nom (il est déjà sur la plaque). Remplace côté client la bulle {@code TextDisplay} du
+ * jamais faire un pavé ; pas de nom (il est déjà sur le nametag). Remplace côté client la bulle {@code TextDisplay} du
  * serveur (téléportée 20 fois par seconde, vue à travers les murs, posée sur la hitbox).
  *
  * <ul>
@@ -34,12 +35,12 @@ import java.util.UUID;
  *       le contour suivent le carré du fondu et les lettres déjà révélées : jamais d'ombre ni de contour seuls.</li>
  *   <li><b>Mise en page</b> : 200 unités de large au plus (× facteur distance), 3 lignes au plus puis « … ». Au plus 2
  *       /me par auteur : le plus récent près de la tête, l'ancien monte (un 3e fait partir le plus ancien). Tailles en
- *       « unités menu », comme la plaque staff : la taille validée à l'échelle 2 en 1080p, quelle que soit l'échelle
+ *       « unités menu », comme le nametag staff : la taille validée à l'échelle 2 en 1080p, quelle que soit l'échelle
  *       d'interface (à l'échelle 3 ou en « Auto », le /me grossissait de 1,5 à 2 fois au-dessus d'un nom resté petit).</li>
  *   <li><b>Distance</b> : échelle = clamp(1 − (d − 4) / 24 ; 0,72 ; 1), fondu sur les 4 derniers blocs avant la
  *       portée {@code r} du message ; {@code d} = de l'œil du joueur local au centre de la tête de l'auteur.</li>
  *   <li><b>Placement</b> : ancre de la tête rendue ({@link TeteAncre}, à terre et allongé compris), couche
- *       {@link CalqueTete#ME} de la pile (au-dessus de la plaque et de la bulle de voix) ; deux auteurs qui se
+ *       {@link CalqueTete#ME} de la pile (au-dessus du nametag et de la bulle de voix) ; deux auteurs qui se
  *       recouvrent à l'écran sont écartés (poussée verticale gloutonne, lissée ; le plus proche reste en place et est
  *       dessiné en dernier), et un /me ne se pose pas non plus sur le nom ou la bulle d'un joueur plus proche.</li>
  *   <li><b>Visibilité</b> : masqué si la tête n'est pas dégagée ({@link CalqueTete#teteDegagee} : mur, ou corps d'un
@@ -407,7 +408,10 @@ public final class MeBulles {
         Font f = mc.font;
         for (int i = n - 1; i >= 0; i--) {
             Auteur au = ORDRE[i];
-            dessinerAuteur(ctx, f, au, au.yBas - CalqueTete.calePx(au.poussee), now, gs, o, c, marges);
+            float yb = au.yBas - CalqueTete.calePx(au.poussee);
+            // centre dégagé (lot 2) : à 25 % si la pile touche le texte au centre élargi de 12 px
+            au.a *= RecitHud.attenuation(au.x - au.larg / 2f, yb - au.haut, au.x + au.larg / 2f, yb);
+            dessinerAuteur(ctx, f, au, yb, now, gs, o, c, marges);
             au.e = null;
             ORDRE[i] = null;
         }

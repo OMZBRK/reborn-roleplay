@@ -7,6 +7,7 @@ import su.plo.voice.api.addon.AddonLoaderScope;
 import su.plo.voice.api.addon.annotation.Addon;
 import su.plo.voice.api.client.PlasmoVoiceClient;
 import su.plo.voice.api.client.event.audio.capture.ClientActivationRegisteredEvent;
+import su.plo.voice.api.client.event.render.HudActivationRenderEvent;
 import su.plo.voice.api.client.event.render.VoiceDistanceRenderEvent;
 import su.plo.voice.api.event.EventSubscribe;
 import su.plo.voice.proto.data.audio.capture.VoiceActivation;
@@ -19,7 +20,10 @@ import su.plo.voice.proto.data.audio.capture.VoiceActivation;
  *
  * <p><b>Réglages Reborn de Plasmo Voice</b> (31/10, {@link #appliquerReglages}) : icônes au-dessus des têtes masquées
  * (seule la bulle Reborn reste, calée sur la tête), touche « Action » déliée, et cercle de portée aux couleurs du micro
- * ({@link #onDistanceRender}).
+ * ({@link #onDistanceRender}). Lot 2 (01/11, colonne bas-droite) : la liste d'orateurs de Plasmo (pseudos Minecraft)
+ * est coupée — qui parle est l'élément Reborn ({@code QuiParleHud}) — et l'icône d'activation de proximité est masquée
+ * ({@link #onHudActivation}, comme {@link RadioVoix} pour la radio : le micro des vitals pulse et la ligne « soi » de
+ * qui parle disent déjà qu'on émet) ; {@link VoixNiveaux} mesure le niveau réel des voix pour le vumètre.
  *
  * <p>L'accès au client se fait via l'instance statique {@code ModVoiceClient.INSTANCE} (l'injection
  * {@code @InjectPlasmoVoice} sur un champ Java ne s'est pas révélée fiable côté client).
@@ -51,12 +55,26 @@ public final class RebornVoiceAddon implements AddonInitializer {
         radio = new RadioVoix(client);
         client.getEventBus().register(this, radio);
         client.getEventBus().register(this, this);
+        client.getEventBus().register(this, VoixNiveaux.INSTANCE);
+        VoixNiveaux.INSTANCE.inscrit = true;
         appliquerReglages();
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             try { radio.tick(); } catch (RuntimeException ignored) { }
+            synchroniserListe();
         });
-        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
-            (h, mc) -> radio.reinitialiser());
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((h, mc) -> {
+            radio.reinitialiser();
+            VoixNiveaux.INSTANCE.oublier();
+        });
+    }
+
+    /**
+     * Icône d'activation de la voix de proximité (bas-centre) masquée (lot 2) : elle doublait le micro qui pulse dans les
+     * vitals et la ligne « soi » de qui parle. Celle de la radio l'est déjà par {@link RadioVoix#onHudActivation}.
+     */
+    @EventSubscribe
+    public void onHudActivation(HudActivationRenderEvent event) {
+        if (VoiceActivation.PROXIMITY_ID.equals(event.getActivation().getId())) event.setRender(false);
     }
 
     /** Connexion à un serveur vocal (et chaque {@code /vreload}) : l'activation de proximité arrive, on réapplique. */
@@ -97,7 +115,10 @@ public final class RebornVoiceAddon implements AddonInitializer {
      *   <li>icônes au-dessus des têtes masquées ({@code [overlay] show_source_icons = 2}, pourcentage de volume compris) :
      *       la seule bulle est celle de Reborn, calée sur la tête comme le nom ;</li>
      *   <li>touche « Action » déliée (clic droit maintenu sur un joueur + molette = volume de 0 à 200 %) : doublon du
-     *       volume du menu R, borné à 25-100 %, et le clic droit sert aux armes.</li>
+     *       volume du menu R, borné à 25-100 %, et le clic droit sert aux armes ;</li>
+     *   <li>liste d'orateurs de Plasmo coupée ({@code [overlay] overlay_enabled = false}, lot 2) <b>tant que « Qui
+     *       parle » (élément Reborn du bas-droite) est affiché</b> : elle affichait les pseudos Minecraft ; masquer « Qui
+     *       parle » (éditeur de HUD, Réglages › Interface) la rétablit ({@link #synchroniserListe}).</li>
      * </ul>
      */
     static void appliquerReglages() {
@@ -119,9 +140,54 @@ public final class RebornVoiceAddon implements AddonInitializer {
                 change = true;
                 LOG.info("Plasmo Voice : touche « Action » (clic droit + molette, volume 0-200 %) -> aucune");
             }
+            su.plo.config.entry.BooleanConfigEntry liste = cfg.getOverlay().getOverlayEnabled();
+            if (quiParleVisible() && !Boolean.FALSE.equals(liste.value())) {
+                liste.set(Boolean.FALSE);
+                change = true;
+                LOG.info("Plasmo Voice : liste des orateurs coupée (pseudos Minecraft ; qui parle est l'élément Reborn)");
+            }
             if (change) cfg.save(true);
         } catch (Throwable t) {
             LOG.warn("Plasmo Voice : réglages Reborn non appliqués ({})", t.toString());
+        }
+    }
+
+    /** « Qui parle » affiché (visibilité de l'élément dans la configuration du HUD) ; vrai si elle est illisible. */
+    static boolean quiParleVisible() {
+        try {
+            return fr.reborn.hud.RebornHudClient.config().stateOf(fr.reborn.hud.element.HudElement.QUI_PARLE).visible();
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
+
+    /** Visibilité de « Qui parle » vue au dernier tick (null : pas encore lue). */
+    private static Boolean quiParleVu;
+
+    /**
+     * Chaque tick : quand le joueur masque « Qui parle », la liste d'orateurs de Plasmo Voice revient (sans elle, il
+     * n'aurait plus aucune liste) ; quand il le réaffiche, elle est de nouveau coupée. Écrit la config de Plasmo
+     * seulement à un changement.
+     */
+    static void synchroniserListe() {
+        boolean v = quiParleVisible();
+        if (quiParleVu != null && quiParleVu == v) return;
+        boolean premier = quiParleVu == null;
+        quiParleVu = v;
+        if (premier && v) return;   // au démarrage, appliquerReglages s'en charge
+        try {
+            su.plo.voice.client.ModVoiceClient client = su.plo.voice.client.ModVoiceClient.INSTANCE;
+            if (client == null) return;
+            su.plo.voice.client.config.VoiceClientConfig cfg = client.getConfig();
+            su.plo.config.entry.BooleanConfigEntry liste = cfg.getOverlay().getOverlayEnabled();
+            if (premier && Boolean.TRUE.equals(liste.value())) return;   // masqué dès le départ : rien à rendre
+            Boolean voulu = !v;
+            if (voulu.equals(liste.value())) return;
+            liste.set(voulu);
+            cfg.save(true);
+            LOG.info("Plasmo Voice : liste des orateurs {} (« Qui parle » {})", v ? "coupée" : "rétablie", v ? "affiché" : "masqué");
+        } catch (Throwable t) {
+            LOG.warn("Plasmo Voice : liste des orateurs non synchronisée ({})", t.toString());
         }
     }
 
@@ -134,7 +200,8 @@ public final class RebornVoiceAddon implements AddonInitializer {
         String portees = client.getActivationManager().getParentActivation()
             .map(a -> a.getDistances() + " (choisie " + a.getDistance() + ")").orElse("aucune activation");
         return "icones=" + cfg.getOverlay().getShowSourceIcons().value() + " action=" + action + " portees=" + portees
-            + " cercle=" + cfg.getAdvanced().getVisualizeVoiceDistance().value();
+            + " cercle=" + cfg.getAdvanced().getVisualizeVoiceDistance().value()
+            + " liste=" + cfg.getOverlay().getOverlayEnabled().value();
     }
 
     /** Banc des touches : raccourcis de Plasmo Voice (nom → touches), hors Commandes de Minecraft. */

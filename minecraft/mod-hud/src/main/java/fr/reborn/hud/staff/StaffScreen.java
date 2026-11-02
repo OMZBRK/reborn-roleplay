@@ -149,6 +149,7 @@ public class StaffScreen extends Screen {
     @Override
     public void removed() {
         StaffClient.clearProfile();
+        outilsVue.narrationVue.liberer();
         douaneVue.fermer();
         super.removed();
     }
@@ -165,6 +166,7 @@ public class StaffScreen extends Screen {
         }
         journalVue.tick();
         recherche.tick();
+        if ("outils".equals(tab) && "narration".equals(outil)) outilsVue.narrationVue.tick();
         douaneVue.tick();
     }
 
@@ -274,6 +276,11 @@ public class StaffScreen extends Screen {
         else ph = Math.max(140, Math.min(full, H_TETE + toolsH() + contentH + (pied() == null ? 6 : H_PIED + 2) + 4));
 
         int x0 = px0(), x1 = px1(), y0 = py0(), y1 = py1();
+        // outil Narration : aperçu à taille réelle sur le jeu, sous le volet
+        if ("outils".equals(tab) && "narration".equals(outil)) {
+            outilsVue.narrationVue.apercuJeu(ctx);
+            if (outilsVue.narrationVue.pleinEcran) { pz.vider(ctx); return; }   // l'aperçu seul, volet caché
+        } else outilsVue.narrationVue.liberer();
         // ombre en paliers (pas de flou), fond nuit, filet, filet d'or d'1 px en haut
         pz.fond(x1, y0 + 2, x1 + 2, y1 + 2, 0x6E000000);
         pz.fond(x0 + 2, y1, x1, y1 + 2, 0x6E000000);
@@ -361,7 +368,7 @@ public class StaffScreen extends Screen {
                 RebornSounds.uiClick();
             }, null, null));
             tip(Math.round(ex), y0 + 6, Math.round(we), 11,
-                    "Mode examinateur actif : visible des candidats, plaque « Examinateur », aucune mécanique RP, tout est journalisé. Clique pour le couper.");
+                    "Mode examinateur actif : visible des candidats, nametag « Examinateur », aucune mécanique RP, tout est journalisé. Clique pour le couper.");
             return;
         }
         boolean staff = bool(snap, "modeStaff"), anim = bool(snap, "modeAnim");
@@ -380,8 +387,8 @@ public class StaffScreen extends Screen {
         }, null, null));
         tip(Math.round(cx), y0 + 6, Math.round(w), 11, anim
                 ? "Mode animation actif : tu joues pour un event, mécaniques RP permises, tout est journalisé. Clique pour le couper."
-                : staff ? "Mode staff actif : invisible aux joueurs, aucune mécanique RP, plaques au-dessus des têtes. Clique pour le couper."
-                : "Mode staff inactif. Clique pour l'activer (invisible, aucune mécanique RP, plaques).");
+                : staff ? "Mode staff actif : invisible aux joueurs, aucune mécanique RP, nametags au-dessus des têtes. Clique pour le couper."
+                : "Mode staff inactif. Clique pour l'activer (invisible, aucune mécanique RP, nametags).");
     }
 
     private static final String[][] ONGLETS_BASE = {{"alerts", "cloche", "Alertes"}, {"players", "joueurs", "Joueurs"},
@@ -1206,6 +1213,7 @@ public class StaffScreen extends Screen {
     void debugTab(String id) {
         switch (id) {
             case "annonces", "chat", "cmds", "seisme", "modes" -> { switchTab("outils"); outil = id; }
+            case "narration" -> { switchTab("outils"); outilsVue.ouvrir("narration"); }
             default -> switchTab(id);
         }
     }
@@ -1238,6 +1246,8 @@ public class StaffScreen extends Screen {
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent e, boolean dbl) {
         double x = e.x(), y = e.y();
+        if (outilsVue.narrationVue.pleinEcran) { outilsVue.narrationVue.pleinEcran = false; return true; }
+        if (e.button() == 0) outilsVue.narrationVue.clic(x, y, e.hasShiftDown());
         if (e.button() == 0 || e.button() == 1) {
             boolean dansMenu = false;
             if (menu != null) {
@@ -1280,7 +1290,8 @@ public class StaffScreen extends Screen {
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent e) {
         int k = e.key();
-        boolean saisie = getFocused() instanceof EditBox b && b.isFocused() && b.isVisible();
+        if (outilsVue.narrationVue.pleinEcran) { outilsVue.narrationVue.pleinEcran = false; return true; }
+        boolean saisie = getFocused() instanceof EditBox b && b.isFocused() && b.isVisible() || outilsVue.narrationVue.saisie();
         if (k == GLFW.GLFW_KEY_ESCAPE) {
             if (menu != null) { menu = null; return true; }
             if (formulaire.actif()) { formulaire.fermer(); return true; }
@@ -1294,6 +1305,7 @@ public class StaffScreen extends Screen {
             return true;
         }
         if (k == GLFW.GLFW_KEY_F7 && !saisie) { onClose(); return true; }
+        if (outilsVue.narrationVue.touche(k, e.hasShiftDown(), e.hasControlDown())) return true;
         if (k == GLFW.GLFW_KEY_ENTER || k == GLFW.GLFW_KEY_KP_ENTER) {
             if (formulaire.actif() && formulaire.entree()) return true;
             if ("douane".equals(tab) && !formulaire.actif() && douaneVue.entree(e.hasControlDown())) return true;
@@ -1311,6 +1323,27 @@ public class StaffScreen extends Screen {
             if (fiche.raccourci(k)) return true;
         }
         return super.keyPressed(e);
+    }
+
+    @Override
+    public boolean charTyped(net.minecraft.client.input.CharacterEvent ev) {
+        if (outilsVue.narrationVue.saisie()) {
+            if (ev.isAllowedChatCharacter()) outilsVue.narrationVue.caractere(ev.codepointAsString());
+            return true;
+        }
+        return super.charTyped(ev);
+    }
+
+    @Override
+    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent e, double dx, double dy) {
+        if (outilsVue.narrationVue.glisser(e.x(), e.y())) return true;
+        return super.mouseDragged(e, dx, dy);
+    }
+
+    @Override
+    public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent e) {
+        outilsVue.narrationVue.relacher();
+        return super.mouseReleased(e);
     }
 
     /* =================================================================== JSON + grades */

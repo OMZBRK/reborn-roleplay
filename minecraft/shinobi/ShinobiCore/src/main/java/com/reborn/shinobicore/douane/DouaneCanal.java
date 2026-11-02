@@ -156,10 +156,10 @@ public final class DouaneCanal implements PluginMessageListener {
     }
 
     /**
-     * Occupants du monde de la douane : examinateurs en mode (plaque « Examinateur ») ; les autres joueurs du monde
+     * Occupants du monde de la douane : examinateurs en mode (nametag « Examinateur ») ; les autres joueurs du monde
      * gardent leur pseudo (le mod l'affiche à la place d'« Inconnu », {@code reborn:tablist} ne change pas).
      */
-    void plaques(Player p, java.util.List<String> examinateurs) {
+    void nametags(Player p, java.util.List<String> examinateurs) {
         JsonObject o = msg("plaques");
         JsonArray a = new JsonArray();
         for (String u : examinateurs) a.add(u);

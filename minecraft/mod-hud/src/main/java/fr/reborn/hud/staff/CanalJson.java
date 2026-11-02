@@ -9,12 +9,14 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Charge utile JSON UTF-8 brute (sans préfixe de longueur) d'un canal serveur → client : {@code reborn:annonce},
- * {@code reborn:ecran}, {@code reborn:plaques} (protocole : PLUGINS_REFERENCE §4 bis.3 à 4 bis.5). Un seul type de
- * record, un {@link Type} par canal.
+ * {@code reborn:ecran}, {@code reborn:plaques} (nametags staff, nom de canal gardé) (protocole : PLUGINS_REFERENCE
+ * §4 bis.3 à 4 bis.5), {@code reborn:narration} (§4 bis.3 bis, receveur {@code recit/NarrationClient}). Un seul type
+ * de record, un {@link Type} par canal.
  */
 public record CanalJson(Type<CanalJson> type, String json) implements CustomPacketPayload {
 
-    public static final Type<CanalJson> ANNONCE = canal("annonce"), ECRAN = canal("ecran"), PLAQUES = canal("plaques");
+    public static final Type<CanalJson> ANNONCE = canal("annonce"), ECRAN = canal("ecran"), NAMETAGS = canal("plaques"),
+        NARRATION = canal("narration");
 
     private static Type<CanalJson> canal(String nom) {
         return new Type<>(Identifier.fromNamespaceAndPath("reborn", nom));

@@ -45,6 +45,24 @@ public final class EffetsStaff {
 
     /** Écran noir du staff en cours (voile imposé : ni mode photo, ni F1 ne le lèvent). */
     public static boolean noirActif() { return noirOn; }
+
+    /**
+     * Indicateur du mode staff / animation en haut à droite (dessiné par {@link #render} quand le HUD est visible et
+     * qu'aucun Poste de garde n'est ouvert) : le lecteur OST, au même coin, passe dessous.
+     */
+    public static boolean indicateurVisible() { return StaffClient.modeAnim || StaffClient.modeStaff; }
+
+    /** Bas du texte de l'écran noir (filet d'or compris) à la dernière image où il a été dessiné, en pixels écran. */
+    private static int basTexteNoir = -1;
+    private static long basTexteNoirA;
+
+    /**
+     * Bas du texte de l'écran noir en pixels écran, s'il est dessiné (à l'image courante ou à la précédente), sinon -1 :
+     * le texte au centre ({@code recit/RecitHud}, dessiné juste après) passe dessous.
+     */
+    public static int basTexteNoirPx() {
+        return basTexteNoir >= 0 && net.minecraft.util.Util.getMillis() - basTexteNoirA <= 250 ? basTexteNoir : -1;
+    }
     private static volatile long noirDepuis, noirFonduMs = 1000;
     private static volatile float noirDepart;
     private static volatile String noirTexte = "";
@@ -198,6 +216,8 @@ public final class EffetsStaff {
         int fy = y + p.hauteur() + 4;
         g.fill(sw / 2 - 18, fy, sw / 2 + 18, fy + 1, DaKit.alpha(DaKit.OR_ETEINT, a));
         DaKit.finUnites(g);
+        basTexteNoir = (fy + 1) * km;
+        basTexteNoirA = net.minecraft.util.Util.getMillis();
     }
 
     /** Ligne d'annonce, en unités menu, haut de l'écran (sous l'indicateur de duel). */

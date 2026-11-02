@@ -3,7 +3,7 @@ package fr.reborn.hud.staff;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import fr.reborn.hud.nameplate.CalqueTete;
+import fr.reborn.hud.nametag.CalqueTete;
 import fr.reborn.hud.ui.DaKit;
 import fr.reborn.hud.ui.LotGui;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -27,50 +27,50 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Plaques staff au-dessus des têtes, en <b>mode staff</b> seulement ({@code reborn:plaques}, PLUGINS_REFERENCE
- * §4 bis.5) : une ligne petite et fine « 00042 · Nom RP · état » au-dessus de la plaque de nom RP, voile nuit léger,
+ * Nametags staff au-dessus des têtes, en <b>mode staff</b> seulement (canal {@code reborn:plaques}, PLUGINS_REFERENCE
+ * §4 bis.5) : une ligne petite et fine « 00042 · Nom RP · état » au-dessus du nametag RP, voile nuit léger,
  * mince jauge de PV d'1 px dessous ; petit losange d'or devant un staff, « gelé » en bleu glacier. Taille fixe à l'écran (unités
  * menu), fondu avec la distance (le serveur n'envoie que les joueurs à ≤ 64 blocs). Rien n'est envoyé aux joueurs.
- * Ancrée (31/10) sur la tête réellement rendue ({@code TeteAncre}), en haut de la pile de {@link CalqueTete} : jamais
+ * Ancrés (31/10) sur la tête réellement rendue ({@code TeteAncre}), en haut de la pile de {@link CalqueTete} : jamais
  * sur le nom, la bulle ou les /me ; visible à travers les murs comme avant (outil staff).
  *
- * <p>Rien n'est alloué par image : la table des plaques est remplacée en bloc à chaque message (jamais modifiée
- * ensuite, lue telle quelle par le rendu) et les textes d'une plaque sont composés une fois, à sa réception.
+ * <p>Rien n'est alloué par image : la table des nametags est remplacée en bloc à chaque message (jamais modifiée
+ * ensuite, lue telle quelle par le rendu) et les textes d'un nametag sont composés une fois, à sa réception.
  */
-public final class PlaquesStaff {
+public final class NametagsStaff {
 
-    record Plaque(String pid, String perso, String pseudo, String etat, int pv, int pvMax, boolean staff, boolean gele,
+    record Nametag(String pid, String perso, String pseudo, String etat, int pv, int pvMax, boolean staff, boolean gele,
                   boolean modeStaff) { }
 
-    /** Une plaque et ses textes, composés à la réception (N°, nom, état, et la largeur de la ligne en unités menu). */
-    private record Dessin(Plaque p, Component cPid, Component cNom, Component cEtat, float largeur) { }
+    /** Un nametag et ses textes, composés à la réception (N°, nom, état, et la largeur de la ligne en unités menu). */
+    private record Dessin(Nametag p, Component cPid, Component cNom, Component cEtat, float largeur) { }
 
-    /** Plaques reçues, par joueur : table remplacée en bloc (thread client), jamais modifiée une fois publiée. */
-    private static volatile Map<UUID, Dessin> PLAQUES = Map.of();
+    /** Nametags reçus, par joueur : table remplacée en bloc (thread client), jamais modifiée une fois publiée. */
+    private static volatile Map<UUID, Dessin> NAMETAGS = Map.of();
     private static volatile long recuAt;
     private static final int GLACE = 0xFF9CC8E0, GRIS = 0xFFB4A88E, ETAT = 0xFFE8A0A2;
     private static final Vector3f ANCRE = new Vector3f();
-    /** Séparateur « · » des plaques (composé au premier message). */
+    /** Séparateur « · » des nametags (composé au premier message). */
     private static Component sep;
 
-    /** Banc : affiche aussi la plaque du joueur local (vue de face, 3e personne). */
+    /** Banc : affiche aussi le nametag du joueur local (vue de face, 3e personne). */
     static boolean debugSoi;
 
-    private PlaquesStaff() {}
+    private NametagsStaff() {}
 
     static void init() {
-        PayloadTypeRegistry.clientboundPlay().register(CanalJson.PLAQUES, CanalJson.codec(CanalJson.PLAQUES));
-        ClientPlayNetworking.registerGlobalReceiver(CanalJson.PLAQUES, (p, c) -> c.client().execute(() -> recevoir(p.json())));
-        ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> PLAQUES = Map.of());
-        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("reborn-hud", "staff-plaques"), PlaquesStaff::render);
+        PayloadTypeRegistry.clientboundPlay().register(CanalJson.NAMETAGS, CanalJson.codec(CanalJson.NAMETAGS));
+        ClientPlayNetworking.registerGlobalReceiver(CanalJson.NAMETAGS, (p, c) -> c.client().execute(() -> recevoir(p.json())));
+        ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> NAMETAGS = Map.of());
+        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("reborn-hud", "staff-nametags"), NametagsStaff::render);
     }
 
     static void recevoir(String raw) {
         JsonObject o;
         try { o = JsonParser.parseString(raw).getAsJsonObject(); } catch (RuntimeException e) { return; }
-        if (!"plaques".equals(StaffScreen.str(o, "t"))) return;
+        if (!"plaques".equals(StaffScreen.str(o, "t"))) return;   // type du message : nom de protocole gardé
         if (!StaffScreen.bool(o, "on")) {
-            PLAQUES = Map.of();
+            NAMETAGS = Map.of();
             return;
         }
         Font f = Minecraft.getInstance().font;
@@ -78,18 +78,18 @@ public final class PlaquesStaff {
         for (JsonElement e : StaffScreen.arr(o, "joueurs")) {
             JsonObject j = e.getAsJsonObject();
             try {
-                m.put(UUID.fromString(StaffScreen.str(j, "uuid")), dessin(f, new Plaque(StaffScreen.str(j, "pid"),
+                m.put(UUID.fromString(StaffScreen.str(j, "uuid")), dessin(f, new Nametag(StaffScreen.str(j, "pid"),
                         StaffScreen.str(j, "perso"), StaffScreen.str(j, "pseudo"), StaffScreen.str(j, "etat"),
                         StaffScreen.num(j, "pv"), StaffScreen.num(j, "pvMax"), StaffScreen.bool(j, "staff"),
                         StaffScreen.bool(j, "gele"), StaffScreen.bool(j, "modeStaff"))));
             } catch (IllegalArgumentException ignored) { }
         }
-        PLAQUES = m;
+        NAMETAGS = m;
         recuAt = System.currentTimeMillis();
     }
 
-    /** Textes d'une plaque (N°, nom, état) et largeur de sa ligne, composés une fois. */
-    private static Dessin dessin(Font f, Plaque p) {
+    /** Textes d'un nametag (N°, nom, état) et largeur de sa ligne, composés une fois. */
+    private static Dessin dessin(Font f, Nametag p) {
         if (sep == null) sep = DaKit.inter("  ·  ");
         String nom = p.perso().isBlank() ? p.pseudo() : p.perso();
         Component cPid = DaKit.interGras(p.pid().isBlank() ? "—" : p.pid());
@@ -105,8 +105,8 @@ public final class PlaquesStaff {
     private static void render(GuiGraphicsExtractor g, DeltaTracker dt) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || mc.gui.hud.isHidden()) return;
-        Map<UUID, Dessin> plaques = PLAQUES;
-        if (plaques.isEmpty()) return;
+        Map<UUID, Dessin> nametags = NAMETAGS;
+        if (nametags.isEmpty()) return;
         if (System.currentTimeMillis() - recuAt > 5000 && !debugSoi) return;   // plus de nouvelles : mode staff coupé
         Camera cam = mc.gameRenderer.mainCamera();
         if (cam == null || !cam.isInitialized()) return;
@@ -115,7 +115,7 @@ public final class PlaquesStaff {
         int km = DaKit.echelleMenu();
         int gs = Math.max(1, win.getGuiScale());
         Font f = mc.font;
-        // position interpolée du joueur local (celle de getPosition(pt)), une fois pour toutes les plaques
+        // position interpolée du joueur local (celle de getPosition(pt)), une fois pour tous les nametags
         double ox = Mth.lerp(pt, mc.player.xo, mc.player.getX()), oy = Mth.lerp(pt, mc.player.yo, mc.player.getY()),
             oz = Mth.lerp(pt, mc.player.zo, mc.player.getZ());
         DaKit.unites(g, km);
@@ -123,10 +123,10 @@ public final class PlaquesStaff {
         for (int i = 0, n = joueurs.size(); i < n; i++) {
             AbstractClientPlayer e = joueurs.get(i);
             if (e == mc.player && !debugSoi) continue;
-            Dessin d = plaques.get(e.getUUID());
+            Dessin d = nametags.get(e.getUUID());
             if (d == null) continue;
-            Plaque p = d.p();
-            // Tête rendue (à terre, allongé, émotes) projetée comme le monde, en pixels physiques ; la plaque se pose en
+            Nametag p = d.p();
+            // Tête rendue (à terre, allongé, émotes) projetée comme le monde, en pixels physiques ; le nametag se pose en
             // haut de la pile de CalqueTete (au-dessus du nom, de la bulle et des /me), bas visible sur le bas de sa couche.
             if (!CalqueTete.ancrePx(e, ANCRE)) continue;
             int bas = p.pvMax() > 0 ? 1 : -1;   // jauge de PV : 1 unité sous y ; sans jauge, le voile s'arrête 1 unité au-dessus
@@ -137,14 +137,14 @@ public final class PlaquesStaff {
                 dz = oz - Mth.lerp(pt, e.zo, e.getZ());
             double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
             float a = (float) Math.max(0.45, 1.0 - dist / 96.0);
-            plaque(g, f, d, x, y, a);
+            nametag(g, f, d, x, y, a);
         }
         DaKit.finUnites(g);
     }
 
-    /** Une plaque centrée en x, bas en y (unités menu). */
-    private static void plaque(GuiGraphicsExtractor g, Font f, Dessin d, float x, float y, float a) {
-        Plaque p = d.p();
+    /** Un nametag centré en x, bas en y (unités menu). */
+    private static void nametag(GuiGraphicsExtractor g, Font f, Dessin d, float x, float y, float a) {
+        Nametag p = d.p();
         Component cPid = d.cPid(), cNom = d.cNom(), cEtat = d.cEtat();
         float w = d.largeur();
         float x0 = x - w / 2f;
@@ -182,15 +182,15 @@ public final class PlaquesStaff {
 
     static void debugEffacer() {
         debugSoi = false;
-        PLAQUES = Map.of();
+        NAMETAGS = Map.of();
     }
 
     static void debugSoi(UUID moi) {
         debugSoi = true;
-        Map<UUID, Dessin> m = new HashMap<>(PLAQUES);
+        Map<UUID, Dessin> m = new HashMap<>(NAMETAGS);
         m.put(moi, dessin(Minecraft.getInstance().font,
-                new Plaque("00042", "Kazuki Uchiha", "Raiden_FR", "À terre · ATA", 7, 20, false, true, false)));
-        PLAQUES = m;
+                new Nametag("00042", "Kazuki Uchiha", "Raiden_FR", "À terre · ATA", 7, 20, false, true, false)));
+        NAMETAGS = m;
         recuAt = System.currentTimeMillis();
     }
 }

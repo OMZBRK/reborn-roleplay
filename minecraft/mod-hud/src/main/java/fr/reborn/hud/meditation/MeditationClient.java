@@ -94,6 +94,15 @@ public final class MeditationClient {
 
     static boolean aucun() { return actifs == 0; }
 
+    /** Le joueur local médite (dans la liste du serveur, hors fondu de sortie) : rappel « Se lever [Maj] » (lot 2). */
+    public static boolean jeMedite() {
+        var p = net.minecraft.client.Minecraft.getInstance().player;
+        if (p == null || actifs == 0) return false;
+        int id = p.getId();
+        for (int i = 0; i < CAPACITE; i++) if (ACTIF[i] && ID[i] == id && Double.isNaN(FIN[i])) return true;
+        return false;
+    }
+
     static void vider() {
         for (int i = 0; i < CAPACITE; i++) { ACTIF[i] = false; VISIBLE[i] = false; }
         actifs = 0;

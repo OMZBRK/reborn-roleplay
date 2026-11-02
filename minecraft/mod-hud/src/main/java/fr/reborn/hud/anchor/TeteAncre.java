@@ -34,10 +34,10 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * <b>Ancre de tête</b> (31/10, socle des plaques de nom, bulles, /me et plaques staff) : le centre de la tête
+ * <b>Ancre de tête</b> (31/10, socle des nametags, bulles, /me et nametags staff) : le centre de la tête
  * <b>réellement rendue</b> d'un joueur, émotes, ramper, KO à terre, inconscient et {@code /allonger} compris. Les
  * anciennes ancres (« œil + k ») tombaient 0,64 bloc derrière la tête d'un joueur qui rampe et 1,64 bloc à côté de
- * celle d'un joueur allongé sans lit (la plaque flottait au-dessus de ses pieds).
+ * celle d'un joueur allongé sans lit (le nametag flottait au-dessus de ses pieds).
  *
  * <p><b>Pourquoi un décalage capturé.</b> En 26.2, le HUD d'une image est extrait <i>avant</i> que le monde de cette
  * image soit soumis et animé. {@link fr.reborn.hud.mixin.LivingEntityRendererTeteMixin} capte donc la tête au rendu
@@ -46,7 +46,7 @@ import java.util.List;
  * {@code LevelExtractionEvents.END_EXTRACTION}) : le déplacement n'a aucun retard, seule la pose garde une image.
  * Pas d'extrapolation (biaisée). Le passage accroupi ↔ debout est corrigé de la descente connue de la tête.
  *
- * <p><b>Point visé</b> : pivot du cou, puis centre du cube de tête <b>sans</b> la rotation propre de la tête — la plaque
+ * <p><b>Point visé</b> : pivot du cou, puis centre du cube de tête <b>sans</b> la rotation propre de la tête — le nametag
  * ne danse pas quand le joueur regarde en haut, en bas ({@code RebornCamera.lookDown} force 89°) ou pendant une émote
  * qui fait tourner la tête. Seule exception : l'inclinaison que la pose vanilla impose quel que soit le regard (−45° à
  * terre / en nage, en élytre) ; sans elle, le centre d'un joueur qui rampe tombait 0,17 bloc sous sa tête visible
@@ -94,7 +94,7 @@ public final class TeteAncre {
     /**
      * Croix de débogage sur chaque avatar à 32 blocs : croix au centre de tête (vert capturée, or recalée, rouge
      * estimée, pâle si masquée) avec sa lettre C / R / E, trait au sommet ({@code ecran(e, 0)}), et en gris l'ancien
-     * ancrage des plaques (œil + 0,62). Activée par {@code -Dreborn.teteAncreDebug=true} ou
+     * ancrage des nametags (œil + 0,62). Activée par {@code -Dreborn.teteAncreDebug=true} ou
      * {@code REBORN_TETE_ANCRE_DEBUG=1} ({@code =banc} : scène de mannequins de {@link TeteAncreBanc}), ou posée par un
      * banc.
      */
@@ -733,7 +733,7 @@ public final class TeteAncre {
             boolean vu = visible(e);
             int col = q == Qualite.CAPTUREE ? VERT : q == Qualite.RECALEE ? DaKit.OR : ROUGE;
             if (!vu) col = DaKit.alpha(col, 0.45f);
-            // ancien ancrage des plaques : œil interpolé + 0,62
+            // ancien ancrage des nametags : œil interpolé + 0,62
             float pt = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
             if (ProjectionMonde.versPx(Mth.lerp(pt, e.xo, e.getX()), Mth.lerp(pt, e.yo, e.getY()) + e.getEyeHeight() + 0.62,
                     Mth.lerp(pt, e.zo, e.getZ()), DP)) croix(ctx, (int) DP.x, (int) DP.y, 3 * gs, GRIS);
