@@ -22,7 +22,8 @@ Les cartes sont des SVG au kit « nuit / laque / or » (`hooks/visuel.ts`) ; le 
 - `chantiers[]` : `id`, `titre`, `groupe`, `etat` (`en-cours`, `recette`, `a-deployer`, `attente`, `bloque`,
   `a-faire`, `plus-tard`, `fait`), `vedette`, `workflows[]`, `prochaine`, `ensuite`, `branche`, `majLe`, et
   `etapes[]` : `titre`, `etat`, `estimation` (minutes), `toi` (la part de l'utilisateur), `agent` (le label d'un agent
-  des workflows listés : l'étape prend son état et sa durée mesurée).
+  des workflows listés : l'étape prend son état et sa durée mesurée), `debutLe` (heure de Paris, « 2026-11-02T11:45 » :
+  sans agent, une étape en cours n'a d'heure de fin que si elle porte son début).
 
 Les sessions Claude tiennent ce fichier à jour à chaque jalon ([`docs/REPRISE_DE_SESSION.md`](../../docs/REPRISE_DE_SESSION.md) §7).
 Jamais de secret ni d'adresse de serveur dedans.

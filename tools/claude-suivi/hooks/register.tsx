@@ -18,16 +18,18 @@ import type {
   TypeAToi,
   WorkflowVue,
 } from '../types'
-import { calculer } from './calcul'
-import { horodatage, marquerFaitDans } from './donnees'
+import { calculer, instantaneVide, trouverRacine } from './calcul'
+import { heureParis, horodatage, marquerFaitDans } from './donnees'
 import { carteHero, cartePlan, listeChantiers } from './visuel'
 
 const PANE = 'suivi'
 const TITRE = 'Suivi Reborn'
 const PERIODE_MS = 15_000
+const AUTRES_MAX = 7
+const FAITS_VUS = 2
 
 // Changer l'étiquette quand la forme de l'instantané change : l'ancienne valeur survit au rechargement.
-const instantane = atom({ plugin: 'reborn-suivi', key: 'instantane' } as const, null, { shape: 'suivi-2' })
+const instantane = atom({ plugin: 'reborn-suivi', key: 'instantane' } as const, null, { shape: 'suivi-3' })
 const ouverts = atom({ plugin: 'reborn-suivi', key: 'ouverts' } as const, [])
 const taches = atom({ plugin: 'reborn-suivi', key: 'taches' } as const, [])
 
@@ -84,15 +86,8 @@ const duree = (ms: number): string => {
   return `${Math.floor(h / 24)} j`
 }
 
-// L'environnement du mod peut tourner en UTC : l'heure affichée est celle de Paris.
-const heure = (ms: number): string => {
-  try {
-    return new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }).format(ms)
-  } catch {
-    const d = new Date(ms)
-    return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')} UTC`
-  }
-}
+// L'environnement du mod peut tourner en UTC : l'heure affichée est celle de Paris, comme sur les cartes.
+const heure = heureParis
 
 /** Barre en segments, une case par étape, dorée quand c'est fait. */
 const svgSegments = (etats: EtatEtape[], largeur = 180, hauteur = 6): string => {
@@ -112,13 +107,31 @@ const svgSegments = (etats: EtatEtape[], largeur = 180, hauteur = 6): string => 
 const texteSegments = (etats: EtatEtape[]): string =>
   etats.map(et => (et === 'fait' ? '■' : et === 'en-cours' ? '▣' : et === 'echec' ? '✕' : '□')).join('')
 
-// Un seul calcul à la fois ; l'empreinte du dernier évite de redessiner pour rien.
+// Un seul calcul à la fois ; une demande faite pendant un calcul (Fait, Actualiser) le fait refaire juste
+// après, pour qu'il voie l'écriture. L'empreinte du dernier évite de redessiner pour rien.
 let calculEnCours = false
+let encore = false
 let dernier = ''
+// Les cochages s'enchaînent : deux appuis rapprochés sur Fait ne partent pas du même fichier d'origine.
+let fileFait: Promise<void> = Promise.resolve()
 
 async function rafraichir($: EngineInterface): Promise<void> {
-  if (calculEnCours) return
+  if (calculEnCours) {
+    encore = true
+    return
+  }
   calculEnCours = true
+  try {
+    do {
+      encore = false
+      await calculerEtPublier($)
+    } while (encore)
+  } finally {
+    calculEnCours = false
+  }
+}
+
+async function calculerEtPublier($: EngineInterface): Promise<void> {
   try {
     const vue = await calculer($, await read($, taches))
     const empreinte = JSON.stringify(vue)
@@ -127,9 +140,14 @@ async function rafraichir($: EngineInterface): Promise<void> {
       await update($, instantane, () => vue)
     }
   } catch (err) {
-    $.ui.log(`reborn-suivi : calcul impossible (${String(err).slice(0, 200)})`)
-  } finally {
-    calculEnCours = false
+    // Le panneau le dit en rouge au lieu de rester sur « Calcul du suivi… ».
+    const message = `Calcul du suivi impossible : ${String(err).slice(0, 200)}`
+    $.ui.log(`reborn-suivi : ${message}`)
+    const maintenant = await $.clock.now().catch(() => 0)
+    dernier = ''
+    await update($, instantane, v => (v ? { ...v, erreurs: [message] } : instantaneVide(maintenant, [message]))).catch(
+      () => undefined,
+    )
   }
 }
 
@@ -145,10 +163,12 @@ export const register: Register = on => {
       name: 'suivi',
       description: 'Ouvre le panneau Suivi Reborn (ce qui t’attend, ce que Claude fait, les chantiers)',
     })
-    void ouvrir($, false)
+    // Le mod est chargé dans toutes les sessions : il ne s'ouvre seul que dans le dépôt Reborn (/suivi ailleurs).
+    if (await trouverRacine($, await $.session.cwd())) void ouvrir($, false)
+    // Seulement quand le panneau est à l'écran : un onglet caché ou un terminal trop étroit ne coûte rien.
     $.clock.every(PERIODE_MS, () => {
       void $.ui.panes().then(panes => {
-        if (panes.some(p => p.id === PANE)) void rafraichir($)
+        if (panes.some(p => p.id === PANE && p.isPlaced && p.isShown)) void rafraichir($)
       })
     })
     return next(e)
@@ -179,7 +199,7 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const table = $.ui.resolve(e)
-    const { Box, Text, Button } = table
+    const { Box, Text, Button, Code } = table
     // Le terminal résout aussi « Svg », en un élément vide : il dessine les cartes en texte.
     const Svg = e.surface !== 'terminal' && 'Svg' in table ? table.Svg : undefined
     const vue = await read($, instantane)
@@ -203,9 +223,14 @@ export const register: Register = on => {
       </Box>
     )
 
+    // Les cartes visent la largeur du panneau ; une image plus large que lui est réduite, jamais l'inverse.
+    // Pas de plafond serré : au-delà de 520 la grille est à son maximum et la carte s'élargit simplement,
+    // ce qui garde le même bord droit que les lignes « À toi » et le bouton Actualiser.
+    const largeur = Math.max(280, Math.min(900, Math.round(e.props.bodyColumns * 8.2)))
+    const largeurBarre = Math.max(120, Math.min(420, largeur - 70))
     const barre = (etats: EtatEtape[], alt: string) =>
       Svg ? (
-        <Svg source={svgSegments(etats)} alt={alt} />
+        <Svg source={svgSegments(etats, largeurBarre)} alt={alt} />
       ) : (
         <Text color="warning">{texteSegments(etats)}</Text>
       )
@@ -223,12 +248,13 @@ export const register: Register = on => {
       const type = TYPE_ATOI[item.type]
       return (
         <Box flexDirection="column" gap={0}>
-          <Box flexDirection="row" gap={1} flexWrap="wrap">
+          {/* Un seul Text : le titre coule juste après l'étiquette au lieu de passer seul à la ligne. */}
+          <Text>
             <Text color={type.couleur} weight="semibold" size="footnote">
               {type.libelle}
-            </Text>
-            <Text>{item.titre}</Text>
-          </Box>
+            </Text>{' '}
+            {item.titre}
+          </Text>
           {item.detail !== undefined && (
             <Text dimColor size="footnote">
               {item.detail}
@@ -242,7 +268,13 @@ export const register: Register = on => {
                 onPress={press => {
                   const texte = item.commande ?? ''
                   void $.ui.copy({ text: texte, surface: press.surface }).then(r => {
-                    $.ui.toast(r.isCopied ? 'Copié' : 'Copie impossible ici : sélectionne le texte dans etat.json')
+                    if (r.isCopied) {
+                      $.ui.toast('Copié')
+                      return
+                    }
+                    // Pas de presse-papiers ici : la commande se déplie sous l'élément, à sélectionner.
+                    $.ui.toast('Copie impossible ici : la commande est affichée dessous, sélectionne-la')
+                    void update($, ouverts, l => (l.includes(`cmd-${item.id}`) ? l : [...l, `cmd-${item.id}`]))
                   })
                 }}
               />
@@ -251,10 +283,15 @@ export const register: Register = on => {
               key={`fait-${item.id}`}
               label="Fait"
               onPress={() => {
-                void marquerFait($, vue.fichierEtat, item).then(() => rafraichir($))
+                fileFait = fileFait.then(() => marquerFait($, vue.fichierEtat, item)).then(() => rafraichir($))
               }}
             />
           </Box>
+          {item.commande !== undefined && estOuvert(`cmd-${item.id}`) && (
+            <Box key={`cmd-${item.id}`}>
+              <Code source={item.commande} />
+            </Box>
+          )}
         </Box>
       )
     }
@@ -390,10 +427,15 @@ export const register: Register = on => {
     const finis = vue.workflows.filter(w => w.etat !== 'en-cours' && w.etat !== 'silencieux')
     const chantiersVifs = vue.chantiers.filter(c => c.etat !== 'fait' && c.etat !== 'plus-tard')
     const chantiersRanges = vue.chantiers.filter(c => c.etat === 'fait' || c.etat === 'plus-tard')
-    // Les cartes visent la largeur du panneau ; une image plus large que lui est réduite, jamais l'inverse.
-    const largeur = Math.max(280, Math.min(560, Math.round(e.props.bodyColumns * 8.2)))
     const hero = vue.hero
     const plan = vue.plan
+    // Les workflows qui ne font pas avancer la carte du haut (sans vedette : tous ceux en cours).
+    const horsVedette = vue.wfHorsVedette ?? Math.max(0, actifs.length - (hero ? 1 : 0))
+    const pluriel = horsVedette > 1 ? 's' : ''
+    const faitsTries = [...vue.faitsRecents].sort((a, b) => (b.faitLe ?? '').localeCompare(a.faitLe ?? ''))
+    const autresVus =
+      vue.autresChantiers.length > AUTRES_MAX + 1 ? vue.autresChantiers.slice(0, AUTRES_MAX) : vue.autresChantiers
+    const autresReste = vue.autresChantiers.length - autresVus.length
 
     // Chaque carte dans une Box à clé : le test la retrouve, et le terminal (sans Svg) reçoit le texte.
     const carte = (cle: string, source: string, alt: string, repli: string) => (
@@ -401,7 +443,18 @@ export const register: Register = on => {
     )
 
     const resumeHero = hero
-      ? `${hero.titre} : ${hero.pourcent} %, ${hero.fin ? `${hero.finLibelle.toLowerCase()} ${hero.fin}` : hero.finLibelle.toLowerCase()}`
+      ? `${hero.titre} : ${hero.total === 0 ? 'pas d’étapes suivies' : `${hero.pourcent} %`}, ${hero.fin ? `${hero.finLibelle.toLowerCase()} ${hero.fin}` : hero.finLibelle.toLowerCase()}`
+      : ''
+    // Le terminal n'a pas de Svg : la carte du haut y garde la bande des étapes, l'étape en cours et la suite.
+    const repliHero = hero
+      ? [
+          resumeHero,
+          hero.etapes.length > 0 ? `${texteSegments(hero.etapes.map(et => et.etat))} ${hero.faites}/${hero.total}` : '',
+          hero.enCours ? `En cours : ${hero.enCours}${hero.depuis ? ` · depuis ${hero.depuis}` : ''}` : '',
+          hero.ensuite ? `Ensuite : ${hero.ensuite}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n')
       : ''
     const resumePlan = plan
       ? `${plan.titre} : ${plan.pourcent} % (${plan.livres} livrés, ${plan.enCours} en cours, ${plan.aFaire} à faire)${plan.fin ? `, fin ${plan.fin} à ce rythme` : ''}`
@@ -416,7 +469,7 @@ export const register: Register = on => {
           {vue.autres.map(t => (
             <Text size="footnote">
               <Text color="warning">●</Text> {t.description}
-              <Text dimColor>{` (${t.type}, ${t.statut})`}</Text>
+              <Text dimColor>{` (${t.type}, ${t.statut}${t.auDernierTour ? ' au dernier tour' : ''})`}</Text>
             </Text>
           ))}
           {finis.length > 0 && (
@@ -489,21 +542,30 @@ export const register: Register = on => {
           </Text>
         ))}
 
-        {hero && carte('carte-hero', carteHero(hero, largeur), resumeHero, resumeHero)}
-        {actifs.length > 1 && (
+        {hero && carte('carte-hero', carteHero(hero, largeur), resumeHero, repliHero)}
+        {horsVedette > 0 && (
           <Text dimColor size="footnote">
-            {`+ ${actifs.length - 1} autre${actifs.length > 2 ? 's' : ''} workflow${actifs.length > 2 ? 's' : ''} en cours (voir le détail)`}
+            {hero
+              ? `+ ${horsVedette} autre${pluriel} workflow${pluriel} en cours (voir le détail)`
+              : `${horsVedette} workflow${pluriel} en cours (voir le détail)`}
           </Text>
         )}
         {plan && carte('carte-plan', cartePlan(plan, largeur), resumePlan, resumePlan)}
 
         <Box flexDirection="column" gap={1}>
           {titre('À toi', vue.aToi.length)}
-          {vue.aToi.length === 0 && <Text dimColor>Rien ne t’attend.</Text>}
+          {vue.aToi.length === 0 && (
+            <Text dimColor>
+              {vue.listeIndisponible ? 'Liste indisponible (voir l’erreur plus haut).' : 'Rien ne t’attend.'}
+            </Text>
+          )}
           {vue.aToi.map(ligneAToi)}
-          {vue.faitsRecents.length > 0 && (
+          {faitsTries.length > 0 && (
             <Text dimColor size="footnote">
-              {`Fait récemment : ${vue.faitsRecents.map(f => f.titre).join(' · ')}`}
+              {`Fait récemment : ${faitsTries
+                .slice(0, FAITS_VUS)
+                .map(f => f.titre)
+                .join(' · ')}${faitsTries.length > FAITS_VUS ? ` · + ${faitsTries.length - FAITS_VUS}` : ''}`}
             </Text>
           )}
         </Box>
@@ -513,18 +575,21 @@ export const register: Register = on => {
             'carte-autres',
             listeChantiers(vue.autresChantiers, largeur),
             vue.autresChantiers.map(a => `${a.titre} ${a.pourcent} % (${a.statut})`).join(', '),
-            vue.autresChantiers.map(a => `${a.titre} · ${a.pourcent} % · ${a.statut}`).join('\n'),
+            [
+              ...autresVus.map(a => `${a.titre} · ${a.pourcent} % · ${a.statut}`),
+              ...(autresReste > 0 ? [`+ ${autresReste} autres chantiers`] : []),
+            ].join('\n'),
           )}
 
-        <Box flexDirection="row" justifyContent="space-between" alignItems="center" gap={1}>
+        <Box flexDirection="row" flexWrap="wrap" justifyContent="space-between" alignItems="center" gap={1}>
           <Button key="details" plain onPress={basculer('details')}>
             {estOuvert('details') ? '▾ Masquer le détail' : '▸ Tout le détail'}
-            <Text dimColor>{` · ${vue.decisions.length} décisions, workflows, versions`}</Text>
           </Button>
           <Button key="actualiser" label="Actualiser" onPress={() => void rafraichir($)} />
         </Box>
         <Text dimColor size="caption">
           {`calculé à ${heure(vue.minute * 60_000)}`}
+          {vue.decisions.length > 0 ? ` · ${vue.decisions.length} décisions en attente` : ''}
           {vue.majEtat ? ` · suivi tenu le ${vue.majEtat}` : ''}
         </Text>
 

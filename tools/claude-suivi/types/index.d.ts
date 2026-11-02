@@ -40,6 +40,8 @@ export type ChantierVue = {
   majLe?: string
   enDirect: boolean
   vedette: boolean
+  /** Les workflows nommés par le chantier dans le fichier de suivi. */
+  workflows?: string[]
   // Avancement pondéré par la durée des étapes, et ce qu'on peut dire de la fin.
   pourcent: number
   finLibelle: string
@@ -112,7 +114,14 @@ export type WorkflowVue = {
   majMs: number
 }
 
-export type AutreTache = { id: string; type: string; description: string; statut: string }
+export type AutreTache = {
+  id: string
+  type: string
+  description: string
+  statut: string
+  /** Lue à la dernière fin de tour (shells, moniteurs) : son statut peut avoir changé depuis. */
+  auDernierTour?: boolean
+}
 
 export type DecisionVue = { numero: string; question: string; contexte: string }
 
@@ -135,6 +144,10 @@ export type Instantane = {
   autresChantiers: AutreVue[]
   majEtat?: string
   majPar?: string
+  /** Le fichier de suivi n'a pas pu être lu et aucune lecture précédente ne le remplace. */
+  listeIndisponible?: boolean
+  /** Workflows en cours qui ne font pas avancer le chantier en vedette. */
+  wfHorsVedette?: number
 }
 
 declare module 'claude-code' {

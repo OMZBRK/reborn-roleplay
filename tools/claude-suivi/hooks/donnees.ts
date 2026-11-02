@@ -49,7 +49,14 @@ export const nettoyer = (s: string): string =>
 
 // ── Fichier de suivi (.claude/suivi/etat.json) ───────────────────────────────
 
-export type EtapeBrute = { titre?: unknown; etat?: unknown; agent?: unknown; toi?: unknown; estimation?: unknown }
+export type EtapeBrute = {
+  titre?: unknown
+  etat?: unknown
+  agent?: unknown
+  toi?: unknown
+  estimation?: unknown
+  debutLe?: unknown
+}
 
 export type ChantierBrut = {
   id?: unknown
@@ -70,16 +77,31 @@ export type EtatSuivi = {
   majPar?: string
   aToi: ItemAToi[]
   chantiers: (ChantierBrut & { id: string; titre: string })[]
+  /** Ids présents deux fois : seul le premier est gardé, la session doit corriger le fichier. */
+  doublons: string[]
 }
 
+// PowerShell 5.1 écrit un BOM en tête des fichiers UTF-8, que JSON.parse refuse.
+export const sansBom = (s: string): string => s.replace(/^﻿/, '')
+
 export function lireEtatSuivi(json: string): EtatSuivi {
-  const brut = JSON.parse(json) as Record<string, unknown>
+  const brut = JSON.parse(sansBom(json)) as Record<string, unknown>
+  const doublons: string[] = []
+  const vus = new Set<string>()
+  const unique = (id: string): boolean => {
+    if (!vus.has(id)) {
+      vus.add(id)
+      return true
+    }
+    if (!doublons.includes(id)) doublons.push(id)
+    return false
+  }
   const aToi: ItemAToi[] = []
   for (const it of Array.isArray(brut.aToi) ? brut.aToi : []) {
     const o = (it ?? {}) as Record<string, unknown>
     const id = texte(o.id)
     const titre = texte(o.titre)
-    if (!id || !titre) continue
+    if (!id || !titre || !unique(id)) continue
     aToi.push({
       id,
       titre,
@@ -92,19 +114,20 @@ export function lireEtatSuivi(json: string): EtatSuivi {
       faitLe: texte(o.faitLe),
     })
   }
+  vus.clear()
   const chantiers: EtatSuivi['chantiers'] = []
   for (const ch of Array.isArray(brut.chantiers) ? brut.chantiers : []) {
     const o = (ch ?? {}) as ChantierBrut
     const id = texte(o.id)
     const titre = texte(o.titre)
-    if (id && titre) chantiers.push({ ...o, id, titre })
+    if (id && titre && unique(id)) chantiers.push({ ...o, id, titre })
   }
-  return { majLe: texte(brut.majLe), majPar: texte(brut.majPar), aToi, chantiers }
+  return { majLe: texte(brut.majLe), majPar: texte(brut.majPar), aToi, chantiers, doublons }
 }
 
 /** Le fichier avec un élément « à toi » marqué fait, prêt à réécrire tel quel. */
 export function marquerFaitDans(json: string, id: string, quand: string): string | null {
-  const brut = JSON.parse(json) as Record<string, unknown>
+  const brut = JSON.parse(sansBom(json)) as Record<string, unknown>
   const liste = Array.isArray(brut.aToi) ? (brut.aToi as Record<string, unknown>[]) : []
   const item = liste.find(it => it && it.id === id)
   if (!item) return null
@@ -153,8 +176,10 @@ export function vueChantier(
     const estimation = typeof et.estimation === 'number' && et.estimation > 0 ? et.estimation : undefined
     const minutes =
       (live ? dureeMesuree(live) : undefined) ?? estimation ?? (toi ? DUREE_TOI_MIN : agent ? moyenne : DUREE_ETAPE_MIN)
-    const ecouleMin =
-      etat === 'en-cours' && live?.debutMs !== undefined ? Math.max(0, (maintenant - live.debutMs) / 60_000) : undefined
+    // Le temps écoulé d'une étape en cours vient de son agent, sinon de l'heure où la session l'a lancée
+    // (`debutLe`, à défaut la mise à jour du chantier) : sans ancre, son heure de fin reculerait avec l'horloge.
+    const debut = live ? live.debutMs : (msParis(et.debutLe) ?? msParis(ch.majLe))
+    const ecouleMin = etat === 'en-cours' && debut !== undefined ? Math.max(0, (maintenant - debut) / 60_000) : undefined
     etapes.push({ titre, etat, enDirect: live !== undefined, toi })
     calcul.push({ titre, etat, toi, minutes, ecouleMin })
   }
@@ -164,13 +189,20 @@ export function vueChantier(
   const enCours = etapes.find(e => e.etat === 'en-cours')
   const debutEnCours = calcul.find(e => e.etat === 'en-cours')?.ecouleMin
   const actif = etat === 'en-cours' && enCours !== undefined
+  // Une étape en cours sans agent ni heure de début : on ne sait pas quand elle finira, on ne l'invente pas.
+  const sansAncre = calcul.some(e => e.etat === 'en-cours' && !e.toi && e.ecouleMin === undefined)
   let finLibelle = LIBELLE_ETAT[etat]
   let fin: string | undefined
   let dansCombien: string | undefined
   let ensuite = texte(ch.ensuite)
   if (etapes.length > 0 && av.restantes === 0) {
-    finLibelle = 'Terminé'
-    ensuite = undefined
+    // Toutes les étapes faites ne veulent pas dire fini : un déploiement ou une recette attend encore l'utilisateur.
+    if (etat === 'en-cours' || etat === 'fait') {
+      finLibelle = 'Terminé'
+      ensuite = undefined
+    }
+  } else if (actif && av.restantMin > 0 && sansAncre) {
+    ensuite ??= av.prochaineToi ? `puis ${listeFr([av.prochaineToi, ...av.apresToi].map(minuscule), 2)}` : undefined
   } else if (actif && av.restantMin > 0) {
     finLibelle = av.prochaineToi ? 'Prêt pour toi' : 'Fin estimée'
     fin = formatFin(maintenant + av.restantMin * 60_000, maintenant)
@@ -193,6 +225,7 @@ export function vueChantier(
     majLe: texte(ch.majLe),
     enDirect: etapes.some(e => e.enDirect && e.etat === 'en-cours'),
     vedette: ch.vedette === true,
+    workflows: noms,
     pourcent: etat === 'fait' ? 100 : av.pourcent,
     finLibelle,
     fin,
@@ -267,6 +300,34 @@ export function avancement(etapes: EtapeCalcul[]): Avancement {
 }
 
 // Heures affichées à Paris ; l'environnement du mod peut ne pas connaître les fuseaux.
+// Règle européenne : heure d'été du dernier dimanche de mars au dernier dimanche d'octobre, à 01:00 UTC.
+const dernierDimanche = (annee: number, mois: number): number => {
+  const fin = new Date(Date.UTC(annee, mois + 1, 0))
+  return Date.UTC(annee, mois, fin.getUTCDate() - fin.getUTCDay(), 1)
+}
+
+export const decalageParis = (ms: number): number => {
+  const annee = new Date(ms).getUTCFullYear()
+  return ms >= dernierDimanche(annee, 2) && ms < dernierDimanche(annee, 9) ? 7200_000 : 3600_000
+}
+
+/**
+ * Un horodatage écrit par les sessions (« 2026-11-02T07:30 » ou « 2026-11-02 07:30 », heure de Paris), en ms.
+ * Une date seule ne dit pas l'heure : elle ne sert pas d'ancre (undefined). Un décalage explicite est respecté.
+ */
+export function msParis(v: unknown): number | undefined {
+  if (typeof v !== 'string') return undefined
+  const s = v.trim()
+  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/.exec(s)
+  if (!m) return undefined
+  if (m[7]) {
+    const t = Date.parse(s.replace(' ', 'T'))
+    return Number.isFinite(t) ? t : undefined
+  }
+  const local = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6] ?? 0))
+  return local - decalageParis(local - 3600_000)
+}
+
 type PartiesHeure = { jour: string; heure: number; minute: number; jj: string; mm: string }
 
 const partiesParis = (ms: number): PartiesHeure => {
@@ -283,7 +344,7 @@ const partiesParis = (ms: number): PartiesHeure => {
     const p = Object.fromEntries(f.formatToParts(ms).map(x => [x.type, x.value]))
     return { jour: `${p.year}-${p.month}-${p.day}`, heure: Number(p.hour), minute: Number(p.minute), jj: p.day ?? '', mm: p.month ?? '' }
   } catch {
-    const d = new Date(ms + 3600_000)
+    const d = new Date(ms + decalageParis(ms))
     const jj = String(d.getUTCDate()).padStart(2, '0')
     const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
     return { jour: `${d.getUTCFullYear()}-${mm}-${jj}`, heure: d.getUTCHours(), minute: d.getUTCMinutes(), jj, mm }
@@ -302,6 +363,12 @@ export function formatFin(finMs: number, maintenant: number): string {
   if (fin.jour === ici.jour) return `vers ${h}`
   if (fin.jour === demain.jour) return `demain vers ${h}`
   return `le ${fin.jj}/${fin.mm} vers ${h}`
+}
+
+/** « 21:32 », à l'heure de Paris. */
+export function heureParis(ms: number): string {
+  const p = partiesParis(ms)
+  return `${String(p.heure).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`
 }
 
 /** Horodatage à l'heure de Paris, « 2026-11-01T21:32 », comme ceux que les sessions écrivent dans le suivi. */
@@ -330,6 +397,9 @@ export function formatDuree(minutes: number): string {
 // ── docs/GAMEPLAN.md §54 : avancement du Game Plan beta ───────────────────────
 
 const PLAN_DEBUT_DEFAUT = '2026-10-13'
+
+/** Le titre de la section que lit lirePlan : son absence est signalée, pas tue. */
+export const TITRE_PLAN = /^#+\s.*Ordre de passage/im
 
 export function lirePlan(md: string, maintenant: number): PlanVue | null {
   const lignes = md.split(/\r?\n/)
@@ -394,10 +464,14 @@ export function lirePlan(md: string, maintenant: number): PlanVue | null {
 
 // ── Les cartes ───────────────────────────────────────────────────────────────
 
-/** Le chantier mis en avant : marqué « vedette », sinon celui qu'un workflow fait avancer, sinon le premier en cours. */
+/**
+ * Le chantier mis en avant : marqué « vedette », sinon celui qu'un workflow fait avancer, sinon le premier en cours.
+ * Une marque « vedette » oubliée sur un lot fini ou remis à plus tard ne fige pas la carte du haut.
+ */
 export function choisirVedette(chantiers: ChantierVue[]): ChantierVue | undefined {
+  const vivant = (c: ChantierVue) => c.etat !== 'fait' && c.etat !== 'plus-tard' && c.finLibelle !== 'Terminé'
   return (
-    chantiers.find(c => c.vedette) ??
+    chantiers.find(c => c.vedette && vivant(c)) ??
     chantiers.find(c => c.enDirect) ??
     chantiers.find(c => c.etat === 'en-cours' && c.etapes.length > 0) ??
     chantiers.find(c => c.etat === 'en-cours')
@@ -421,9 +495,11 @@ export const heroDe = (c: ChantierVue): HeroVue => ({
 
 export function autreDe(c: ChantierVue): AutreVue {
   const attendToi = c.finLibelle === 'À toi' || c.etapes.some(e => e.toi && e.etat === 'en-cours')
-  if (c.etat === 'fait' || c.finLibelle === 'Terminé') return { titre: c.titre, pourcent: 100, statut: 'terminé', ton: 'neutre' }
+  if (c.etat === 'fait') return { titre: c.titre, pourcent: 100, statut: 'terminé', ton: 'neutre' }
   if (attendToi) return { titre: c.titre, pourcent: c.pourcent, statut: c.etat === 'a-deployer' ? 'à déployer par toi' : 'attend toi', ton: 'toi' }
-  if (c.fin) return { titre: c.titre, pourcent: c.pourcent, statut: `prêt ${c.fin}`, ton: 'claude' }
+  if (c.finLibelle === 'Terminé') return { titre: c.titre, pourcent: 100, statut: 'terminé', ton: 'neutre' }
+  // Statut court : la colonne de droite de la carte est étroite, l'heure doit y tenir entière.
+  if (c.fin) return { titre: c.titre, pourcent: c.pourcent, statut: `prêt ${finCourte(c.fin)}`, ton: 'claude' }
   const statut: Record<EtatChantier, [string, TonAutre]> = {
     'en-cours': ['en cours', 'claude'],
     recette: ['en recette', 'toi'],
@@ -437,6 +513,9 @@ export function autreDe(c: ChantierVue): AutreVue {
   const [libelle, ton] = statut[c.etat]
   return { titre: c.titre, pourcent: c.pourcent, statut: libelle, ton }
 }
+
+/** « vers 3 h 40 » reste tel quel, « demain vers 9 h » → « demain 9 h », « le 03/11 vers 14 h 20 » → « 03/11 14 h 20 ». */
+const finCourte = (fin: string): string => (fin.startsWith('vers ') ? fin : fin.replace(/^le /, '').replace(' vers ', ' '))
 
 const RANG_CHANTIER: Record<EtatChantier, number> = {
   'en-cours': 0,
@@ -454,10 +533,11 @@ export const trierChantiers = (liste: ChantierVue[]): ChantierVue[] =>
 
 // ── docs/CHANTIERS.md §4 : décisions qui attendent l'utilisateur ────────────
 
-export function lireDecisions(md: string): DecisionVue[] {
+/** null quand la section 4 n'est plus là (renumérotée, renommée) : le panneau le signale au lieu de se taire. */
+export function lireDecisions(md: string): DecisionVue[] | null {
   const lignes = md.split(/\r?\n/)
   const debut = lignes.findIndex(l => /^##\s+4\.\s/.test(l))
-  if (debut < 0) return []
+  if (debut < 0) return null
   const out: DecisionVue[] = []
   for (const l of lignes.slice(debut + 1)) {
     if (/^##\s/.test(l)) break
@@ -486,10 +566,11 @@ function resumer(cellule: string): string {
   return court.length > 60 ? court.slice(0, 59) + '…' : court
 }
 
-export function lireProd(md: string): ArtefactVue[] {
+/** null quand la section 2 n'est plus là. */
+export function lireProd(md: string): ArtefactVue[] | null {
   const lignes = md.split(/\r?\n/)
   const debut = lignes.findIndex(l => /^##\s+2\.\s/.test(l))
-  if (debut < 0) return []
+  if (debut < 0) return null
   const out: ArtefactVue[] = []
   for (const l of lignes.slice(debut + 1)) {
     if (/^##\s/.test(l)) break
@@ -571,16 +652,22 @@ export function phasesDe(titres: string[], agents: AgentWf[]): PhaseWf[] {
 
 const SILENCE_MS = 20 * 60_000
 const ENTRE_DEUX_MS = 15 * 60_000
+const SESSION_MORTE_MS = 60 * 60_000
 
-/** État d'un run d'après son enregistrement final (s'il est plus récent que le journal) et ses agents. */
+/**
+ * État d'un run d'après son enregistrement final (s'il est plus récent que le journal) et ses agents.
+ * Un run silencieux dont la session n'écrit plus rien depuis une heure est mort sans enregistrement final
+ * (application fermée, veille, plantage) : il est arrêté, plus « en cours ».
+ */
 export function etatRun(args: {
   statutFinal?: string
   finalAJour: boolean
   agents: AgentWf[]
   journalMs: number
   maintenant: number
+  sessionMs?: number
 }): EtatWorkflow {
-  const { statutFinal, finalAJour, agents, journalMs, maintenant } = args
+  const { statutFinal, finalAJour, agents, journalMs, maintenant, sessionMs } = args
   if (statutFinal && finalAJour) {
     if (statutFinal === 'completed') return 'termine'
     if (statutFinal === 'failed') return 'echoue'
@@ -589,13 +676,28 @@ export function etatRun(args: {
   const actifs = agents.filter(a => a.etat === 'en-cours')
   if (actifs.length > 0) {
     const silencieux = actifs.every(a => maintenant - (a.activiteMs ?? journalMs) > SILENCE_MS)
-    return silencieux ? 'silencieux' : 'en-cours'
+    if (!silencieux) return 'en-cours'
+    return sessionMs !== undefined && maintenant - sessionMs > SESSION_MORTE_MS ? 'arrete' : 'silencieux'
   }
   return maintenant - journalMs < ENTRE_DEUX_MS ? 'en-cours' : 'arrete'
 }
 
 /** Slug du dossier de projets de Claude Code pour un chemin (`C:\a b` → `C--a-b`). */
 export const slugProjet = (chemin: string): string => chemin.replace(/[^A-Za-z0-9]/g, '-')
+
+/**
+ * Le dossier de projets est-il celui du dépôt, d'un de ses worktrees ou d'un de ses sous-dossiers ? Sans
+ * tenir compte de la casse : Windows ne la distingue pas, et `c:` comme `C:` donnent chacun leur slug.
+ * Un voisin « RBLAUNCHER - Copie » (`…RBLAUNCHER---Copie`) n'en est pas un.
+ */
+export function dossierDuProjet(nom: string, slug: string): boolean {
+  const n = nom.toLowerCase()
+  const s = slug.toLowerCase()
+  if (n === s) return true
+  if (!n.startsWith(s + '-')) return false
+  const reste = n.slice(s.length + 1)
+  return reste.startsWith('-claude-worktrees-') || /^[a-z0-9]/.test(reste)
+}
 
 /** Racine du dépôt principal, même depuis un worktree de `.claude/worktrees/`. */
 export const racineDepot = (cwd: string): string => {

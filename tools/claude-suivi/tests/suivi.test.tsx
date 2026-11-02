@@ -1,13 +1,28 @@
 import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
-import { avancement, formatDans, lirePlan } from '../hooks/donnees'
+import { chercherRacine } from '../hooks/calcul'
+import {
+  autreDe,
+  avancement,
+  choisirVedette,
+  dossierDuProjet,
+  etatRun,
+  formatDans,
+  lireDecisions,
+  lireEtatSuivi,
+  lirePlan,
+  marquerFaitDans,
+  msParis,
+  vueChantier,
+} from '../hooks/donnees'
+import { carteHero, cartePlan, listeChantiers } from '../hooks/visuel'
 import type { ChantierVue, Instantane } from '../types'
 
 // Le kit de test n'a pas d'état préchargé : une mémoire tient lieu de l'hôte sous le mod.
 function memoire(on: On, instantane?: Instantane) {
   const valeurs = new Map<string, { value: unknown; version: number }>()
-  if (instantane) valeurs.set('instantane', { value: { shape: 'suivi-2', value: instantane }, version: 1 })
+  if (instantane) valeurs.set('instantane', { value: { shape: 'suivi-3', value: instantane }, version: 1 })
   on('state.get', (_, e) => ({ value: valeurs.get(e.key) ?? { value: undefined, version: 0 } }))
   on('state.set', (_, e) => {
     const avant = valeurs.get(e.key)?.version ?? 0
@@ -190,3 +205,223 @@ test('Game Plan : livrés, en cours, hors beta et rythme', () => {
   expect(plan?.rythme).toBe('≈ 0,1 point par jour')
 })
 
+
+// ── Constats du 02/11 : ce que le panneau faisait de travers en usage réel ──
+
+const sansAgents = () => new Map()
+
+test('une étape tenue à la main ancrée sur debutLe garde la même heure de fin quand l’horloge avance', () => {
+  const ch = {
+    id: 'lot',
+    titre: 'Lot',
+    etat: 'en-cours',
+    etapes: [
+      { titre: 'Moteur', etat: 'fait', estimation: 30 },
+      { titre: 'HUD', etat: 'en-cours', estimation: 120, debutLe: '2026-11-01T20:30' },
+      { titre: 'Ta validation', toi: true },
+    ],
+  }
+  // MAINTENANT = 21 h à Paris : 30 min écoulées sur 120, fin vers 22 h 30.
+  const a = vueChantier(ch, sansAgents, MAINTENANT)
+  const b = vueChantier(ch, sansAgents, MAINTENANT + 20 * 60_000)
+  expect(a.finLibelle).toBe('Prêt pour toi')
+  expect(a.fin).toBe('vers 22 h 30')
+  expect(b.fin).toBe(a.fin)
+  expect(b.pourcent).toBeGreaterThan(a.pourcent)
+})
+
+test('une étape en cours sans agent ni heure de début n’invente pas d’heure de fin', () => {
+  const ch = {
+    id: 'lot',
+    titre: 'Lot',
+    etat: 'en-cours',
+    majLe: '2026-11-01',
+    etapes: [
+      { titre: 'HUD', etat: 'en-cours', estimation: 60 },
+      { titre: 'Ta validation', toi: true },
+    ],
+  }
+  const v = vueChantier(ch, sansAgents, MAINTENANT)
+  expect(v.finLibelle).toBe('En cours')
+  expect(v.fin).toBeUndefined()
+  expect(v.dans).toBeUndefined()
+  expect(v.ensuite).toBe('puis ta validation')
+})
+
+test('un chantier à déployer aux étapes toutes faites attend toujours l’utilisateur', () => {
+  const ch = {
+    id: 'w',
+    titre: 'Train web',
+    etat: 'a-deployer',
+    etapes: [
+      { titre: 'a', etat: 'fait' },
+      { titre: 'b', etat: 'fait' },
+    ],
+  }
+  const v = vueChantier(ch, sansAgents, MAINTENANT)
+  expect(v.finLibelle).toBe('À déployer')
+  expect(autreDe(v)).toEqual({ titre: 'Train web', pourcent: 100, statut: 'à déployer', ton: 'toi' })
+  expect(vueChantier({ ...ch, etat: 'en-cours' }, sansAgents, MAINTENANT).finLibelle).toBe('Terminé')
+})
+
+test('une marque vedette oubliée sur un lot fini laisse la place au chantier qui avance', () => {
+  const fini: ChantierVue = { ...LOT2, id: 'fini', etat: 'fait', vedette: true, enDirect: false, finLibelle: 'Terminé' }
+  expect(choisirVedette([fini, LOT2])?.id).toBe('lot2')
+})
+
+test('un run silencieux dont la session n’écrit plus depuis une heure est arrêté', () => {
+  const agents = [{ label: 'a', phase: 'p', etat: 'en-cours' as const, activiteMs: MAINTENANT - 3 * 3600_000 }]
+  const base = { finalAJour: false, agents, journalMs: MAINTENANT - 3 * 3600_000, maintenant: MAINTENANT }
+  expect(etatRun({ ...base, sessionMs: MAINTENANT - 2 * 60_000 })).toBe('silencieux')
+  expect(etatRun({ ...base, sessionMs: MAINTENANT - 2 * 3600_000 })).toBe('arrete')
+})
+
+test('statut court dans la carte des autres chantiers : l’heure tient entière à 280 px', () => {
+  const lot3: ChantierVue = {
+    ...LOT2,
+    id: 'lot3',
+    titre: 'Lot 3',
+    fin: 'le 03/11 vers 14 h 20',
+    finLibelle: 'Fin estimée',
+    etapes: LOT2.etapes.map(e => ({ ...e, toi: false })),
+  }
+  const autre = autreDe(lot3)
+  expect(autre.statut).toBe('prêt 03/11 14 h 20')
+  // Une coupe « … » devient &#8230; dans le SVG.
+  expect(listeChantiers([autre], 280)).not.toMatch(/&#8230;/)
+})
+
+test('etat.json écrit avec un BOM et des ids en double', () => {
+  const bom = String.fromCharCode(0xfeff)
+  const json =
+    bom +
+    JSON.stringify({
+      aToi: [
+        { id: 'a', titre: 'Premier' },
+        { id: 'a', titre: 'Doublon' },
+      ],
+      chantiers: [{ id: 'c', titre: 'C' }],
+    })
+  const suivi = lireEtatSuivi(json)
+  expect(suivi.aToi.map(i => i.titre)).toEqual(['Premier'])
+  expect(suivi.doublons).toEqual(['a'])
+  expect(marquerFaitDans(json, 'a', '2026-11-02T08:00')).toMatch(/"fait": true/)
+})
+
+test('une section renommée est signalée, pas tue', () => {
+  expect(lireDecisions('# Chantiers\n## 5. Autre\n| 1 | q | c |')).toBeNull()
+  expect(lireDecisions('## 4. Décisions\n| n° | Question | Contexte |\n| 1 | Rendu ? | A ou B |')).toEqual([
+    { numero: '1', question: 'Rendu ?', contexte: 'A ou B' },
+  ])
+})
+
+test('dossiers de projets : casse, worktrees, sous-dossiers, mais pas la copie voisine', () => {
+  const slug = 'C--Users-omarb-Desktop-Reborn---Gestion-RBLAUNCHER'
+  expect(dossierDuProjet('c--Users-omarb-Desktop-Reborn---Gestion-RBLAUNCHER', slug)).toBe(true)
+  expect(dossierDuProjet(slug + '--claude-worktrees-lot2', slug)).toBe(true)
+  expect(dossierDuProjet(slug + '-tools-claude-suivi', slug)).toBe(true)
+  expect(dossierDuProjet(slug + '---Copie', slug)).toBe(false)
+  expect(dossierDuProjet(slug + '2', slug)).toBe(false)
+})
+
+test('heure de Paris : été et hiver, date seule refusée comme ancre', () => {
+  expect(msParis('2026-07-01T12:00')).toBe(Date.UTC(2026, 6, 1, 10, 0))
+  expect(msParis('2026-11-02 07:30')).toBe(Date.UTC(2026, 10, 2, 6, 30))
+  expect(msParis('2026-11-02T07:30Z')).toBe(Date.UTC(2026, 10, 2, 7, 30))
+  expect(msParis('2026-11-02')).toBeUndefined()
+})
+
+test('cartes : pas de « 0 % » sans étapes, et le Plan dit quand le rythme n’est pas mesuré', () => {
+  const hero = { titre: 'Ménage', pourcent: 0, finLibelle: 'En cours', etapes: [], faites: 0, total: 0 }
+  expect(carteHero(hero, 400)).not.toMatch(/>0<tspan/)
+  const plan = cartePlan({ titre: 'Game Plan beta', pourcent: 30, livres: 3, enCours: 0, aFaire: 10, horsBeta: 0 }, 400)
+  expect(plan).toMatch(/pas encore mesur/)
+})
+
+test('la racine se retrouve depuis un dossier à neuf niveaux sous le dépôt', async () => {
+  const cible = ['C:', 'R', 'docs', 'CHANTIERS.md'].join('\\')
+  const vus: string[] = []
+  const existe = async (chemin: string) => (vus.push(chemin), chemin === cible)
+  const profond = ['C:', 'R', 'minecraft', 'shinobi', 'ShinobiSense', 'src', 'main', 'java', 'com', 'reborn', 'shinobisense']
+  expect(await chercherRacine(profond.join('\\'), existe)).toBe(['C:', 'R'].join('\\'))
+  expect(vus.length).toBe(10)
+})
+
+test('hors du dépôt, la remontée s’arrête à la racine du disque ou du partage réseau', async () => {
+  const existe = async () => false
+  expect(await chercherRacine(['C:', 'Users', 'omarb', 'ailleurs'].join('\\'), existe)).toBeNull()
+  expect(await chercherRacine(['', '', 'wsl.localhost', 'Ubuntu', 'home'].join('\\'), existe)).toBeNull()
+  expect(await chercherRacine('/home/omar/projet', existe)).toBeNull()
+})
+
+test('à toi : liste indisponible quand le suivi est illisible, au lieu de « rien ne t’attend »', async ($, on) => {
+  mock.clock(on, { now: MAINTENANT })
+  memoire(on, { ...SNAP, aToi: [], listeIndisponible: true, erreurs: ['etat.json illisible'] })
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect(await ui.find({ type: 'Text', text: /Liste indisponible/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Rien ne t’attend/ })).toBeUndefined()
+    await ui.unmount()
+  }
+})
+
+test('à toi : le titre suit l’étiquette dans le même texte', async ($, on) => {
+  mock.clock(on, { now: MAINTENANT })
+  memoire(on, SNAP)
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /À déployer\s+Déployer le train web/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('workflows hors vedette : « + 1 autre » avec une vedette', async ($, on) => {
+  mock.clock(on, { now: MAINTENANT })
+  memoire(on, { ...SNAP, wfHorsVedette: 1 })
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /^\+ 1 autre workflow en cours/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('workflows sans vedette : « 2 workflows en cours », sans « autre »', async ($, on) => {
+  mock.clock(on, { now: MAINTENANT })
+  memoire(on, { ...SNAP, hero: null, wfHorsVedette: 2 })
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /^2 workflows en cours/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('terminal : la carte du haut garde l’étape en cours et la suite', async ($, on) => {
+  mock.clock(on, { now: MAINTENANT })
+  memoire(on, SNAP)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /En cours : HUD bas-droite · depuis 50 min/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('copie impossible : la commande se déplie sous l’élément', async ($, on) => {
+  mock.clock(on, { now: MAINTENANT })
+  memoire(on, SNAP)
+  on('ui.copy', () => ({ value: { isCopied: false, reason: 'no-surface' } }))
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: 'copier-deploy' })
+  await ui.unmount()
+  const apres = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect(await apres.find({ key: 'cmd-deploy' })).toBeDefined()
+  await apres.unmount()
+})
+
+test('Fait coche l’élément même dans un fichier écrit avec un BOM', async ($, on) => {
+  mock.clock(on, { now: MAINTENANT })
+  memoire(on, SNAP)
+  const ecrits: string[] = []
+  const bom = String.fromCharCode(0xfeff)
+  on('fs.read', () => ({ value: bom + JSON.stringify({ aToi: [{ id: 'deploy', titre: 'Déployer le train web' }] }) }))
+  on('fs.write', (_, e) => {
+    ecrits.push(e.text)
+    return { value: undefined }
+  })
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: 'fait-deploy' })
+  await ui.unmount()
+  expect(ecrits.length).toBe(1)
+  expect(JSON.parse(ecrits[0] ?? '{}').aToi[0]).toMatchObject({ id: 'deploy', fait: true, faitLe: '2026-11-01T21:00' })
+})

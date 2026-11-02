@@ -292,6 +292,8 @@ export function carteHero(hero: HeroVue, largeur: number): string {
   const G = grille(W)
   const L = G.L
   const p = pct(h.pourcent)
+  // Sans étapes suivies, un « 0 % » serait faux et ne bougerait jamais : anneau neutre et tiret.
+  const sansEtapes = h.total === 0
   const o: string[] = []
   let y = G.pad
 
@@ -320,11 +322,11 @@ export function carteHero(hero: HeroVue, largeur: number): string {
   o.push(`<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(D * 0.62)}" fill="url(#hl)"/>`)
   o.push(`<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}" fill="none" stroke="${IVOIRE}" stroke-opacity=".075" stroke-width="${f(sw)}"/>`)
   o.push(`<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r - sw / 2 - 4)}" fill="none" stroke="${OR}" stroke-opacity=".13"/>`)
-  if (p >= 100) o.push(`<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}" fill="none" stroke="url(#ha)" stroke-width="${f(sw)}"/>`)
-  else if (p > 0) o.push(arcBalaye(cx, cy, r, sw, p))
+  if (p >= 100 && !sansEtapes) o.push(`<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}" fill="none" stroke="url(#ha)" stroke-width="${f(sw)}"/>`)
+  else if (p > 0 && !sansEtapes) o.push(arcBalaye(cx, cy, r, sw, p))
   else o.push(`<circle cx="${f(cx)}" cy="${f(cy - r)}" r="${f(sw / 2)}" fill="${OR}" fill-opacity=".5"/>`)
   const nt = D * (p >= 100 ? 0.29 : 0.35)
-  o.push(pourcent(cx, cy + nt * 0.35, p, nt, 'middle'))
+  o.push(sansEtapes ? T(cx, cy + nt * 0.35, '—', { t: nt, c: GRIS, a: 'middle' }) : pourcent(cx, cy + nt * 0.35, p, nt, 'middle'))
 
   // Colonne « quand » : centrée à droite de l'anneau, sur le même axe que la date de la carte du Plan.
   const fin = decoupe(h.fin)
@@ -458,6 +460,12 @@ export function cartePlan(plan: PlanVue, largeur: number): string {
     big = fin.coeur.replace(/^fin\s+/i, '')
     sub = net(P.rythme)
   } else if (p >= 100) big = 'Terminé'
+  else {
+    // Aucun point livré depuis la date de méthode : pas de vitesse, donc pas de date. On le dit.
+    lab = 'Fin à ce rythme'
+    big = '—'
+    sub = 'pas encore mesuré'
+  }
   const B = ajuste(big, L(21, 25), G.wq, 15)
   if (B.v) {
     const lt = L(11.5, 12.5)
