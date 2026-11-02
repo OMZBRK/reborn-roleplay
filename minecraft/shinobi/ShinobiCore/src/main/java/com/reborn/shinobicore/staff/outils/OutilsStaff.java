@@ -15,12 +15,14 @@ import org.bukkit.entity.Player;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 
 /**
  * Outils staff à la RedLine (14/10), transposés : gel persistant, notes par N°, annonces, écran noir, séisme, mode staff
- * et plaques, consultation de la sacoche, tenue imposée, emote forcée, reset / suppression de personnage, aller /
- * ramener / retour. Partagés par les commandes ({@link OutilsCommandes}) et le Poste de garde
- * ({@code StaffPanel}). <b>Tout est journalisé</b> ({@link Journal}, catégorie {@code STAFF}).
+ * et nametags, consultation de la sacoche, tenue imposée, emote forcée, reset / suppression de personnage, aller /
+ * ramener / retour ; narration au centre de l'écran (lot 2, 01/11). Partagés par les commandes
+ * ({@link OutilsCommandes}) et le Poste de garde ({@code StaffPanel}). <b>Tout est journalisé</b> ({@link Journal},
+ * catégorie {@code STAFF}).
  *
  * <p>Grades (StaffGrades) : Helper 1, Modérateur 2, Admin 3, Owner 4 ; la console passe partout.
  */
@@ -29,9 +31,12 @@ public final class OutilsStaff {
     /** Grade minimum de chaque outil (commandes et boutons du Poste de garde). */
     public static final int G_JOURNAL = StaffGrades.HELPER, G_NOTE = StaffGrades.HELPER, G_ALLER = StaffGrades.HELPER,
             G_ANNONCE_PERSO = StaffGrades.HELPER, G_MODE_STAFF = StaffGrades.HELPER,
+            G_NARRATION_JOUEUR = StaffGrades.HELPER,
             G_RAMENER = StaffGrades.MODO, G_GEL = StaffGrades.MODO, G_VOIR_SAC = StaffGrades.MODO,
             G_NOIR = StaffGrades.MODO, G_TENUE = StaffGrades.MODO, G_EMOTE = StaffGrades.MODO,
             G_ANNONCE = StaffGrades.MODO,
+            // narration autour de soi (64 blocs au plus), à un monde, à tous (avec confirmation) ; arrêter celle des autres
+            G_NARRATION = StaffGrades.MODO,
             G_PRENDRE = StaffGrades.ADMIN, G_SEISME = StaffGrades.ADMIN, G_PERSO = StaffGrades.ADMIN,
             G_NOTE_SUPPR_AUTRUI = StaffGrades.ADMIN;
 
@@ -39,6 +44,7 @@ public final class OutilsStaff {
     private final Gels gels;
     private final NotesStaff notes;
     private final EffetsStaff effets;
+    private final Narrations narrations;
     private final ModeStaff mode;
     private final ModeAnimation animation;
     private final VoirSac voirSac;
@@ -56,6 +62,7 @@ public final class OutilsStaff {
         this.effets = new EffetsStaff(plugin);
         this.mode = new ModeStaff(plugin);
         this.animation = new ModeAnimation(plugin);
+        this.narrations = new Narrations(plugin, animation);
         this.voirSac = new VoirSac(plugin);
         this.tenues = new TenuesForcees(plugin);
         this.perso = new GestionPerso(plugin);
@@ -65,6 +72,7 @@ public final class OutilsStaff {
         var pm = Bukkit.getPluginManager();
         pm.registerEvents(gels, plugin);
         pm.registerEvents(effets, plugin);
+        pm.registerEvents(narrations, plugin);
         pm.registerEvents(mode, plugin);
         pm.registerEvents(animation, plugin);
         pm.registerEvents(voirSac, plugin);
@@ -78,15 +86,27 @@ public final class OutilsStaff {
         }
     }
 
+    /**
+     * Arrêt du plugin (onDisable) : chaque module à part. Le plugin est déjà désactivé à ce moment-là, un envoi au client
+     * y lève une exception : elle ne doit jamais remonter et faire sauter la suite de l'arrêt (sauvegarde des personnages).
+     */
     public void arreter() {
-        mode.arreter();
-        animation.arreter();
-        effets.arreter();
+        arreterModule("mode staff", mode::arreter);
+        arreterModule("mode animation", animation::arreter);
+        arreterModule("effets", effets::arreter);
+        arreterModule("narrations", narrations::arreter);
+    }
+
+    private void arreterModule(String nom, Runnable arret) {
+        try { arret.run(); }
+        catch (RuntimeException e) { plugin.getLogger().log(Level.WARNING, "Outils staff : arrêt « " + nom + " » interrompu", e); }
     }
 
     public Gels gels() { return gels; }
     public NotesStaff notes() { return notes; }
     public EffetsStaff effets() { return effets; }
+    /** Narration au centre de l'écran : commande, Poste de garde, et API des autres émetteurs (cinématiques, douane…). */
+    public Narrations narrations() { return narrations; }
     public ModeStaff mode() { return mode; }
     public ModeAnimation animation() { return animation; }
     public VoirSac voirSac() { return voirSac; }

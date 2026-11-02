@@ -68,7 +68,7 @@ animation) et quatre onglets.
 
 ### Mode staff et mode animation
 
-- **Mode staff** (`/modestaff`, puce du Poste de garde) : invisible aux joueurs, vol, invulnérable, plaques « N° · nom ·
+- **Mode staff** (`/modestaff`, puce du Poste de garde) : invisible aux joueurs, vol, invulnérable, nametags « N° · nom ·
   état » au-dessus des têtes. **Aucune mécanique RP** : ni coup, ni technique, ni menu R (porter, fouiller, exécuter…),
   ni duel, ni ramassage, ni objet, ni bloc RP (coffre, bibliothèque), ni monture, ni tchat RP — **tes messages partent au
   chat staff**. **Personne ne peut te cibler.** Tous les outils staff restent permis.
@@ -121,13 +121,56 @@ Règles complètes : [`../gameplay/KO_ET_MORT_RP.md`](../gameplay/KO_ET_MORT_RP.
 - Musiques : `/ost play|playat|playglobal|stop`.
 - Cinématiques : `/cinematic`. Invisibilité : `/vanish`.
 
+### Narration au centre de l'écran (01/11, publiée le 02/11 : ShinobiCore + reborn-hud 0.4.195)
+Un texte RP au centre de l'écran des joueurs, en grand (plein écran), en blanc pur, sans fond, avec des mots en couleur :
+pour poser une scène pendant un event. Ton nom n'apparaît jamais ; tout est au journal (`STAFF NARRATION`). Le petit
+texte façon Ketto est réservé aux stèles et plaques lues en concentration (plus tard).
+- **À un joueur** (Helper) : `/narration joueur <cible> Tu entends <ombre>des pas</> derrière toi.`
+- **Autour de toi** (Modérateur, ou animateur en mode animation) : `/narration ici [rayon] <texte>` — 30 blocs par
+  défaut, 64 au plus.
+- **À ce monde, à tous** (Modérateur) : `/narration monde <texte>`, `/narration tous <texte>` puis **[Confirmer]** sous
+  le résumé (60 s, sinon rien ne part ; seul le dernier résumé compte).
+- **Animateur sans grade staff**, en mode animation (`/modeanim`) : un joueur de ton monde à 64 blocs au plus, par son
+  pseudo exact, ou `ici`.
+- **Couleurs** : `<rouge>mort</>`, `<or>serment</>`, `<ombre>ombres</>`, `<gris>souvenir</>` (ou `&c`, `&6`, `&9`, `&7`,
+  et `&r` pour revenir au blanc ; `&&` pour écrire « & »). `\n` = à la ligne, `\n\n` = paragraphe. Toute autre balise ou
+  mise en forme est refusée avant l'envoi. 1 000 caractères au plus, mais le tchat de Minecraft coupe une commande à 256
+  caractères : pour un long texte, envoie plusieurs narrations à la suite (elles s'enchaînent) ou passe par le Poste de
+  garde.
+- **Options**, avant le texte : la durée `30s`, `2m` (2 à 180 s ; rien = automatique selon la longueur, de 5 à 60 s),
+  `+tenir` = jusqu'à ce que tu l'arrêtes (Modérateur, 10 min au plus), `+remplace`, `+tchat`. Un mot ou un nombre seul
+  fait partie du texte : `/narration tous Tenue correcte exigée.`, `/narration tous 3 jours plus tard…` ; avec `ici`,
+  donne le rayon d'abord : `/narration ici 30 3 jours plus tard…`.
+- Les narrations passent **l'une après l'autre**. Derrière une narration tenue, la suivante attend son arrêt : la réponse
+  le dit (« en file derrière n42 (tenue) »). `+remplace` coupe celle à l'écran et vide la file (Helper, animateur : ne
+  coupe que les tiennes) ; `+tchat` l'écrit aussi dans le tchat.
+- **Helper et animateur** : 3 s entre deux narrations, 5 joueurs différents par minute au plus, pas de `+tenir`.
+- **Arrêter** : `/narration fin` (les tiennes ; Modérateur : toutes, sur tous les écrans), `/narration fin n42` (le
+  numéro est dans la réponse, cliquable).
+- Un joueur qui se connecte pendant une narration la voit là où elle en est. Sans le mod à jour, il la lit dans le tchat,
+  en italique.
+- **Au Poste de garde** (F7 › Outils › **Narration**, reborn-hud 0.4.195 et plus) : le plus simple pour un texte long ou en
+  couleur.
+  - Écris dans la zone de texte : Entrée = à la ligne, deux fois = paragraphe ; compteur sur 1 000 caractères.
+  - Pour colorer : sélectionne des mots (souris ou Maj + flèches), puis clique une pastille (Blanc, Rouge, Or, Ombre,
+    Gris). Sans sélection, la pastille colore la suite de ce que tu tapes.
+  - Choisis la portée (un joueur par N° ou pseudo, ici avec le rayon, ce monde, tout le serveur), la durée (Auto ·
+    15 · 30 · 60 · 90 s · Tenir, ou une valeur de 2 à 180 s), « À la suite » ou « Remplacer », et « Aussi dans le
+    tchat ». Le volet ne montre que ce que ton grade permet.
+  - L'aperçu s'affiche en vrai sur ton écran, à gauche du volet, tel que les joueurs le verront. « Plein écran » cache
+    le volet pour le voir en entier ; un clic ou une touche pour revenir.
+  - « Envoyer » (ou Ctrl + Entrée). Pour tout le serveur, un résumé demande un second clic : rien ne part avant.
+  - « En cours » liste les narrations actives : temps restant, portée, nombre de joueurs, auteur. « Arrêter » sur la
+    tienne (Modérateur : sur toutes), « Tout arrêter » (Modérateur) ou « Arrêter les miennes ».
+
 ### Outils staff (14/10, pas encore publiés)
 Cible : pseudo, nom RP ou `#N°`. **Tout est journalisé** : la commande tapée et son effet (`/journal`).
 - **Joueurs** : `/aller <cible>` puis `/retour` ; `/ramener <cible>` puis `/retour <cible>` (Modo) ;
   `/geler <cible> [motif]` / `/degeler` (Modo, **persistant** : survit à la déconnexion) ; `/voirsac <cible>` (Modo,
   prendre un objet : Admin) ; `/noir <cible> [secondes|off] [message]` (Modo) ; `/emoteforcee <cible> <emote|stop>`,
   `/tenue <cible> <id Nexo|main|retirer>` (Modo).
-- **Messages** : `/annoncejoueur <cible> <message>` (convocation, scène) ; `/annonce <message>` à tous (Modo).
+- **Messages** : `/annoncejoueur <cible> <message>` (convocation, scène) ; `/annonce <message>` à tous (Modo) ;
+  texte RP au centre de l'écran : `/narration` (voir « Narration » ci-dessus).
 - **Monde** : `/seisme [rayon|tous] [force] [secondes] [message]` (Admin).
 - **Personnages** : au Poste de garde, fiche › **Personnages** (§2) ; `/persoreset` et `/persosuppr` ont été retirés le
   15/10 (la remise à zéro et la suppression demandent un motif et le N° retapé, une sauvegarde est faite avant dans

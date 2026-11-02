@@ -37,6 +37,32 @@ public final class KoHud {
 
     public static int dernierYATerre() { return dernierY; }
 
+    /**
+     * Bas du bloc « Inconscient » à la dernière image (sous-texte compris, jambages et ombre), en px GUI, et l'heure de
+     * ce dessin : le texte au centre ({@code recit/RecitHud}) se pose dessous.
+     */
+    private static int basInconscient = -1, basInconscientGs = 1;
+    private static long basInconscientA;
+
+    /** Bas du bloc « Inconscient » en pixels écran (dessiné à l'image courante ou à la précédente), sinon -1. */
+    public static int basInconscientPx() {
+        if (basInconscient < 0 || net.minecraft.util.Util.getMillis() - basInconscientA > 250) return -1;
+        return basInconscient * basInconscientGs;
+    }
+
+    /**
+     * Haut du groupe « À terre » (titre, et l'invite de la Volonté posée 16 px GUI au-dessus) à la dernière image, en px
+     * GUI, et l'heure de ce dessin : le texte au centre ({@code recit/RecitHud}) reste au-dessus, même en grand.
+     */
+    private static int hautATerre = -1, hautATerreGs = 1;
+    private static long hautATerreA;
+
+    /** Haut du groupe « À terre » en pixels écran (dessiné à l'image courante ou à la précédente), sinon -1. */
+    public static int hautATerrePx() {
+        if (hautATerre < 0 || net.minecraft.util.Util.getMillis() - hautATerreA > 250) return -1;
+        return hautATerre * hautATerreGs;
+    }
+
     public static void render(GuiGraphicsExtractor ctx) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.gui.hud.isHidden()) return;
@@ -51,7 +77,10 @@ public final class KoHud {
             else if (s.ata() > 0) ata(ctx, font, s, w, h);
         }
         if (!ko && CorpsClient.porte() && CorpsClient.lutte() >= 0f) porte(ctx, font, w, h);
-        else if (!ko && CorpsClient.consenti())   // porté de plein gré (14 · 24/10) : une ligne, pas de jauge
+        else if (!ko && CorpsClient.consenti() && !fr.reborn.hud.keybind.RappelsTouches.descendreAffiche())
+            // porté de plein gré (14 · 24/10) : une ligne, pas de jauge — depuis le lot 2, le rappel « Descendre
+            // [Espace] » du bas-droite la remplace ; elle ne revient au centre que si le rappel n'est pas affiché
+            // (élément masqué dans l'éditeur, sous-titres vanilla, carte de capture…)
             DaKit.inter7o(ctx, font, DaKit.inter("Espace · descendre"), w / 2f, Math.round(h * 0.62f) + 8, GRIS, 1);
         CorpsClient.Exe x = CorpsClient.exe();
         if (x != null && x.role() == 1) victime(ctx, font, x, w, h);
@@ -131,6 +160,10 @@ public final class KoHud {
         float pulse = KoClient.pulse();
         int y = Math.round(h * 0.66f);
         dernierY = y;
+        // haut du groupe : l'invite de la Volonté (VolonteHud, centrée 12 px GUI au-dessus du titre) en compte large
+        hautATerre = y - 18;
+        hautATerreGs = Math.max(1, Minecraft.getInstance().getWindow().getGuiScale());
+        hautATerreA = net.minecraft.util.Util.getMillis();
         int coeur = DaKit.alpha(DaKit.ROUGE_CLAIR, 0.55f + 0.45f * pulse);
         int fy = bloc(ctx, font, w / 2f, y, "À terre", TITRE, 120, frac, coeur, 1f);
         DaKit.inter9o(ctx, font, DaKit.inter(Math.round(Math.ceil(left)) + " s"), w / 2f, fy + 9, DaKit.OR_CLAIR, 1);
@@ -157,6 +190,10 @@ public final class KoHud {
             DaKit.inter9o(ctx, font, DaKit.inter(String.format("%d:%02d", m, sec)), w / 2f, by + 9, DaKit.OR_CLAIR, 1);
         }
         DaKit.inter7o(ctx, font, DaKit.inter("Tu peux chuchoter et faire des /me"), w / 2f, by + 20, GRIS, 1);
+        // bas du sous-texte (milieu des capitales + jambages + ombre) : 612 px en 1080p à l'échelle 2 (maquette a6)
+        basInconscient = by + 24;
+        basInconscientGs = Math.max(1, Minecraft.getInstance().getWindow().getGuiScale());
+        basInconscientA = net.minecraft.util.Util.getMillis();
         if (hopital) {
             float blink = 0.65f + 0.35f * (float) Math.sin(System.currentTimeMillis() / 400.0);
             DaKit.inter7o(ctx, font, DaKit.inter("/hopital — se laisser emmener à l'hôpital"), w / 2f, by + 9,

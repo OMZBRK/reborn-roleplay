@@ -42,9 +42,11 @@ public final class StaffDebug {
             "persos_emplacement", "persos_refus", "persos_hors_ligne",
             "journal", "journal_filtre", "journal_menu", "journal_vide",
             "outils", "annonces", "annonce_confirm", "seisme", "chat", "commandes", "modes",
+            "narration", "narration_couleurs", "narration_tous", "narration_actives", "narration_plein_ecran", "narration_helper",
+            "narration_anim",
             "blesses", "zones", "zones_nouvelle", "hopitaux", "reglages",
             "dense_joueurs", "dense_fiche", "dense_alertes",
-            "hud_annonce", "hud_annonce_perso", "hud_noir", "hud_plaques", "hud_mode",
+            "hud_annonce", "hud_annonce_perso", "hud_noir", "hud_nametags", "hud_mode",
             "fiche_voix", "fiche_voix_coupee"};
 
     private static final int STEP = 30;
@@ -94,7 +96,7 @@ public final class StaffDebug {
         if (k == 0) {
             mc.setScreenAndShow(null);
             EffetsStaff.effacer();
-            PlaquesStaff.debugEffacer();
+            NametagsStaff.debugEffacer();
             StaffClient.modeAnim = false;
             StaffClient.debugEffacerToasts();
             StaffClient.modeStaff = false;
@@ -121,6 +123,39 @@ public final class StaffDebug {
         if (k == STEP - 3) {
             Screenshot.grab(mc.gameDirectory, s.nom() + ".png", mc.gameRenderer.mainRenderTarget(), 1, m -> { });
         }
+    }
+
+    /* ---------------------------------------------------------------- outil Narration, depuis REBORN_FEATURE_PREVIEW */
+
+    /**
+     * Banc du lot 2 ({@code audit/FeaturePreview}) : ouvre le Poste de garde sur l'outil Narration dans l'état {@code cas}
+     * (un des cas {@code narration*} de {@link #CAS}), serveur simulé ({@link StaffDemo}), sans serveur réel.
+     */
+    public static void narrationOuvrir(String cas) {
+        Minecraft mc = Minecraft.getInstance();
+        String me = mc.player.getUUID().toString();
+        StaffClient.debugEffacerToasts();
+        inject(snap(me, false, cas));
+        inject(profile(me, false));
+        StaffDemo.activer(me, profile(me, false));
+        GardeScreen g = new GardeScreen("alerts");
+        g.debugSouris = () -> new int[]{2, 2};   // souris loin du volet : aucun survol dans les captures
+        mc.setScreenAndShow(g);
+        setup(g, cas, me);
+    }
+
+    /** Suite du cas (quelques ticks après l'ouverture : confirmation de « tout le serveur »). */
+    public static void narrationSuite(String cas) {
+        if (Minecraft.getInstance().gui.screen() instanceof GardeScreen g) suite(g, cas, "");
+    }
+
+    /** Fin du banc : volet fermé, serveur simulé coupé (les demandes repartent vers le vrai serveur). */
+    public static void narrationFermer() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.gui.screen() instanceof StaffScreen) mc.setScreenAndShow(null);
+        StaffDemo.narrationsVider();
+        StaffClient.debugEffacerToasts();
+        StaffClient.demo = false;
     }
 
     private static void setup(GardeScreen g, String cas, String me) {
@@ -160,15 +195,45 @@ public final class StaffDebug {
                 g.annoncesVue.debugEnvoyer();
             }
             case "seisme", "chat", "modes" -> g.debugTab(cas);
+            case "narration", "narration_couleurs", "narration_tous", "narration_actives", "narration_plein_ecran", "narration_helper",
+                 "narration_anim" -> {
+                if ("narration_actives".equals(cas)) StaffDemo.narrationsExemple(); else StaffDemo.narrationsVider();
+                g.debugTab("narration");
+                GardeNarration n = g.outilsVue.narrationVue;
+                switch (cas) {
+                    case "narration_couleurs" -> {
+                        n.debugRemplir(NARRATION_COULEURS, "ici", "0", "file", false, null);
+                        n.debugSelection(45, 54);   // « porte Est » sélectionnée (en rouge)
+                    }
+                    case "narration_plein_ecran" -> {
+                        n.debugRemplir(NARRATION_COULEURS, "ici", "0", "file", false, null);
+                        n.debugPleinEcran();
+                    }
+                    case "narration_tous" -> n.debugRemplir(NARRATION_TOUS, "tous", "30", "remplace", true, null);
+                    case "narration_actives" -> n.debugRemplir(NARRATION_COURTE, "joueur", "15", "file", false, "#00042");
+                    case "narration_helper" -> n.debugRemplir(NARRATION_COURTE, "joueur", "0", "file", false, "Raiden_FR");
+                    case "narration_anim" -> n.debugRemplir(NARRATION_COURTE, "ici", "30", "file", false, null);
+                    default -> { }
+                }
+            }
             case "commandes" -> g.debugTab("cmds");
             case "blesses", "zones", "zones_nouvelle", "hopitaux", "reglages" -> g.debugKoTab(cas.equals("zones_nouvelle") ? "zones" : cas);
             default -> { }
         }
     }
 
+    /** Textes d'essai de l'outil Narration (originaux, sans kanji ; balises lues par {@code Recit.segments}). */
+    static final String NARRATION_COULEURS = "Le vent tourne. Quelque chose approche de la <rouge>porte Est</>.\n"
+            + "Les lanternes du <or>quartier marchand</> s'éteignent une à une.";
+    static final String NARRATION_TOUS = "Trois coups de gong résonnent depuis la tour du Hokage. Les portes du village se "
+            + "ferment jusqu'à l'aube : que chaque ninja rejoigne son poste.";
+    static final String NARRATION_COURTE = "Tu entends <ombre>des pas</> derrière toi.";
+
     /** Étapes qui demandent la fiche ou le journal arrivés (quelques ticks après l'ouverture). */
     private static void suite(GardeScreen g, String cas, String me) {
         switch (cas) {
+            case "narration_tous" -> g.outilsVue.narrationVue.debugEnvoyer();   // le résumé « tout le serveur »
+            case "narration_actives" -> g.debugScroll(9999);                    // la liste « En cours » (bas du corps)
             case "alertes_valider" -> g.debugValiderRpk();
             case "joueurs_survol" -> g.debugSurvolLigne(1, 1);
             case "joueurs_menu" -> {
@@ -213,14 +278,14 @@ public final class StaffDebug {
         }
     }
 
-    /** Effets en jeu (HUD) : annonce globale / personnelle, écran noir, plaques staff, indicateur de mode. */
+    /** Effets en jeu (HUD) : annonce globale / personnelle, écran noir, nametags staff, indicateur de mode. */
     private static void hud(Minecraft mc, String cas) {
         switch (cas) {
             case "hud_annonce" -> EffetsStaff.debugAnnonce(false, "Hokage", "Rassemblement devant la tour du Hokage dans dix minutes.", 1500);
             case "hud_annonce_perso" -> EffetsStaff.debugAnnonce(true, "", "Le Hokage te convoque à son bureau. Viens seul.", 1500);
             case "hud_noir" -> EffetsStaff.recevoir("{\"t\":\"noir\",\"on\":true,\"texte\":\"Vous perdez connaissance…\",\"fondu\":4,\"s\":0}");
-            case "hud_plaques" -> {
-                PlaquesStaff.debugSoi(mc.player.getUUID());
+            case "hud_nametags" -> {
+                NametagsStaff.debugSoi(mc.player.getUUID());
                 mc.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_FRONT);
             }
             case "hud_mode" -> StaffClient.debugReceive("{\"t\":\"mode\",\"staff\":false,\"anim\":true}");
@@ -287,6 +352,12 @@ public final class StaffDebug {
         o.addProperty("modeAnim", false);
         o.addProperty("animPossible", true);
         if ("action_suppr".equals(cas)) { o.addProperty("grade", 3); o.addProperty("gradeName", "Admin"); }
+        if ("narration_helper".equals(cas) || "narration_anim".equals(cas)) {
+            o.addProperty("grade", 1);
+            o.addProperty("gradeName", "Helper");
+            o.addProperty("modeAnim", "narration_anim".equals(cas));
+            o.addProperty("modeStaff", false);
+        }
         if (cas.startsWith("persos")) {
             boolean helper = "persos_refus".equals(cas);
             o.addProperty("grade", helper ? 1 : 3);

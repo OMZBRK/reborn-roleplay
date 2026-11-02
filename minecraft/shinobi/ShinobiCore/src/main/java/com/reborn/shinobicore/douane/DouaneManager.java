@@ -185,8 +185,8 @@ public final class DouaneManager {
     private boolean etatSale = true;
     private long dernierEtat;
     private int compteurLent;
-    private String dernieresPlaques = "";
-    private long plaquesAt;
+    private String dernieresNametags = "";
+    private long nametagsAt;
 
     public DouaneManager(ShinobiCore plugin) {
         this.plugin = plugin;
@@ -837,7 +837,7 @@ public final class DouaneManager {
         }
         if (o != ouvert) basculerHall(o);
 
-        // Plaques : qui est examinateur dans le monde (à chaque changement, et toutes les 10 s).
+        // Nametags (message « plaques ») : qui est examinateur dans le monde (à chaque changement, et toutes les 10 s).
         List<String> exams = new ArrayList<>();
         for (UUID id : mode.actifs()) {
             Player q = Bukkit.getPlayer(id);
@@ -845,10 +845,10 @@ public final class DouaneManager {
         }
         java.util.Collections.sort(exams);
         String cle = String.join(",", exams);
-        if (!cle.equals(dernieresPlaques) || t - plaquesAt > 10_000L) {
-            dernieresPlaques = cle;
-            plaquesAt = t;
-            for (Player q : monde.getPlayers()) if (canal.ecoute(q)) canal.plaques(q, exams);
+        if (!cle.equals(dernieresNametags) || t - nametagsAt > 10_000L) {
+            dernieresNametags = cle;
+            nametagsAt = t;
+            for (Player q : monde.getPlayers()) if (canal.ecoute(q)) canal.nametags(q, exams);
         }
 
         // Examinateur sorti du monde ou parti : son candidat revient au hall, en tête.
@@ -1036,7 +1036,7 @@ public final class DouaneManager {
         candidats.put(id, c);
 
         // Sans personnage : aventure, aucun dégât (porte des dégâts + écouteur), faim figée, inventaire vanilla vide,
-        // skin Minecraft et pseudo sur la plaque.
+        // skin Minecraft et pseudo sur le nametag.
         p.setGameMode(GameMode.ADVENTURE);
         p.getInventory().clear();
         p.setFoodLevel(20);
@@ -1076,7 +1076,7 @@ public final class DouaneManager {
                 .detail((reprise ? "retour après une coupure · " : "") + (c.reservationId() == null ? "place inconnue" : "place " + c.reservationId()))
                 .ecrire();
         if (c.acces == null || c.acces.douane() == null) rafraichirAcces(c);
-        plaquesAt = 0L;   // les plaques partent au prochain passage (le mod du nouvel arrivé écoute après quelques ticks)
+        nametagsAt = 0L;   // les nametags partent au prochain passage (le mod du nouvel arrivé écoute après quelques ticks)
         etatSale = true;
         envoyerLignes();
     }
@@ -1811,7 +1811,7 @@ public final class DouaneManager {
         return l;
     }
 
-    /** Personnage actif d'un joueur (plaque restaurée à la sortie du mode examinateur). */
+    /** Personnage actif d'un joueur (nametag restauré à la sortie du mode examinateur). */
     ShinobiCharacter actifDe(UUID id) {
         return plugin.characters() == null ? null : plugin.characters().getActive(id);
     }

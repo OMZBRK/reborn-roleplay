@@ -158,6 +158,7 @@ public final class MicroATerreHud {
                 verifie(VoiceState.available(), "Plasmo Voice présent");
                 verifie(s.contains("icones=2"), "icônes au-dessus des têtes masquées (show_source_icons = 2)");
                 verifie(s.contains("action=[]"), "touche « Action » de Plasmo Voice déliée");
+                verifie(s.contains("liste=false"), "liste des orateurs de Plasmo Voice coupée (lot 2 : qui parle Reborn)");
                 verifie(VoiceState.distance() > 0, "serveur vocal intégré : portée " + VoiceState.distance() + ", "
                     + VoiceState.nombrePortees() + " portées, rang " + VoiceState.portee());
             }, "réglages");

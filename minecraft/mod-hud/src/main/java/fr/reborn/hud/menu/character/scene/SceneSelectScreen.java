@@ -7,7 +7,7 @@ import fr.reborn.hud.menu.character.CharacterData;
 import fr.reborn.hud.menu.character.CharacterLoadingScreen;
 import fr.reborn.hud.menu.character.CharacterPayload;
 import fr.reborn.hud.menu.character.CharacterRules;
-import fr.reborn.hud.nameplate.Nameplates;
+import fr.reborn.hud.nametag.Nametags;
 import fr.reborn.hud.skin.RebornSkins;
 import fr.reborn.hud.skin.SkinSpec;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -31,7 +31,7 @@ import java.util.List;
 
 /**
  * Sélection du personnage <b>en scène</b> : les persos du joueur se tiennent côte à côte dans un vide sombre, chacun
- * sur un ensō de lumière, avec leur skin Reborn, leur stature (âge + taille) et la plaque de nom du jeu. Caméra
+ * sur un ensō de lumière, avec leur skin Reborn, leur stature (âge + taille) et le nametag du jeu. Caméra
  * cinématique (fondu depuis le noir, travelling vers le perso choisi, léger mouvement à l'épaule). La dernière place
  * libre est « + Nouveau shinobi » (création en scène). Entrer = travelling serré, fondu au noir, puis sélection
  * envoyée au serveur ({@code select:<id>}) et écran de chargement.
@@ -294,7 +294,7 @@ public final class SceneSelectScreen extends Screen {
         g.fill(0, 0, w, bar, 0xFF000000);
         g.fill(0, h - bar, w, h, 0xFF000000);
 
-        // plaques au-dessus des têtes + zones cliquables (projection monde → écran)
+        // nametags au-dessus des têtes + zones cliquables (projection monde → écran)
         Camera cam = mc.gameRenderer.mainCamera();
         boxes = new float[roles.size()][];
         if (cam != null && cam.isInitialized()) {
@@ -322,7 +322,7 @@ public final class SceneSelectScreen extends Screen {
                     g.pose().pushMatrix();
                     g.pose().translate(top[0], top[1]);
                     g.pose().scale(sc, sc);
-                    Nameplates.drawVillagePlate(g, font, 0, 0, (r.name() + " " + r.clan()).trim(), r.clanColor(), r.village(),
+                    Nametags.drawVillageNametag(g, font, 0, 0, (r.name() + " " + r.clan()).trim(), r.clanColor(), r.village(),
                             ui * (0.6f + 0.4f * emph) * (r.dead() ? 0.6f : 1f));
                     g.pose().popMatrix();
                     if (r.dead()) {

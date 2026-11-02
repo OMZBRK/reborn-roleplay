@@ -34,11 +34,11 @@ public final class TablistData {
     public record SelfVitals(int hp, int maxHp, int chakra, int maxChakra) {}
     private static volatile SelfVitals selfVitals = null;
 
-    /** Identité RP d'un joueur du roster, adressable par UUID (pour les plaques de
-     *  nom au-dessus des têtes). {@code name} est déjà résolu serveur selon la
+    /** Identité RP d'un joueur du roster, adressable par UUID (pour les nametags
+     *  au-dessus des têtes). {@code name} est déjà résolu serveur selon la
      *  relation ({@code relation} sert à afficher « Inconnu » côté client). */
     /**
-     * Identité RP affichée sur la plaque de nom. {@code clan} et {@code village} peuvent être null
+     * Identité RP affichée sur le nametag. {@code clan} et {@code village} peuvent être null
      * ({@code village} = clé « v » du roster, optionnelle : konoha, suna, kiri, kumo, iwa).
      */
     public record RpName(String name, TabEntry.Relation relation, int clanColor, String clan, String village) {}
@@ -110,7 +110,7 @@ public final class TablistData {
                     if (relation == TabEntry.Relation.SOI) moiStaff = staff;
                     list.add(new TabEntry(name, relation, staff, grade, clan, clanColor,
                         ping, level, age, affinity));
-                    // Index par UUID pour les plaques de nom (relation → « Inconnu »).
+                    // Index par UUID pour les nametags (relation → « Inconnu »).
                     if (uuid != null) {
                         try { ids.put(UUID.fromString(uuid), new RpName(name, relation, clanColor, clan, opt(o, "v", null))); }
                         catch (IllegalArgumentException ignoredId) { /* uuid invalide */ }

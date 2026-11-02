@@ -96,6 +96,10 @@ public final class RebornHudClient implements ClientModInitializer {
         // Zone d'effets et boussole (GAMEPLAN §4, 19/10) : éléments EFFETS et BOUSSOLE de l'éditeur de HUD.
         fr.reborn.hud.nourriture.EffetsHud.init();
         fr.reborn.hud.boussole.BoussoleHud.init();
+        // Lecteur OST en haut à droite (lot 2, élément MUSIQUE) : état publié par reborn-ost (ObjectShare), dépôt de
+        // reborn-hud:ost-rendu (mod-ost coupe son bandeau de secours). Enregistré ici, avant staff-effets : l'écran noir
+        // du staff le couvre.
+        fr.reborn.hud.ost.OstHud.init();
 
         // Overlay tablist en mode Hold (maintenir la touche liste-joueurs).
         // Rendu HUD fiable — même en solo où Minecraft ne rend PAS le
@@ -402,14 +406,14 @@ public final class RebornHudClient implements ClientModInitializer {
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "head-bubbles"),
             (ctx, tickCounter) -> fr.reborn.hud.voice.SpeechBubbles.render(ctx));
 
-        // Plaques de nom RP au-dessus des têtes (remplace le pseudo MC, masqué serveur) :
+        // Nametags RP au-dessus des têtes (remplacent le pseudo MC, masqué serveur) :
         // « Prénom [Clan] » si le joueur est connu / « Inconnu » sinon, au REGARD (puis
         // maintien 2,5 s et fondu). Rendu 2D projeté sur la tête rendue, data = roster reborn:tablist.
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
-            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "nameplates"),
-            (ctx, tickCounter) -> fr.reborn.hud.nameplate.Nameplates.render(ctx));
-        fr.reborn.hud.anchor.TeteAncre.init();   // ancre de tête rendue (plaques, bulles, /me) + croix -Dreborn.teteAncreDebug
-        fr.reborn.hud.nameplate.CalqueTete.init();   // pile au-dessus de la tête (plaque, bulle, /me, staff) + banc REBORN_PLAQUES_DEBUG
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "nametags"),
+            (ctx, tickCounter) -> fr.reborn.hud.nametag.Nametags.render(ctx));
+        fr.reborn.hud.anchor.TeteAncre.init();   // ancre de tête rendue (nametags, bulles, /me) + croix -Dreborn.teteAncreDebug
+        fr.reborn.hud.nametag.CalqueTete.init();   // pile au-dessus de la tête (nametag, bulle, /me, staff) + banc REBORN_NAMETAG_DEBUG
 
         // /me au-dessus de la tête (canal reborn:me, S → C) : le type est enregistré dès l'init du client, sinon le
         // canal n'est pas annoncé au serveur (getListeningPluginChannels) et il garde sa bulle TextDisplay.
@@ -740,6 +744,10 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "notifs"),
             (ctx, tickCounter) -> fr.reborn.hud.notif.NotifHud.render(ctx));
+        // Colonne bas-droite (lot 2, éléments QUI_PARLE et RAPPELS de l'éditeur) : qui parle au-dessus des notifications,
+        // rappels de touches dessous ; avant staff-effets (l'écran noir du staff les couvre, comme les notifications).
+        fr.reborn.hud.voice.QuiParleHud.init();
+        fr.reborn.hud.keybind.RappelsTouches.init();
         fr.reborn.hud.audit.InventaireDebug.init();
         fr.reborn.hud.cosmetic.TeintureDebug.init();   // banc de la teinture du bandeau (REBORN_TEINTURE_DEBUG, dev)
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
@@ -754,8 +762,15 @@ public final class RebornHudClient implements ClientModInitializer {
         // Poste de garde (panel staff, canal reborn:staff, touche F7 ou /garde) : alertes, fiche joueur, casier,
         // sanctions au sceau, chat staff, journal, commandes. Le serveur (ShinobiCore StaffPanel) décide de tout.
         fr.reborn.hud.staff.StaffClient.init();
+        // Texte au centre (lot 2, étape 2c : narration du staff à l'étape 2d, lecture des plaques au lot 4) : couche posée
+        // juste après staff-effets (au-dessus de l'écran noir), donc après StaffClient.init ; viseur et titre vanilla masqués
+        // pendant l'affichage.
+        fr.reborn.hud.recit.RecitHud.init();
+        // Narration du staff (lot 2, étape 2d, canal reborn:narration, ShinobiCore Narrations) : type S2C enregistré (le
+        // serveur sait que le joueur a le mod, sinon repli tchat), message passé au texte au centre ; oubli à la connexion.
+        fr.reborn.hud.recit.NarrationClient.init();
         // Douane (25/10, canal reborn:douane, ShinobiCore DouaneCanal) : ligne du haut, attente, appel, question,
-        // Bienvenue, résultat, plaques (candidat) ; onglet Douane du Poste de garde (examinateur) ; banc REBORN_DOUANE_DEBUG.
+        // Bienvenue, résultat, nametags (candidat) ; onglet Douane du Poste de garde (examinateur) ; banc REBORN_DOUANE_DEBUG.
         fr.reborn.hud.douane.DouaneClient.init();
         fr.reborn.hud.douane.DouaneDebug.init();
         fr.reborn.hud.parchemin.ParcheminClient.init();
@@ -780,6 +795,10 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.byakugan.ByakuganDebug.init();
         fr.reborn.hud.interaction.InteractionDebug.init();   // banc du menu R (REBORN_INTERACTION_DEBUG, dev)
         fr.reborn.hud.audit.FpsDebug.init();   // banc de FPS (REBORN_FPS_DEBUG, dev)
+        // Moteur de texte du lot 2 (TexteRaster : FreeType sur le fil Reborn-Texte, couches posées à 1:1) : fermeture
+        // propre de FreeType et des textures à l'arrêt du client ; banc REBORN_TEXTE_BANC (dev).
+        fr.reborn.hud.ui.TexteCache.init();
+        fr.reborn.hud.audit.TexteBanc.init();
         fr.reborn.hud.runtime.FpsDefauts.init();   // 120 i/s + VSync + 30 i/s « AFK » levés une fois (24/10)
         // Trajet vers le serveur (15/10) : scène « nuit de pleine lune » (connexion, pack serveur, monde), fondu vers
         // le jeu, banc REBORN_CHARGEMENT_DEBUG.

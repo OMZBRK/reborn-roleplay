@@ -7,7 +7,7 @@ import org.bukkit.entity.Player;
 
 /**
  * Builds and applies the styled "character nickname" used across chat,
- * tab list, and the overhead nameplate.
+ * tab list, and the overhead nametag.
  *
  * <h2>Viewer-aware rendering</h2>
  * The server is an RP environment: by default a character is a
@@ -126,13 +126,13 @@ public final class CharacterDisplay {
                 .decoration(TextDecoration.ITALIC, false);
     }
 
-    /* ------------------------------------------------ nameplate / tab */
+    /* ------------------------------------------------ nametag / tab */
 
     /**
      * Push the subject's own real name onto the player — display-name,
-     * tab list, nameplate above head. Because these Paper APIs set a
+     * tab list, nametag above head. Because these Paper APIs set a
      * <em>single</em> component rendered the same way for every viewer,
-     * the tab/nameplate always show the real name; per-viewer masking
+     * the tab/nametag always show the real name; per-viewer masking
      * is only applied to chat + /me + /me bubble, which we control the
      * rendering for.
      *

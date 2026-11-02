@@ -3,7 +3,7 @@ package fr.reborn.hud.nourriture;
 import fr.reborn.hud.duel.DuelClient;
 import fr.reborn.hud.keybind.HudKeybinds;
 import fr.reborn.hud.menu.inventory.SlotItem;
-import fr.reborn.hud.nameplate.CalqueTete;
+import fr.reborn.hud.nametag.CalqueTete;
 import fr.reborn.hud.ui.DaKit;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;

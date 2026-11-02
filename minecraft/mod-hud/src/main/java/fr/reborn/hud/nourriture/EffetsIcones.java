@@ -72,21 +72,28 @@ public final class EffetsIcones {
      * @param argb teinte (blanc = telle quelle ; l'alpha module l'opacité)
      */
     public static void poser(GuiGraphicsExtractor g, String nom, float x, float y, float cote, int argb) {
-        Info i = info(nom);
         int k = DaKit.echelleGui();
-        float voulu = cote * k;                        // pixels écran visés
+        DaKit.debutPx(g);
+        poserPx(g, nom, x * k, y * k, cote * k, argb);
+        DaKit.finPx(g);
+    }
+
+    /**
+     * Comme {@link #poser}, en pixels écran, quand on y est déjà ({@link DaKit#debutPx}) : case carrée ({@code x},
+     * {@code y}, {@code cote}) en px (notifications du bas-droite, lot 2).
+     */
+    public static void poserPx(GuiGraphicsExtractor g, String nom, float x, float y, float cote, int argb) {
+        Info i = info(nom);
         int cadre = i.w;                               // côté d'une image (carrée si bande)
         int ch = i.images > 1 ? i.w : i.h;
-        float s = DaKit.cotePx(voulu, cadre) / (float) cadre;
+        float s = DaKit.cotePx(cote, cadre) / (float) cadre;
         float wPx = cadre * s, hPx = ch * s;
         int image = i.images > 1 ? (int) ((System.currentTimeMillis() / 160) % i.images) : 0;
-        DaKit.debutPx(g);
-        float px0 = Math.round(x * k + (voulu - wPx) / 2f), py0 = Math.round(y * k + (voulu - hPx) / 2f);
+        float px0 = Math.round(x + (cote - wPx) / 2f), py0 = Math.round(y + (cote - hPx) / 2f);
         g.pose().pushMatrix();
         g.pose().translate(px0, py0);
         g.pose().scale(s, s);
         DaKit.blit(g, i.id, 0, 0, 0, image * ch, cadre, ch, i.w, i.h, argb);
         g.pose().popMatrix();
-        DaKit.finPx(g);
     }
 }

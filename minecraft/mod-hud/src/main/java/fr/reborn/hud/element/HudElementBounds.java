@@ -53,6 +53,13 @@ public record HudElementBounds(int x, int y, int width, int height) {
             // Boussole horizontale, centrée en haut (facultative).
             case BOUSSOLE -> new HudElementBounds(screenWidth / 2 - fr.reborn.hud.boussole.BoussoleHud.LARGEUR / 2, 3,
                 fr.reborn.hud.boussole.BoussoleHud.LARGEUR, fr.reborn.hud.boussole.BoussoleHud.HAUTEUR);
+            // Lecteur OST (lot 2) : la place du plus long bloc en haut à droite, mesurée en pixels écran (kHud) puis
+            // ramenée en GUI.
+            case OST -> fr.reborn.hud.ost.OstHud.boite(screenWidth, screenHeight);
+            // Colonne bas-droite (lot 2) : qui parle (trois lignes au-dessus des notifications) et rappels de touches
+            // (quatre lignes au bas de l'écran), mesurés en pixels écran (kHud) puis ramenés en GUI.
+            case QUI_PARLE -> fr.reborn.hud.voice.QuiParleHud.boite(screenWidth, screenHeight);
+            case RAPPELS -> fr.reborn.hud.keybind.RappelsTouches.boite(screenWidth, screenHeight);
         };
     }
 

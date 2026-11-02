@@ -607,12 +607,12 @@ Le jeton porte aussi 🆕 `aud`, l'identifiant du serveur visé. Guardian refuse
 - aucun dégât ;
 - faim figée ;
 - inventaire vanilla vide ;
-- le **skin Minecraft**, et le **pseudo** sur la plaque : sans personnage, la plaque retombe sur le pseudo Minecraft
+- le **skin Minecraft**, et le **pseudo** sur le nametag : sans personnage, le nametag retombe sur le pseudo Minecraft
   (`CharacterDisplay.reset`). Elderwood montre les pseudos.
 
 **Le tchat, lui, n'affiche pas le pseudo**. `CharacterNicknameListener.prefixFor` (`:83-90`) écrit « Inconnu » pour
 tout joueur sans personnage. Dans le hall, tous les candidats seraient donc « Inconnu ». Il faut une exception
-« douane » dans `prefixFor` : le pseudo Minecraft (reco, comme la plaque), ou « Candidat ».
+« douane » dans `prefixFor` : le pseudo Minecraft (reco, comme le nametag), ou « Candidat ».
 
 **Le hall n'ouvre qu'avec un encadrant**. Des joueurs dès 15 ans y parlent à la voix. Le hall n'est donc
 ouvert que si un examinateur ou un membre du staff est connecté dans le monde `douane`. Sinon :
@@ -663,7 +663,7 @@ Une source n'est diffusée qu'à l'examinateur et au candidat du bureau.
 - Hors du mode staff, avec un personnage actif, il passe dans le cadre MONDE (`EtatServiceImpl.cadre()`) : mécaniques
   RP actives et nom RP au tchat, en plein monde de la douane. Ce n'est pas acceptable non plus.
 - 🆕 **Mode examinateur**, sur le modèle du `/modeanim` du 14/10 (`ModeAnimation.java`) :
-  - visible des candidats, plaque « Examinateur » (Elderwood : « Douanier ») ;
+  - visible des candidats, nametag « Examinateur » (Elderwood : « Douanier ») ;
   - aucune mécanique RP (cadre `HORS_JEU.DOUANE`, comme les candidats) ;
   - **tout est journalisé** : entrée et sortie du mode, appels, questions montrées, décisions ;
   - exclusif avec le mode staff et le mode animation ; tombe à la déconnexion.
@@ -1168,7 +1168,7 @@ Pas de maquette pour Échap et Options › Discord : seul le lien change.
 - Un op et un staff avec le joker `*` arrivent en sélection, jamais au hall.
 - Un examinateur sans grade `reborn.staff.*` ne voit pas l'onglet Douane. Un staff sur un second compte Minecraft :
   l'API refuse sa décision.
-- En mode examinateur : visible, plaque « Examinateur », aucune mécanique RP, entrée et sortie au journal.
+- En mode examinateur : visible, nametag « Examinateur », aucune mécanique RP, entrée et sortie au journal.
 - Un candidat qui sort de la zone revient au point d'arrivée. `/tp` et `/spawn` sont refusés ; la sacoche et la fiche
   n'ouvrent rien.
 - Un examinateur appelle : le candidat est au bureau. Les voix du hall ne s'y entendent pas, et inversement.

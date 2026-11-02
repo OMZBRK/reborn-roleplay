@@ -61,12 +61,12 @@ import java.util.concurrent.ConcurrentHashMap;
  * amitié, paume), commandes RP qui le nomment, entités. Les outils staff (Poste de garde, commandes staff, voirsac,
  * choix des lits de l'Infirmerie) restent permis.
  *
- * <p>Chaque seconde, les <b>plaques staff</b> des joueurs proches partent sur {@code reborn:plaques}
+ * <p>Chaque seconde, les <b>nametags staff</b> des joueurs proches partent sur {@code reborn:plaques}
  * (PLUGINS_REFERENCE §4 bis.5). Le mode tombe à la déconnexion. Entrée et sortie journalisées.
  */
 public final class ModeStaff implements Listener {
 
-    public static final String CANAL_PLAQUES = "reborn:plaques";
+    public static final String CANAL_NAMETAGS = "reborn:plaques";   // nom de canal gardé (protocole)
     private static final double RAYON = 64.0;
 
     /** Commandes RP (nom de base et alias, sans « / » ni espace de noms) refusées en mode staff (et en mode examinateur de la douane). */
@@ -93,11 +93,11 @@ public final class ModeStaff implements Listener {
     public ModeStaff(ShinobiCore plugin) {
         this.plugin = plugin;
         var m = Bukkit.getMessenger();
-        if (!m.isOutgoingChannelRegistered(plugin, CANAL_PLAQUES)) m.registerOutgoingPluginChannel(plugin, CANAL_PLAQUES);
+        if (!m.isOutgoingChannelRegistered(plugin, CANAL_NAMETAGS)) m.registerOutgoingPluginChannel(plugin, CANAL_NAMETAGS);
     }
 
     public void demarrer() {
-        tache = Bukkit.getScheduler().runTaskTimer(plugin, this::plaques, 20L, 20L);
+        tache = Bukkit.getScheduler().runTaskTimer(plugin, this::nametags, 20L, 20L);
     }
 
     public void arreter() {
@@ -191,38 +191,41 @@ public final class ModeStaff implements Listener {
                 || p.getGameMode() == org.bukkit.GameMode.SPECTATOR);
         p.setInvulnerable(a.invulnerable());
         p.setCollidable(a.collision());
-        if (p.getListeningPluginChannels().contains(CANAL_PLAQUES)) {
+        // arrêt du plugin (arreter depuis onDisable) : un plugin désactivé ne peut plus envoyer, et une exception ici
+        // laisserait les staffs suivants sans leur état d'avant (vol, invulnérabilité) ; le mod efface les nametags à la
+        // déconnexion
+        if (plugin.isEnabled() && p.getListeningPluginChannels().contains(CANAL_NAMETAGS)) {
             JsonObject o = new JsonObject();
             o.addProperty("t", "plaques");
             o.addProperty("on", false);
-            p.sendPluginMessage(plugin, CANAL_PLAQUES, o.toString().getBytes(StandardCharsets.UTF_8));
+            p.sendPluginMessage(plugin, CANAL_NAMETAGS, o.toString().getBytes(StandardCharsets.UTF_8));
         }
         p.sendActionBar(Component.text("Mode staff terminé.", NamedTextColor.GRAY));
         if (journal) Journal.entree(Categorie.STAFF, "MODE_STAFF").acteur(p).detail("sortie").lieu(p.getLocation()).ecrire();
         if (plugin.staffPanel() != null && p.isOnline()) plugin.staffPanel().envoyerMode(p);
     }
 
-    /* ================================================================ plaques */
+    /* ================================================================ nametags */
 
-    private void plaques() {
+    private void nametags() {
         if (actifs.isEmpty()) return;
         for (UUID id : actifs.keySet()) {
             Player staff = Bukkit.getPlayer(id);
-            if (staff == null || !staff.getListeningPluginChannels().contains(CANAL_PLAQUES)) continue;
+            if (staff == null || !staff.getListeningPluginChannels().contains(CANAL_NAMETAGS)) continue;
             JsonObject o = new JsonObject();
             o.addProperty("t", "plaques");
             o.addProperty("on", true);
             JsonArray arr = new JsonArray();
             for (Player p : staff.getWorld().getPlayers()) {
                 if (p.equals(staff) || p.getLocation().distanceSquared(staff.getLocation()) > RAYON * RAYON) continue;
-                arr.add(plaque(p));
+                arr.add(nametag(p));
             }
             o.add("joueurs", arr);
-            staff.sendPluginMessage(plugin, CANAL_PLAQUES, o.toString().getBytes(StandardCharsets.UTF_8));
+            staff.sendPluginMessage(plugin, CANAL_NAMETAGS, o.toString().getBytes(StandardCharsets.UTF_8));
         }
     }
 
-    private JsonObject plaque(Player p) {
+    private JsonObject nametag(Player p) {
         JsonObject j = new JsonObject();
         ShinobiCharacter c = plugin.characters().getActive(p.getUniqueId());
         j.addProperty("uuid", p.getUniqueId().toString());

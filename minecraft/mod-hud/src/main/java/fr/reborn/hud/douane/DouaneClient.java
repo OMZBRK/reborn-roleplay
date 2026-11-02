@@ -40,7 +40,7 @@ import java.util.function.Consumer;
  *
  * <ul>
  *   <li><b>Candidat</b> : ligne fine du haut, écran d'attente opaque, appel et fondu, question, « Bienvenue sur Reborn »,
- *       résultat, plaques (« Examinateur », pseudo à la place d'« Inconnu ») — rendus par {@link DouaneHud} ;</li>
+ *       résultat, nametags (« Examinateur », pseudo à la place d'« Inconnu ») — rendus par {@link DouaneHud} ;</li>
  *   <li><b>Examinateur</b> : état de la douane, dossier résumé, question tirée, envoi de la décision, mode examinateur —
  *       lus par l'onglet Douane du Poste de garde ({@code staff/GardeDouane}).</li>
  * </ul>
@@ -97,10 +97,10 @@ public final class DouaneClient {
      */
     static volatile boolean candidat;
 
-    /** Plaques ({@code t:"plaques"}) : examinateurs en mode dans le monde de la douane. */
+    /** Nametags (message {@code t:"plaques"}) : examinateurs en mode dans le monde de la douane. */
     private static final Set<UUID> EXAMINATEURS = new HashSet<>();
-    private static volatile boolean plaques;
-    private static Object mondePlaques;
+    private static volatile boolean nametags;
+    private static Object mondeNametags;
 
     /* ================================================================ état de l'examinateur */
 
@@ -133,7 +133,7 @@ public final class DouaneClient {
 
     /** Banc d'essai : les demandes C → S partent ici au lieu du serveur. */
     static Consumer<JsonObject> debugEnvoi;
-    /** Banc d'essai : pseudo des mannequins (le vrai jeu ne montre de plaque douane que sur des joueurs). */
+    /** Banc d'essai : pseudo des mannequins (le vrai jeu ne montre de nametag douane que sur des joueurs). */
     static final Map<UUID, String> DEBUG_NOMS = new HashMap<>();
 
     /* ================================================================ initialisation */
@@ -171,7 +171,7 @@ public final class DouaneClient {
         synchronized (BROUILLONS) { BROUILLONS.clear(); }
     }
 
-    /** {@code fin} : sortie de la douane (ligne, question, écran, plaques). Bienvenue lance son fondu, le résultat reste. */
+    /** {@code fin} : sortie de la douane (ligne, question, écran, nametags). Bienvenue lance son fondu, le résultat reste. */
     private static void effacerCandidat() {
         ligne = null;
         attenteTexte = null;
@@ -182,7 +182,7 @@ public final class DouaneClient {
         rappelAt = 0;
         rappelVu = false;
         candidat = false;
-        plaques = false;
+        nametags = false;
         synchronized (EXAMINATEURS) { EXAMINATEURS.clear(); }
     }
 
@@ -258,9 +258,9 @@ public final class DouaneClient {
                         try { EXAMINATEURS.add(UUID.fromString(e.getAsString())); } catch (RuntimeException ignored) { }
                     }
                 }
-                plaques = true;
+                nametags = true;
                 Minecraft mc = Minecraft.getInstance();
-                mondePlaques = mc.level;
+                mondeNametags = mc.level;
             }
             case "fin" -> {
                 effacerCandidat();
@@ -347,9 +347,9 @@ public final class DouaneClient {
                 bienvenueFinAt = now;
             }
         }
-        // plaques : valables jusqu'à fin ou jusqu'au changement de monde
-        if (plaques && mondePlaques != mc.level) {
-            plaques = false;
+        // nametags : valables jusqu'à fin ou jusqu'au changement de monde
+        if (nametags && mondeNametags != mc.level) {
+            nametags = false;
             synchronized (EXAMINATEURS) { EXAMINATEURS.clear(); }
         }
         // appel : la téléportation au bureau (saut de position) marque l'arrivée ; sinon, délai de secours
@@ -365,7 +365,7 @@ public final class DouaneClient {
     /* ================================================================ HUD masqué pendant la douane */
 
     private static final String[] REBORN = {"vitals", "combat", "combat-endurance", "cooldowns", "concentration",
-            "allure", "notifs", "ramasser", "interaction", "duel", "escouade", "nourriture", "boussole"};
+            "allure", "notifs", "ramasser", "interaction", "duel", "escouade", "nourriture", "boussole", "ost", "rappels"};
 
     /**
      * Candidat dans la douane, ou écran opaque de la douane (attente neutre, Bienvenue, résultat) : aucun HUD de jeu
@@ -415,22 +415,22 @@ public final class DouaneClient {
         }
     }
 
-    /* ================================================================ plaques (lues par nameplate/Nameplates) */
+    /* ================================================================ nametags (lus par nametag/Nametags) */
 
-    /** Plaques de la douane en vigueur (jusqu'à {@code fin} ou au changement de monde). */
-    public static boolean plaquesActives() { return plaques; }
+    /** Nametags de la douane en vigueur (jusqu'à {@code fin} ou au changement de monde). */
+    public static boolean nametagsActifs() { return nametags; }
 
-    /** Examinateur en mode dans le monde de la douane (plaque « Examinateur »). */
+    /** Examinateur en mode dans le monde de la douane (nametag « Examinateur »). */
     public static boolean examinateur(UUID id) {
-        synchronized (EXAMINATEURS) { return plaques && EXAMINATEURS.contains(id); }
+        synchronized (EXAMINATEURS) { return nametags && EXAMINATEURS.contains(id); }
     }
 
     /**
-     * Nom de la plaque d'un occupant du monde de la douane : « Examinateur », sinon le pseudo du profil (à la place
+     * Nom du nametag d'un occupant du monde de la douane : « Examinateur », sinon le pseudo du profil (à la place
      * d'« Inconnu ») ; null hors douane.
      */
-    public static String nomPlaque(Entity e) {
-        if (!plaques || e == null) return null;
+    public static String nomNametag(Entity e) {
+        if (!nametags || e == null) return null;
         if (examinateur(e.getUUID())) return "Examinateur";
         String d = DEBUG_NOMS.get(e.getUUID());
         if (d != null) return d;

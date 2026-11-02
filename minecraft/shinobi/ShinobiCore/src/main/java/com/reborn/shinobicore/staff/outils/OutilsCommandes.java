@@ -39,7 +39,7 @@ public final class OutilsCommandes implements TabExecutor {
 
     static final String[] COMMANDES = {"journal", "note", "annonce", "annoncejoueur", "aller", "ramener", "retour",
             "geler", "degeler", "voirsac", "noir", "seisme", "tenue", "emoteforcee",
-            "modestaff", "modeanim"};
+            "modestaff", "modeanim", "narration"};
 
     private final ShinobiCore plugin;
     private final OutilsStaff o;
@@ -79,6 +79,8 @@ public final class OutilsCommandes implements TabExecutor {
             ok(s, on ? "Mode animation activé : visible, mécaniques RP permises, tout est journalisé." : "Mode animation désactivé.");
             return true;
         }
+        // narration : un animateur en mode animation y a droit sans grade staff (droits vérifiés dedans)
+        if (c.equals("narration")) { narration(s, a); return true; }
         if (OutilsStaff.grade(s) == StaffGrades.NONE) { err(s, "Réservé au staff."); return true; }
         switch (c) {
             case "journal" -> journal(s, a);
@@ -269,6 +271,212 @@ public final class OutilsCommandes implements TabExecutor {
         ok(s, "Séisme déclenché (" + n + " joueur(s)).");
     }
 
+    /* ================================================================ /narration */
+
+    private static final String USAGE_NARRATION =
+            "/narration <joueur <cible>|ici [rayon]|monde|tous> [+auto|+tenir|30s|2m] [+remplace] [+tchat] <texte…>";
+
+    /**
+     * {@code /narration} (lot 2, 01/11) : texte RP au centre de l'écran ({@link Narrations}). Helper : un joueur ;
+     * Modérateur : ici (64 blocs au plus), ce monde, tous (confirmation en jeu) ; animateur en mode animation : un joueur
+     * (sans grade staff : de son monde, à 64 blocs au plus) ou ici. Garde-fou sous Modérateur
+     * ({@link Narrations#refusEnvoi}) : pas de {@code +tenir}, 3 s entre deux, 5 joueurs différents par minute. Options
+     * avant le texte, toutes marquées ({@code +tenir}, {@code +remplace}…) sauf la durée à suffixe ({@code 30s},
+     * {@code 2m}) : un mot ou un nombre seul appartient au texte.
+     */
+    private void narration(CommandSender s, String[] a) {
+        Narrations nar = o.narrations();
+        int grade = OutilsStaff.grade(s);
+        boolean anim = nar.enAnimation(s);
+        String sous = a.length == 0 ? "" : a[0].toLowerCase(Locale.ROOT);
+        boolean fin = sous.equals("fin") || sous.equals("stop");
+        if (grade == StaffGrades.NONE && !anim && !(fin && nar.aDesNarrations(s))) {
+            err(s, "Réservé au staff, ou à un animateur en mode animation (/modeanim).");
+            return;
+        }
+        if (fin) {
+            Narrations.Arret r = nar.finir(s, a.length >= 2 ? a[1] : null);
+            if (r.erreur() != null) err(s, r.erreur());
+            else if (a.length >= 2) ok(s, "Narration " + a[1] + " arrêtée (" + r.joueurs() + " joueur(s) prévenu(s)).");
+            else ok(s, r.narrations() + " narration(s) arrêtée(s) · " + r.joueurs() + " joueur(s) prévenu(s).");
+            return;
+        }
+        if (sous.equals("confirmer") || sous.equals("annuler")) {
+            if (!(s instanceof Player sp)) { err(s, "En jeu seulement."); return; }
+            // le jeton du bouton : un ancien [Confirmer] ne doit pas envoyer la narration tapée après
+            Integer jeton = a.length >= 2 && a[1].matches("\\d{1,9}") ? Integer.valueOf(a[1]) : null;
+            Integer attendu = nar.enAttente(sp);
+            if (attendu == null) {
+                err(s, sous.equals("annuler") ? "Aucune narration en attente." : "Aucune narration en attente (ou plus de 60 s) : retape-la.");
+                return;
+            }
+            if (jeton != null && !jeton.equals(attendu)) {
+                err(s, "Ce bouton vise une narration remplacée depuis par une autre : rien n'est parti. Utilise le dernier résumé.");
+                return;
+            }
+            if (sous.equals("annuler")) {
+                nar.annuler(sp);
+                ok(s, "Narration abandonnée : rien n'est parti.");
+                return;
+            }
+            String refus = Narrations.refus(grade, anim, Narrations.Type.TOUS, 0);
+            if (refus != null) { nar.annuler(sp); err(s, refus); return; }
+            Narrations.Envoi e = nar.confirmer(sp);
+            if (e == null) { err(s, "Aucune narration en attente (ou plus de 60 s) : retape-la."); return; }
+            compteRendu(s, e, "tout le serveur");
+            return;
+        }
+        Narrations.Type type = Narrations.Type.lire(sous);
+        if (type == null) {
+            info(s, USAGE_NARRATION);
+            info(s, "Couleurs : " + Narrations.AIDE_COULEURS + " ; \\n = à la ligne ; /narration fin [id] pour arrêter.");
+            return;
+        }
+        int i = 1, rayon = 0;
+        Player cible = null;
+        if (type == Narrations.Type.ICI) {
+            rayon = Narrations.RAYON_DEFAUT;
+            if (a.length > i && a[i].matches("\\d{1,4}")) rayon = Integer.parseInt(a[i++]);
+        } else if (type == Narrations.Type.JOUEUR) {
+            if (a.length <= i) { info(s, "/narration joueur <cible> [+auto|+tenir|30s|2m] <texte…>"); return; }
+            // animateur sans grade : pseudo exact d'un joueur qu'il voit (ni N° ni nom RP, « rencontrer » garde les noms)
+            cible = grade == StaffGrades.NONE ? visible(s, a[i++]) : enLigne(s, a[i++]);
+            if (cible == null) return;
+        }
+        String refus = Narrations.refus(grade, anim, type, rayon);
+        if (refus != null) { err(s, refus); return; }
+        if ((type == Narrations.Type.ICI || type == Narrations.Type.MONDE) && !(s instanceof Player)) {
+            err(s, "En jeu seulement ; depuis la console : « tous » ou « joueur <cible> ».");
+            return;
+        }
+        // options avant le texte, dans n'importe quel ordre : durée (+auto, +tenir, 30s, 2m), +remplace, +tchat
+        int sec = Narrations.AUTO;
+        boolean dureeLue = false, tchat = false;
+        Narrations.Mode mode = Narrations.Mode.FILE;
+        for (; i < a.length; i++) {
+            String t = a[i].toLowerCase(Locale.ROOT);
+            if (t.equals("+remplace")) { mode = Narrations.Mode.REMPLACE; continue; }
+            if (t.equals("+tchat")) { tchat = true; continue; }
+            Integer d = dureeLue ? null : Narrations.lireDuree(t);
+            if (d == null) break;
+            if (d == Narrations.DUREE_INVALIDE) {
+                err(s, "Durée de " + Narrations.DUREE_MIN + " à " + Narrations.DUREE_MAX + " s (ou +auto, +tenir) : " + a[i]);
+                return;
+            }
+            sec = d;
+            dureeLue = true;
+        }
+        String frein = nar.refusEnvoi(s, grade, type, cible, sec);
+        if (frein != null) { err(s, frein); return; }
+        Narrations.Analyse an = Narrations.analyser(reste(a, i));
+        if (!an.ok()) {
+            err(s, an.erreur());
+            if (an.segments().isEmpty() && reste(a, i).isBlank()) info(s, USAGE_NARRATION);
+            return;
+        }
+        Narrations.Portee portee = switch (type) {
+            case TOUS -> Narrations.Portee.tous();
+            case MONDE -> Narrations.Portee.monde(((Player) s).getWorld());
+            case ICI -> Narrations.Portee.ici(((Player) s).getLocation(), rayon);
+            default -> Narrations.Portee.joueur(cible);
+        };
+        if (type == Narrations.Type.TOUS && s instanceof Player sp) {
+            boolean deja = nar.enAttente(sp) != null;
+            int jeton = nar.mettreEnAttente(sp, portee, an.segments(), sec, mode, tchat);
+            if (deja) info(s, "La narration « tous » précédente, non confirmée, est abandonnée.");
+            s.sendMessage(Component.text("Narration à tout le serveur (" + Bukkit.getOnlinePlayers().size() + " joueur(s), "
+                            + Narrations.libelleDuree(sec, an.segments())
+                            + (mode == Narrations.Mode.REMPLACE ? ", remplace" : "") + ") : « "
+                            + Narrations.aPlat(an.segments(), 80) + " » ", NamedTextColor.GOLD)
+                    .append(Component.text("[Confirmer]", NamedTextColor.GREEN)
+                            .clickEvent(ClickEvent.runCommand("/narration confirmer " + jeton))
+                            .hoverEvent(HoverEvent.showText(Component.text("Envoyer à tous les joueurs"))))
+                    .append(Component.text(" "))
+                    .append(Component.text("[Annuler]", NamedTextColor.RED)
+                            .clickEvent(ClickEvent.runCommand("/narration annuler " + jeton))));
+            info(s, "Sans confirmation dans 60 s, rien n'est envoyé.");
+            return;
+        }
+        Narrations.Envoi e = nar.diffuser(s, portee, an.segments(), sec, mode, null, tchat);
+        compteRendu(s, e, type != Narrations.Type.JOUEUR ? portee.libelle() : grade == StaffGrades.NONE ? cible.getName() : nom(cible));
+    }
+
+    /** Animateur sans grade : un joueur qu'il voit, par son pseudo exact. */
+    private Player visible(CommandSender s, String ref) {
+        Player p = Bukkit.getPlayerExact(ref);
+        if (p != null && s instanceof Player sp && !voit(sp, p)) p = null;
+        if (p == null) err(s, "Joueur introuvable ou hors ligne : " + ref);
+        return p;
+    }
+
+    /** Ce que le vanish laisse voir (mode staff, vanish, cinématique). */
+    private boolean voit(Player viewer, Player cible) {
+        var v = plugin.vanish();
+        return viewer.canSee(cible) && (v == null || v.canSee(viewer, cible));
+    }
+
+    /**
+     * « Narration n42 · ici · 30 blocs · 12 joueur(s) · auto (14 s). », la place dans la file si elle attend (derrière une
+     * tenue : à son arrêt), puis l'arrêt (cliquable).
+     */
+    private static void compteRendu(CommandSender s, Narrations.Envoi e, String portee) {
+        String file = e.file();
+        ok(s, "Narration " + e.id() + " · " + portee + " · " + e.joueurs() + " joueur(s) · " + e.duree()
+                + (e.sansMod() > 0 ? " · " + e.sansMod() + " sans le mod (tchat)" : "")
+                + (e.remplacees() > 0 ? " · " + e.remplacees() + " des tiennes remplacée(s)" : "") + ".");
+        if (!file.isEmpty()) info(s, "Elle est " + file + ".");
+        s.sendMessage(Component.text("Arrêter : /narration fin " + e.id(), NamedTextColor.GRAY)
+                .clickEvent(ClickEvent.suggestCommand("/narration fin " + e.id())));
+    }
+
+    private List<String> completionNarration(CommandSender s, String[] a) {
+        Narrations nar = o.narrations();
+        int grade = OutilsStaff.grade(s);
+        boolean anim = nar.enAnimation(s);
+        String p0 = a.length == 0 ? "" : a[0].toLowerCase(Locale.ROOT);
+        boolean finir = p0.equals("fin") || p0.equals("stop");
+        // animateur sans grade hors mode animation : rien, sauf arrêter les siennes
+        if (grade == StaffGrades.NONE && !anim) {
+            if (!nar.aDesNarrations(s)) return List.of();
+            if (a.length <= 1) return List.of("fin");
+            return finir && a.length == 2 ? nar.idsArretables(s) : List.of();
+        }
+        String last = a.length == 0 ? "" : a[a.length - 1];
+        if (last.startsWith("<")) return List.of("<rouge>", "<or>", "<ombre>", "<gris>", "</>");
+        boolean modo = grade >= OutilsStaff.G_NARRATION;
+        if (a.length <= 1) {
+            List<String> out = new ArrayList<>(List.of("joueur"));
+            if (modo || anim) out.add("ici");
+            if (modo) out.addAll(List.of("monde", "tous"));
+            out.add("fin");
+            return out;
+        }
+        if (finir) return a.length == 2 ? nar.idsArretables(s) : List.of();
+        List<String> out = new ArrayList<>();
+        int debut = 1;
+        if (p0.equals("joueur")) {
+            if (a.length == 2) {
+                for (Player p : Bukkit.getOnlinePlayers())
+                    // animateur sans grade : les joueurs qu'il voit, dans son monde à 64 blocs au plus (Narrations#refusEnvoi)
+                    if (grade > StaffGrades.NONE || !(s instanceof Player sp) || voit(sp, p) && Narrations.aPortee(sp, p))
+                        out.add(p.getName());
+                return out;
+            }
+            debut = 2;
+        } else if (p0.equals("ici")) {
+            if (a.length == 2) out.addAll(List.of("30", "64"));
+            else if (a[1].matches("\\d{1,4}")) debut = 2;
+        } else if (!p0.equals("monde") && !p0.equals("tous")) {
+            return out;
+        }
+        // encore dans la zone des options (avant le texte) ?
+        for (int k = debut; k < a.length - 1; k++) if (!Narrations.estOption(a[k])) return out;
+        out.add("+auto");
+        if (modo) out.add("+tenir");
+        out.addAll(List.of("15s", "30s", "60s", "2m", "+remplace", "+tchat"));
+        return out;
+    }
+
     private void note(CommandSender s, String[] a) {
         if (!OutilsStaff.exige(s, OutilsStaff.G_NOTE)) return;
         if (a.length < 1) { info(s, "/note <cible|#N°> [ajouter [etiquette:<mot>] <texte> | suppr <id>]"); return; }
@@ -365,7 +573,9 @@ public final class OutilsCommandes implements TabExecutor {
         String c = cmd.getName().toLowerCase(Locale.ROOT);
         String last = a.length == 0 ? "" : a[a.length - 1].toLowerCase(Locale.ROOT);
         List<String> out = new ArrayList<>();
-        if (c.equals("journal")) {
+        if (c.equals("narration")) {
+            out.addAll(completionNarration(s, a));
+        } else if (c.equals("journal")) {
             for (Categorie k : Categorie.values()) out.add(k.name().toLowerCase(Locale.ROOT));
             out.addAll(List.of("h:24", "d:7", "p:2", "j:"));
         } else if (a.length == 1 && c.equals("modestaff")) {

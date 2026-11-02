@@ -47,6 +47,9 @@ processResources {
     filesMatching('fabric.mod.json') {
         expand props
     }
+    // 0.2.6 : les pistes arrivent par le manifest du launcher (reborn/ost/<catégorie>/*.ogg, obligatoires,
+    // téléchargées avant le lancement). Le seed de 43 pistes (71 Mo) n'était plus jamais extrait : hors du jar.
+    exclude 'assets/reborn-ost/seed-bundle/**'
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -58,4 +61,9 @@ java {
     withSourcesJar()
     sourceCompatibility = JavaVersion.VERSION_25
     targetCompatibility = JavaVersion.VERSION_25
+}
+
+// Le seed n'a rien à faire non plus dans le jar des sources (73 Mo pour rien dans build/libs).
+tasks.named('sourcesJar') {
+    exclude 'assets/reborn-ost/seed-bundle/**'
 }

@@ -45,7 +45,7 @@ import java.util.List;
  *
  * <h2>Placement</h2>
  * The display spawns at the top of the player's bounding box plus a small
- * upward pad, so it sits above the vanilla nameplate regardless of the
+ * upward pad, so it sits above the vanilla nametag regardless of the
  * character's {@code size} attribute.
  */
 public final class CharacterEmote {

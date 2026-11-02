@@ -2,6 +2,7 @@ package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.immersion.CinemaBars;
 import fr.reborn.hud.immersion.PhotoMode;
+import fr.reborn.hud.recit.RecitHud;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ChatComponent;
@@ -59,6 +60,8 @@ public abstract class InGameHudCinemaMixin {
             if (CinemaBars.INSTANCE.barsActive() && CinemaBars.INSTANCE.isProgressActive()) {
                 CinemaBars.INSTANCE.renderBars(ctx);
             }
+            // texte au centre (lot 2) : visible en « BARS », par-dessus les bandes ; masqué en « CLEAN »
+            if (CinemaBars.INSTANCE.barsActive()) RecitHud.cinema(ctx);
             ci.cancel();
         }
     }

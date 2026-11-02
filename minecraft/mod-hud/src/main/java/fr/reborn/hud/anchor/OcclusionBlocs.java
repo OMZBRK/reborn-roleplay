@@ -7,7 +7,7 @@ import net.minecraft.world.level.Level;
  * « Un bloc opaque plein se trouve-t-il entre ces deux points ? » — parcours des cellules traversées par le segment
  * (Amanatides et Woo), sans {@code ClipContext} ni allocation. Seul {@code BlockState#isSolidRender()} bloque :
  * {@code canOcclude} et forme d'occlusion pleine (valeur mise en cache par le jeu), donc le verre, les feuilles, les
- * barrières, les dalles, les escaliers et les clôtures ne cachent pas une plaque.
+ * barrières, les dalles, les escaliers et les clôtures ne cachent pas un nametag.
  *
  * <p>Les cellules de départ (caméra) et d'arrivée (centre de tête) ne sont pas testées : une tête allongée posée au ras
  * du sol ou une caméra frôlant un mur ne se masquent pas elles-mêmes.
@@ -16,7 +16,7 @@ final class OcclusionBlocs {
 
     private OcclusionBlocs() {}
 
-    /** Au-delà, pas de test (la plaque ne s'affiche pas si loin ; EntityCulling couvre l'occlusion lointaine). */
+    /** Au-delà, pas de test (le nametag ne s'affiche pas si loin ; EntityCulling couvre l'occlusion lointaine). */
     static final double PORTEE_MAX = 64.0;
     private static final int CELLULES_MAX = 3 * 64 + 3;
     private static final BlockPos.MutableBlockPos POS = new BlockPos.MutableBlockPos();

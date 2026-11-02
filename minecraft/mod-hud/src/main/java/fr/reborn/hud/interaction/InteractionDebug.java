@@ -4,7 +4,7 @@ import fr.reborn.hud.cosmetic.RemoteCosmetics;
 import fr.reborn.hud.ko.CorpsClient;
 import fr.reborn.hud.menu.tablist.TablistData;
 import fr.reborn.hud.monnaie.MonnaieClient;
-import fr.reborn.hud.nameplate.Nameplates;
+import fr.reborn.hud.nametag.Nametags;
 import fr.reborn.hud.runtime.RebornSession;
 import fr.reborn.hud.voice.VoiceState;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -22,7 +22,7 @@ import java.util.UUID;
  * solo de dev, jamais de serveur) : menu d'une personne consciente (porter et fouiller avec son accord, volume de sa
  * voix, sous-menu Staff réservé au staff : « Couper la voix… », puis « Rétablir la voix » quand Plasmo la dit coupée,
  * 31/10), demandes reçues (« veut te porter », « veut te fouiller »), porté de plein gré (« Espace · descendre »), fouille
- * consentie en lecture seule, plaque d'un inconnu masqué → {@code run/screenshots/interaction_*.png}, puis ferme le jeu.
+ * consentie en lecture seule, nametag d'un inconnu masqué → {@code run/screenshots/interaction_*.png}, puis ferme le jeu.
  *
  * <p>Le monde est remis en état : mannequin retiré, mode de jeu, heure, météo et pack de dev rendus à la fin.
  */
@@ -120,20 +120,20 @@ public final class InteractionDebug {
             case 228 -> {
                 mc.setScreenAndShow(null);
                 MonnaieClient.debugEnvoi = null;
-                Nameplates.debugAvatars = true;
+                Nametags.debugAvatars = true;
                 camAvant = fr.reborn.hud.camera.RebornCamera.INSTANCE.mode();
                 fr.reborn.hud.camera.RebornCamera.INSTANCE.setMode(fr.reborn.hud.camera.RebornCamera.Mode.FIRST);
                 regarder(mc);
             }
-            case 240 -> shot(mc, "interaction_08_plaque_connu");
+            case 240 -> shot(mc, "interaction_08_nametag_connu");
             case 242 -> {
                 diffuser(mc, "{\"MASQUE\":{\"mat\":\"minecraft:paper\",\"model\":\"reborn:masque_hannya\"}}");
-                Nameplates.debugInconnu = true;
+                Nametags.debugInconnu = true;
                 regarder(mc);
             }
             case 258 -> shot(mc, "interaction_09_masque_inconnu");
             case 262 -> {
-                Nameplates.debugAvatars = Nameplates.debugInconnu = false;
+                Nametags.debugAvatars = Nametags.debugInconnu = false;
                 if (camAvant != null) fr.reborn.hud.camera.RebornCamera.INSTANCE.setMode(camAvant);
                 RemoteCosmetics.clearAll();
                 VoiceState.DEBUG_VOLUMES.clear();
@@ -181,7 +181,7 @@ public final class InteractionDebug {
         return best;
     }
 
-    /** Le viseur sur la poitrine du mannequin (la plaque n'apparaît que si on le regarde vraiment). */
+    /** Le viseur sur la poitrine du mannequin (le nametag n'apparaît que si on le regarde vraiment). */
     private static void regarder(Minecraft mc) {
         Entity m = mannequin(mc);
         if (m == null) return;

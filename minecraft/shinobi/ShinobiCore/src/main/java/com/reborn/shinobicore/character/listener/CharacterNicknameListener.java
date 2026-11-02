@@ -82,7 +82,7 @@ public class CharacterNicknameListener implements Listener {
      *  see the real name. */
     private Component prefixFor(ShinobiCharacter senderChar, Player sender, Audience viewer) {
         // Douane (CANDIDATURE_ET_DOUANE.md §3.4) : au hall et dans les bureaux, chacun parle sous son pseudo Minecraft
-        // (« Examinateur » devant pour un examinateur en mode), comme la plaque — jamais « Inconnu » ni un nom RP.
+        // (« Examinateur » devant pour un examinateur en mode), comme le nametag — jamais « Inconnu » ni un nom RP.
         Component douane = com.reborn.shinobicore.douane.DouaneManager.prefixeTchat(sender);
         if (douane != null) return douane;
         if (senderChar == null) {
@@ -102,7 +102,7 @@ public class CharacterNicknameListener implements Listener {
 
     /* --------------------------------------------- lifecycle refresh hooks */
 
-    /** After join, push the subject's own real name onto tab / nameplate.
+    /** After join, push the subject's own real name onto tab / nametag.
      *  (Viewer-specific masking is only applied to chat / /me, not the
      *  global display-name component; see {@link CharacterDisplay#apply}.) */
     @EventHandler

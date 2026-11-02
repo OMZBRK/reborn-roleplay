@@ -8,6 +8,7 @@
     "ChatHudAddMessageMixin",
     "ChatComponentAccessor",
     "HudAccessor",
+    "SousTitresAccessor",
     "ScreenInvoker",
     "ChatScreenMixin",
     "EditBoxChatSearchMixin",

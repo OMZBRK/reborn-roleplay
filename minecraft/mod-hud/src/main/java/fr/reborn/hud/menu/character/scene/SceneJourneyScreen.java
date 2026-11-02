@@ -6,7 +6,7 @@ import fr.reborn.hud.menu.character.CharacterData;
 import fr.reborn.hud.menu.character.CharacterPayload;
 import fr.reborn.hud.menu.character.CharacterRules;
 import fr.reborn.hud.mixin.HudAccessor;
-import fr.reborn.hud.nameplate.Nameplates;
+import fr.reborn.hud.nametag.Nametags;
 import fr.reborn.hud.skin.CharacterCatalog;
 import fr.reborn.hud.skin.RebornSkins;
 import fr.reborn.hud.skin.SkinSpec;
@@ -612,7 +612,7 @@ public final class SceneJourneyScreen extends Screen {
                 g.pose().pushMatrix();
                 g.pose().translate(qx + 110, ty + 62);
                 g.pose().scale(1.6f, 1.6f);
-                Nameplates.drawVillagePlate(g, font, 0, 0, (name.trim() + " " + clan).trim(),
+                Nametags.drawVillageNametag(g, font, 0, 0, (name.trim() + " " + clan).trim(),
                         CharacterRules.clanColor(clan), village >= 0 ? CharacterRules.villages()[village] : "", a);
                 g.pose().popMatrix();
                 String[][] rows = {{"VILLAGE", village >= 0 ? CharacterRules.villages()[village] : "—"},

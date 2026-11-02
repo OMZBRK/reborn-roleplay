@@ -408,23 +408,36 @@ public final class HudEditSidePanel {
         hitTargets.add(new HitTarget(resetX, row2Y, fieldW, INPUT_H, onResetSelected));
 
         // Option de l'élément « Escouade radio » : toute l'escouade (ceux qui se taisent en retrait).
+        var pr = fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE;
+        int oy = row2Y + INPUT_H + 4;
         if (selectedElement == HudElement.ESCOUADE) {
-            int oy = row2Y + INPUT_H + 4, ox = x0 + PAD;
-            boolean on = fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.radioToutEscouade;
-            boolean oh = inside(mouseX, mouseY, ox, oy, WIDTH - PAD * 2, OPTION_H - 2);
-            int bord = oh ? DaKit.CREME : DaKit.CREME_VAL;
-            ctx.fill(ox, oy + 2, ox + 8, oy + 3, bord);
-            ctx.fill(ox, oy + 9, ox + 8, oy + 10, bord);
-            ctx.fill(ox, oy + 2, ox + 1, oy + 10, bord);
-            ctx.fill(ox + 7, oy + 2, ox + 8, oy + 10, bord);
-            if (on) ctx.fill(ox + 2, oy + 4, ox + 6, oy + 8, DaKit.OR_CLAIR);
-            DaKit.inter8(ctx, tr, DaKit.inter("Afficher toute l'escouade"), ox + 13, oy + 6, oh ? DaKit.CREME : DaKit.CREME_VAL, 0);
-            hitTargets.add(new HitTarget(ox, oy, WIDTH - PAD * 2, OPTION_H - 2, () -> {
-                var pr = fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE;
+            caseOption(ctx, mouseX, mouseY, oy, "Afficher toute l'escouade", pr.radioToutEscouade, () -> {
                 pr.radioToutEscouade = !pr.radioToutEscouade;
                 pr.save();
-            }));
+            });
         }
+        // Option de l'élément « Musique » (lecteur OST, lot 2) : s'effacer après les 10 s pleines au lieu de rester à 70 %.
+        if (selectedElement == HudElement.OST) {
+            caseOption(ctx, mouseX, mouseY, oy, "Masquer après 10 s", pr.ostMasquerApres10s, () -> {
+                pr.ostMasquerApres10s = !pr.ostMasquerApres10s;
+                pr.save();
+            });
+        }
+    }
+
+    /** Case à cocher d'une option propre à l'élément, sur la ligne réservée sous l'inspecteur. */
+    private void caseOption(GuiGraphicsExtractor ctx, int mouseX, int mouseY, int oy, String libelle, boolean on,
+                            Runnable basculer) {
+        int ox = x0 + PAD;
+        boolean oh = inside(mouseX, mouseY, ox, oy, WIDTH - PAD * 2, OPTION_H - 2);
+        int bord = oh ? DaKit.CREME : DaKit.CREME_VAL;
+        ctx.fill(ox, oy + 2, ox + 8, oy + 3, bord);
+        ctx.fill(ox, oy + 9, ox + 8, oy + 10, bord);
+        ctx.fill(ox, oy + 2, ox + 1, oy + 10, bord);
+        ctx.fill(ox + 7, oy + 2, ox + 8, oy + 10, bord);
+        if (on) ctx.fill(ox + 2, oy + 4, ox + 6, oy + 8, DaKit.OR_CLAIR);
+        DaKit.inter8(ctx, tr, DaKit.inter(libelle), ox + 13, oy + 6, oh ? DaKit.CREME : DaKit.CREME_VAL, 0);
+        hitTargets.add(new HitTarget(ox, oy, WIDTH - PAD * 2, OPTION_H - 2, basculer));
     }
 
     /** Cadre d'un champ de saisie + son préfixe (X / Y / %). */

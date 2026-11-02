@@ -3,7 +3,7 @@ package com.reborn.shinobicore.api.etat;
 import com.reborn.shinobicore.api.Stable;
 
 /**
- * L'<b>état principal</b> (§4.3) : une seule valeur que tout le monde lit (plaques staff, journal, HUD, Poste de garde),
+ * L'<b>état principal</b> (§4.3) : une seule valeur que tout le monde lit (nametags staff, journal, HUD, Poste de garde),
  * <b>résolue</b> à partir des trois couches et du modificateur « en combat » — jamais stockée. Première ligne vraie de
  * haut en bas (ordre de l'énumération).
  */

@@ -1,4 +1,4 @@
-package fr.reborn.hud.nameplate;
+package fr.reborn.hud.nametag;
 
 import fr.reborn.hud.anchor.TeteAncre;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -18,19 +18,19 @@ import java.util.Arrays;
  * <b>Calque « pile au-dessus de la tête »</b> (31/10) : ce qui flotte au-dessus d'un joueur s'empile, de la tête
  * vers le haut, sans jamais se chevaucher :
  * <pre>
- *   sommet de tête → 3 px → plaque de nom (si visible) → 2 px → bulle voix / frappe (si active)
- *                  → 2 px → /me (empilés) → 2 px → plaque staff → 2 px → invite « Tendre »
+ *   sommet de tête → 3 px → nametag (si visible) → 2 px → bulle voix / frappe (si active)
+ *                  → 2 px → /me (empilés) → 2 px → nametag staff → 2 px → invite « Tendre »
  * </pre>
  * Chaque élément <b>déclare</b> à chaque image la hauteur qu'il occupe ({@link #occuper}) et lit le bas de sa
  * couche ({@link #base}) : la somme des couches occupées en dessous, suivie avec un lissage exponentiel de
- * {@link #LISSAGE_MS} — quand la plaque apparaît, la bulle et le /me montent en douceur, sans saut. Pendant la
+ * {@link #LISSAGE_MS} — quand le nametag apparaît, la bulle et le /me montent en douceur, sans saut. Pendant la
  * montée, l'élément du dessous n'est opaque qu'à hauteur de la place libérée ({@link #place}) : rien ne se recouvre,
  * même le temps d'une transition. Une couche absente cède sa place à l'image suivante (seule, la bulle prend la
- * place de la plaque).
+ * place du nametag).
  *
- * <p>Les éléments sont dessinés dans l'ordre d'enregistrement du HUD (bulles, plaques, /me, staff…) : une
+ * <p>Les éléments sont dessinés dans l'ordre d'enregistrement du HUD (bulles, nametags, /me, staff…) : une
  * déclaration compte pendant l'image où elle est faite et la suivante, donc l'ordre n'importe pas (un élément dessiné
- * avant la plaque lit la déclaration de l'image précédente : une image de retard, invisible sous le lissage).
+ * avant le nametag lit la déclaration de l'image précédente : une image de retard, invisible sous le lissage).
  *
  * <p>Entre entités : chaque pile ancrée à l'écran est retenue pour l'image ({@link #auDessusDesAutres} : le /me d'un
  * joueur du fond, dont la tête est visible à côté de celle de devant, monte au-dessus du nom et de la bulle de celui-ci ;
@@ -41,7 +41,7 @@ import java.util.Arrays;
  * <p>Ancre commune : {@link TeteAncre#ecran} au sommet de la tête rendue vue par la caméra (chapeau compris, tête
  * basculée ou vue en plongée comprise), calée au pixel physique.
  * Décalages en px GUI vers le haut. Thread de rendu, aucune allocation par image (une fiche par entité, créée à la
- * première rencontre, oubliée après 5 s). L'horloge est celle des plaques ({@link Nameplates#horloge}) : un banc qui
+ * première rencontre, oubliée après 5 s). L'horloge est celle des nametags ({@link Nametags#horloge}) : un banc qui
  * l'impose rend tous les fondus et glissements déterministes.
  */
 public final class CalqueTete {
@@ -49,7 +49,7 @@ public final class CalqueTete {
     private CalqueTete() {}
 
     /** Couches, de la tête vers le haut. */
-    public static final int PLAQUE = 0, BULLE = 1, ME = 2, STAFF = 3, INVITE = 4;
+    public static final int NAMETAG = 0, BULLE = 1, ME = 2, STAFF = 3, INVITE = 4;
     private static final int COUCHES = 5;
 
     /** Sommet de tête → bas du premier élément (px GUI). */
@@ -102,14 +102,14 @@ public final class CalqueTete {
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             vider();
-            Nameplates.vider();
+            Nametags.vider();
             fr.reborn.hud.voice.SpeechBubbles.vider();
         });
-        PlaquesDebug.init();   // REBORN_PLAQUES_DEBUG (dev)
+        NametagsDebug.init();   // REBORN_NAMETAG_DEBUG (dev)
     }
 
-    /** Heure des fondus et du lissage (ms) : {@link Nameplates#horloge}, injectable par un banc. */
-    public static long maintenant() { return Nameplates.horloge.getAsLong(); }
+    /** Heure des fondus et du lissage (ms) : {@link Nametags#horloge}, injectable par un banc. */
+    public static long maintenant() { return Nametags.horloge.getAsLong(); }
 
     /**
      * Sommet de la tête rendue de {@code e} à l'écran (px GUI calés au pixel physique, {@code z} = distance caméra →
@@ -263,7 +263,7 @@ public final class CalqueTete {
         return 1f;
     }
 
-    /** Décalage GUI calé au pixel physique (une plaque translatée de cette valeur ne scintille pas). */
+    /** Décalage GUI calé au pixel physique (un nametag translaté de cette valeur ne scintille pas). */
     public static float calePx(float gui) {
         float gs = Math.max(1, Minecraft.getInstance().getWindow().getGuiScale());
         return Math.round(gui * gs) / gs;

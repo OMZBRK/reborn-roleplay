@@ -2,7 +2,8 @@ package fr.reborn.hud.voice;
 
 import fr.reborn.hud.anchor.TeteAncre;
 import fr.reborn.hud.chat.TypingState;
-import fr.reborn.hud.nameplate.CalqueTete;
+import fr.reborn.hud.nametag.CalqueTete;
+import fr.reborn.hud.recit.RecitHud;
 import fr.reborn.hud.ui.DaKit;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
@@ -28,11 +29,11 @@ import java.util.Arrays;
  *       sont actives.</li>
  * </ul>
  * Ancrée sur la tête réellement rendue ({@link TeteAncre}, interpolée : plus de saccades au tick), dans la pile de
- * {@link CalqueTete} (au-dessus de la plaque quand elle est là, à sa place sinon). La couche a une hauteur <b>fixe</b>
+ * {@link CalqueTete} (au-dessus du nametag quand il est là, à sa place sinon). La couche a une hauteur <b>fixe</b>
  * (les barres au plus haut, contour et ombre compris), les points centrés dedans : passer de l'écriture à la parole ne
  * fait plus glisser le /me. Éteinte, elle reste <b>réservée</b> (invisible) 1,5 s tant qu'un élément est posé au-dessus
- * (/me, plaque staff) : le /me ne descend plus à chaque pause de la voix (Plasmo coupe la source entre deux phrases), et
- * la bulle revient tout de suite. Tailles en « unités menu », comme la plaque staff : la même taille à l'écran à toutes
+ * (/me, nametag staff) : le /me ne descend plus à chaque pause de la voix (Plasmo coupe la source entre deux phrases), et
+ * la bulle revient tout de suite. Tailles en « unités menu », comme le nametag staff : la même taille à l'écran à toutes
  * les échelles d'interface (la taille validée à l'échelle 2 en 1080p).
  *
  * <p><b>Portée</b>, mesurée depuis le <b>joueur local</b> (elle l'était depuis la caméra : en vue épaule, une cible
@@ -227,9 +228,13 @@ public final class SpeechBubbles {
         int o = ombrePx(km), c = contourPx(km), cote = cotePoint(km);
         // couche de hauteur fixe (px écran) : les barres au plus haut, contour et ombre compris ; la frappe y est centrée
         int haut = hauteurPx(km, o, c);
-        CalqueTete.occuper(e, CalqueTete.BULLE, haut / (float) gs, largeurPx(b.voix, km, o, c) / (2f * gs));
+        float demi = largeurPx(b.voix, km, o, c) / (2f * gs);
+        CalqueTete.occuper(e, CalqueTete.BULLE, haut / (float) gs, demi);
         float a = alpha * CalqueTete.place(e, CalqueTete.BULLE);
         float base = CalqueTete.base(e, CalqueTete.BULLE);
+        // centre dégagé (lot 2) : à 25 % si elle touche le texte au centre élargi de 12 px
+        float yb = A.y - CalqueTete.calePx(base);
+        a *= RecitHud.attenuation(A.x - demi, yb - haut / (float) gs, A.x + demi, yb);
         if (a <= 0.004f) return;
         ctx.pose().pushMatrix();
         ctx.pose().translate(A.x, A.y - CalqueTete.calePx(base));   // bas de la couche sur le bas de sa place dans la pile

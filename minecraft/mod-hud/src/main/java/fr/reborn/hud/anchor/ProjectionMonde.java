@@ -14,10 +14,10 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 /**
- * Projection d'un point du monde sur l'écran <b>exactement comme le monde est dessiné</b> (31/10, socle des plaques,
+ * Projection d'un point du monde sur l'écran <b>exactement comme le monde est dessiné</b> (31/10, socle des nametags,
  * bulles et /me) : {@code projection × balancement (coup reçu, marche) × spirale (nausée, portail) × rotation de vue},
  * la chaîne de {@code GameRenderer#renderLevel}. {@code Camera#getViewRotationProjectionMatrix}, qu'utilisaient les
- * plaques, ignore le balancement : la plaque pompait de 10 à 20 px en marchant (option « Balancement de la vue ») et
+ * nametags, ignore le balancement : le nametag pompait de 10 à 20 px en marchant (option « Balancement de la vue ») et
  * décrochait quand on était touché.
  *
  * <p>La matrice est construite <b>une fois par image</b>, à la première demande, à partir de ce que le jeu a déjà
@@ -26,7 +26,7 @@ import org.joml.Vector4f;
  * image voient la même caméra. Non reproduit : la projection Panini de Sodium Extra (post-effet, désactivé par défaut).
  *
  * <p>Sorties en <b>pixels physiques</b> (fenêtre) arrondis à l'entier, ou en coordonnées GUI calées sur ces pixels
- * ({@code round(x × gs) / gs}) : une plaque translatée sur cette ancre puis dessinée en coordonnées entières ne
+ * ({@code round(x × gs) / gs}) : un nametag translaté sur cette ancre puis dessiné en coordonnées entières ne
  * scintille plus (le contour du style « Détouré » changeait avec la position sous-pixel). {@code z} = distance
  * caméra → point, en blocs. Thread de rendu uniquement, aucune allocation par appel.
  */
@@ -36,7 +36,7 @@ public final class ProjectionMonde {
 
     /** Au-delà (coordonnées normalisées), le point est « hors écran large » : rien à dessiner. */
     public static final float NDC_LARGE = 1.25f;
-    /** Plan proche du test « derrière la caméra » (même seuil que les anciennes plaques). */
+    /** Plan proche du test « derrière la caméra » (même seuil que les anciens nametags). */
     private static final float W_MIN = 0.05f;
 
     private static final Matrix4f CLIP = new Matrix4f();

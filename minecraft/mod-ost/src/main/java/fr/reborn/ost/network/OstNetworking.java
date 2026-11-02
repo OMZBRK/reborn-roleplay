@@ -90,8 +90,9 @@ public final class OstNetworking {
                 client.execute(engine::stop);
             }
             case OstPayload.PauseBroadcast p -> client.execute(() -> {
-                // Aligne l'état de pause local sur la consigne owner.
-                if (engine.isPlaying() && engine.isPaused() != p.paused()) engine.togglePause();
+                // Aligne l'état de pause local sur la consigne owner. isPlaying() est faux EN PAUSE : tester la
+                // seule lecture ignorait la reprise (PauseBroadcast(false)) et les auditeurs restaient en pause.
+                if ((engine.isPlaying() || engine.isPaused()) && engine.isPaused() != p.paused()) engine.togglePause();
             });
             case OstPayload.PlayGlobal p -> {
                 broadcastOwner = false; // broadcast d'un tiers → je ne suis pas owner

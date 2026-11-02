@@ -98,6 +98,7 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/note` | `notes`, `tag` | Helper | `reborn.staff.helper` | Notes staff par N° : `/note <cible> [ajouter [etiquette:<mot>] <texte> \| suppr <id>]` ; sans sous-commande = liste (✕ cliquable si on peut supprimer : auteur ou Admin) |
 | `/annonce` | `broadcast`, `bc` | Modérateur | `reborn.staff.helper` | Annonce à tous (bandeau du mod, sinon titre) ; `/annonce joueur <cible> <message>` = une seule personne |
 | `/annoncejoueur` | `broadcastplayer`, `bcp` | Helper | `reborn.staff.helper` | Message à un seul joueur (scène, convocation) |
+| `/narration` | `narrer` | Helper : un joueur ; Modérateur : ici, monde, tous ; animateur en mode animation : un joueur (64 blocs au plus), ici | `reborn.staff.narration` | **Narration au centre de l'écran** (lot 2, 01/11) : `/narration <joueur <cible>\|ici [rayon]\|monde\|tous> [+auto\|+tenir\|30s\|2m] [+remplace] [+tchat] <texte…>` ; couleurs `<rouge>…</>`, `<or>`, `<ombre>`, `<gris>` (alias `&c`, `&6`, `&9`, `&7`, `&r` = blanc ; `&&` = « & »), `\n` = à la ligne ; options **avant le texte**, marquées d'un `+` sauf la durée à suffixe (`30s`, `2m`, 2 à 180 s) : un mot ou un nombre seul fait partie du texte ; `+tenir` (jusqu'à l'arrêt, 10 min au plus) : Modérateur ; `ici` = 30 blocs par défaut, 64 au plus ; `tous` en jeu : résumé puis [Confirmer] (60 s) ; sous Modérateur : 3 s entre deux, 5 joueurs différents par minute, `+remplace` ne coupe que les siennes ; `/narration fin [id]` (les siennes ; Modérateur : toutes) ; journal `STAFF` `NARRATION` / `NARRATION_FIN`. La ligne de tchat de Minecraft s'arrête à 256 caractères : au-delà, le Poste de garde (1 000) ou plusieurs narrations à la suite — §4 bis.3 bis |
 | `/aller` | `goto`, `stp` | Helper | `reborn.staff.helper` | Se téléporter à la cible (position de départ mémorisée) |
 | `/ramener` | `bring` | Modérateur | `reborn.staff.helper` | Ramener la cible à soi (sa position est mémorisée) |
 | `/retour` | `back` | Helper / Modérateur | `reborn.staff.helper` | Sans argument : revenir où l'on était ; `/retour <cible>` (Modérateur) : la renvoyer où elle était |
@@ -107,14 +108,14 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/seisme` | `earthquake` | Admin | `reborn.staff.helper` | `/seisme [rayon\|tous] [force 1-10] [secondes] [message]` : secousse + grondement ; `tous` = tout le serveur + annonce « La terre tremble… » |
 | `/tenue` | `forceclothes` | Modérateur | `reborn.staff.helper` | `/tenue <cible> <id Nexo\|main\|retirer>` : impose l'emplacement cosmétique `TENUE` (verrouillé), rend l'ancienne pièce à la levée. **TODO** : l'apparence de skin de l'échoppe ne peut pas être imposée |
 | `/emoteforcee` | `forceemote` | Modérateur | `reborn.staff.helper` | Fait jouer une emote à la cible (`stop` pour arrêter) ; même catalogue que `/playemote` |
-| `/modestaff` | `staffmode`, `sm` | Helper | `reborn.staff.helper` | Mode staff : invisible aux joueurs et au staff hors mode staff, vol, invulnérable, **aucune mécanique RP** et personne ne peut le cibler (§4 bis.7), tchat redirigé vers le chat staff, plaques au-dessus des têtes (`reborn:plaques`) ; tombe à la déconnexion. `/modestaff anim` = `/modeanim` |
+| `/modestaff` | `staffmode`, `sm` | Helper | `reborn.staff.helper` | Mode staff : invisible aux joueurs et au staff hors mode staff, vol, invulnérable, **aucune mécanique RP** et personne ne peut le cibler (§4 bis.7), tchat redirigé vers le chat staff, nametags au-dessus des têtes (`reborn:plaques`) ; tombe à la déconnexion. `/modestaff anim` = `/modeanim` |
 | `/entreprise` | `entreprises` | Modérateur (ou `shinobicore.entreprise`) ; joueur : les siennes | `shinobicore.use` | **Entreprises** (14/10) : `creer <restaurant\|forge\|echoppe> "<nom>" [responsable]`, `supprimer <e> confirmer`, `renommer <e> "<nom>"`, `membre ajouter\|retirer\|role <e> <cible> [gerant\|employe]`, `poste ajouter <e> [libellé]` / `poste retirer` (en visant le bloc ou le meuble), `info`, `liste` ; journal Staff `ENTREPRISE_*` — [`../gameplay/ENTREPRISES.md`](../gameplay/ENTREPRISES.md) |
 | `/boutique` | `boutiques` | Modérateur (ou `shinobicore.boutique`) | `shinobicore.use` | **Boutiques-lieux** (15/10) : `creer <tailleur\|bazar> "<nom>" [village] [entreprise]`, `supprimer <b> confirmer`, `comptoir ajouter <b> [catégories…]` (en visant un bloc, un meuble Nexo ou un PNJ) / `comptoir retirer` / `comptoir categories <cat…>` / `comptoir articles <id…\|tous>` / `comptoir nom "<libellé>"` (en visant le comptoir), `estrade ajouter\|retirer <b>` (là où se tient le staff, regard vers la caméra), `camera <b> <distance> <hauteur>`, `article prix <b> <id> <prix\|catalogue>` / `article retirer\|remettre <b> <id>`, `ouvrir\|fermer <b>`, `info <b>`, `liste [village]`, `voir <b> [n°]` (écran à distance, test), `donner\|reprendre <cible> <tenue> "<motif>"` (garde-robe), `recharger` (catalogue) ; catégories `tenues, hauts, bas, manteaux, coiffes, masques, accessoires, vivres, cartes` ; journal Staff `BOUTIQUE_*` — [`../gameplay/BOUTIQUES.md`](../gameplay/BOUTIQUES.md) §13 |
 | `/tendre` | `donner` | Joueur | `shinobicore.use` | **Tendre** (14/10) : `/tendre <joueur>` (objet en main), `/tendre <joueur> ryo <montant>`, `/tendre prendre\|refuser` (touches F / Retour du mod) ; journal `DON` — [`../gameplay/NOURRITURE.md`](../gameplay/NOURRITURE.md) §5 |
 | `/nourriture` | `satiete` | Joueur : son état ; Modérateur (ou `shinobicore.nourriture.staff`) | `shinobicore.use` | `etat [cible]`, `satiete <cible> <0-100>`, `donner <cible> <plat:id\|panier:id\|ration\|bol> [n] [froid]`, `effet <cible> <type> <intensité> <secondes>`, `retirer <cible> <type>` ; journal Staff |
 | `/modeanim` | `modeanimation` | Animateur / MJ | `reborn.staff.animation` | **Mode animation** (14/10) : incarner un personnage pour un event — visible, mécaniques RP permises, **tout journalisé** (entrée / sortie, commandes, tchat, coups) ; exclusif avec le mode staff ; tombe à la déconnexion (§4 bis.7) |
 | `/douane` | — | candidat ; examinateur, staff Helper+ | `shinobicore.use` | **Douane** (25/10) : candidat, son statut ; examinateur : `aller`, `quitter`, `file`, `appeler`, `renvoyer`, `retirer`, `dossier`, `question`, `notes`, `decision` — §4 decies.1 |
-| `/modeexaminateur` | `modeexam` | Helper+ | `reborn.douane.examinateur` | Mode examinateur de la douane : visible, plaque « Examinateur », aucune mécanique RP, tout journalisé — §4 decies.1 |
+| `/modeexaminateur` | `modeexam` | Helper+ | `reborn.douane.examinateur` | Mode examinateur de la douane : visible, nametag « Examinateur », aucune mécanique RP, tout journalisé — §4 decies.1 |
 | `/faction` | `factions` | Joueur ; staff : `admin` | `shinobicore.use` | **Faction et sections** (16/10) : sans argument = le volet J ; `info`, `inviter <joueur>` (face à face, 3 blocs — ce qu'envoie le menu R), `accepter`, `refuser`, `quitter`, `annoncer [section] <texte>`, au guichet (6 blocs) `verser <montant> [motif]`, `prime <#N°\|nom> <montant> <motif>`, `doter <section> <montant> [motif]` ; staff `admin liste`, `info <tag>`, `creer <tag> <village\|organisation> <motif…> nom=<nom>` (Admin), `chef <tag> <#N°\|aucun> <motif…>` (Modo), `section <tag> <modèle\|libre> <#N° chef> <motif…> [nom=<nom>]` (Modo), `cacher <section> <oui\|non> <motif…>` (Modo), `dissoudre <section> <motif…>` (Admin), `caisse <section> <ajouter\|retirer\|fixer> <n> <motif…>` (Admin) ; journal `FACTION` — [`../gameplay/FACTION.md`](../gameplay/FACTION.md) §15 |
 | `/cloche` · `/voliere` (`volieres`) · `/missive` | — | Staff | `shinobicore.use` (grade staff vérifié dans le code) | **Cloche du village et volières** (16/10, staff, journal `STAFF`) : `/cloche poser <village> [rayon] ["lieu"]` (Modo, vise le meuble à 6 blocs), `liste` (Helper), `retirer <id>`, `taire <village> [minutes]` (Modo, 0 = rendre la parole, retire la ligne en cours) ; `/voliere poser "<nom>" <petite\|grande\|tour\|palais> <village>` (Modo, vise le perchoir), `liste` (Helper), `vider <id> "<motif>"`, `retirer <id> "<motif>"` (Admin) ; `/missive lire <id> "<motif>"` (Admin, motif obligatoire). Les joueurs n'ont pas de commande : menu R ou clic droit sur le meuble — [`../gameplay/CLOCHE_ET_MISSIVES.md`](../gameplay/CLOCHE_ET_MISSIVES.md) §10 |
 
@@ -221,6 +222,7 @@ Admin. Qui sonne, qui écrit au palais, qui prend à une volière : seuils et dr
 |---|---|
 | `shinobicore.staff` | Statut staff général (commandes staff, messages RPK) |
 | `reborn.staff.animation` | Mode animation `/modeanim` (animateur, MJ ; OP par défaut ; pas besoin d'un grade staff) |
+| `reborn.staff.narration` (op) | Commande `/narration` (01/11) : **donnée d'office** par `reborn.staff.helper` et `reborn.staff.animation` (enfants dans le `plugin.yml`) ; les droits réels — grade staff, mode animation — sont vérifiés à l'envoi (§4 bis.3 bis) |
 | `reborn.douane.examinateur` (op) | Examinateur de la douane : mode examinateur, appels, questions, décisions, onglet Douane ; exige **aussi** un grade `reborn.staff.*` Helper au minimum (§4 decies.1) |
 | `shinobicore.admin`, `shinobiabilities.admin` | Contourne les vérifications (techniques non apprises, prérequis) |
 | `shinobicore.medic` | Médic rang 1 : paume jusqu'à 60 % des PV, reçoit les `/aide` |
@@ -298,9 +300,10 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `reborn:ost`, `reborn:ost_request` | ⇄ | `ost.plugin.network.OstChannel` | `ost/network/*` (mod-ost) | Musiques |
 | `reborn:controls` | client | — | `keybind/*` | Interne au mod |
 | `reborn:annonce` | S → C | `staff.outils.EffetsStaff` | `staff/EffetsStaff` | Annonce globale ou personnelle (§4 bis.3) |
+| `reborn:narration` | S → C | `staff.outils.Narrations` | `recit/NarrationClient` (+ `recit/Recit`, `recit/RecitHud`, allure `recit/Gabarit.NARRATION`) | Narration au centre de l'écran (01/11 ; en plein écran, blanc pur, plus grande, 02/11) : `narration` (segments colorés, durée, file / remplace, `ecoule` au rattrapage), `narration_fin` ; repli tchat, rattrapage à la connexion (§4 bis.3 bis) |
 | `reborn:ecran` | S → C | `staff.outils.EffetsStaff` | `staff/EffetsStaff` (+ `mixin/CameraSeismeMixin`) | Écran noir forcé, séisme (§4 bis.4) |
-| `reborn:plaques` | S → C | `staff.outils.ModeStaff` | `staff/PlaquesStaff` | Plaques staff au-dessus des têtes, en mode staff (§4 bis.5) |
-| `reborn:douane` | ⇄ | `douane.DouaneCanal` | lot E (à venir) | Douane : ligne d'attente, écran neutre, appel, question, Bienvenue, résultat, plaques (candidat) ; onglet Douane du Poste de garde (examinateur) (§4 decies.4 à .6) |
+| `reborn:plaques` | S → C | `staff.outils.ModeStaff` | `staff/NametagsStaff` | Nametags staff au-dessus des têtes, en mode staff (§4 bis.5) |
+| `reborn:douane` | ⇄ | `douane.DouaneCanal` | lot E (à venir) | Douane : ligne d'attente, écran neutre, appel, question, Bienvenue, résultat, nametags (message `plaques`, candidat) ; onglet Douane du Poste de garde (examinateur) (§4 decies.4 à .6) |
 | `reborn:radio` | S → C | `shinobiradio.Canal` (ShinobiRadio) | `radio/RadioClient` | Radio en escouades : état, qui parle, invitation, écoute staff (§4 quater) |
 
 **`reborn:me`** (S → C, 31/10) — la bulle du `/me`, dessinée par le mod calée sur la tête. JSON UTF-8 brut, **un message
@@ -706,7 +709,7 @@ les refus de `HORS_JEU`, sauf déplacement, visibilité, voix et tchat.
 | `/douane question [montrer\|masquer]` | examinateur en mode | — | Tirage au hasard (montré à l'examinateur seul) / affichage chez le candidat |
 | `/douane notes <texte…>` · `-` | idem | — | Notes privées jointes à la décision (4 000 caractères au plus) |
 | `/douane decision accepter\|revoir\|refuser [motif…]` | idem | — | Motif obligatoire hors acceptation (2 000 au plus), visible du joueur. API muette : la décision reste dans la file d'envoi, et **dès le premier échec réseau** le candidat sort (écran puis expulsion « La douane est terminée. Résultat sous peu dans ton launcher. ») et le bureau se libère ; s'il revient avant l'envoi, l'aiguillage le refuse avec le même texte |
-| `/modeexaminateur` (`modeexam`) | Helper+ | `reborn.douane.examinateur` (op) | Mode examinateur : visible, plaque « Examinateur », mode Aventure, aucune mécanique RP (cadre `HORS_JEU.DOUANE`), aucune commande RP. Mène au hall et ramène au point de départ. Refusé dans les mêmes états que le mode staff (KO, mort, porté, tenu, prison, exécution) et gelé. Exclusif avec le mode staff et le mode animation ; tombe à la déconnexion (retour **avant** la sauvegarde du personnage), à la sortie du monde, et dès que le joueur perd ses droits d'examinateur (grade ou permission retirés, vérifié chaque seconde) |
+| `/modeexaminateur` (`modeexam`) | Helper+ | `reborn.douane.examinateur` (op) | Mode examinateur : visible, nametag « Examinateur », mode Aventure, aucune mécanique RP (cadre `HORS_JEU.DOUANE`), aucune commande RP. Mène au hall et ramène au point de départ. Refusé dans les mêmes états que le mode staff (KO, mort, porté, tenu, prison, exécution) et gelé. Exclusif avec le mode staff et le mode animation ; tombe à la déconnexion (retour **avant** la sauvegarde du personnage), à la sortie du monde, et dès que le joueur perd ses droits d'examinateur (grade ou permission retirés, vérifié chaque seconde) |
 
 Droits d'examinateur : grade `reborn.staff.*` **Helper au minimum** ET `reborn.douane.examinateur`. Côté API, la
 décision exige en plus le rôle web `WHITELIST_REVIEWER` ou plus avec le même compte Minecraft.
@@ -757,7 +760,7 @@ un candidat n'arrive jamais en jeu normal, même si `accept-douane-tokens` est a
 jamais surveillé. Voix du hall fermé non réglée avec `enabled: true` : ce n'est **pas** la douane coupée, mais la
 douane fermée (aiguillage ci-dessus, aucune admission au hall).
 
-**Au hall** : Aventure, aucun dégât, faim figée, inventaire vanilla vide, skin Minecraft, **pseudo** sur la plaque et
+**Au hall** : Aventure, aucun dégât, faim figée, inventaire vanilla vide, skin Minecraft, **pseudo** sur le nametag et
 au tchat. Le hall n'est **ouvert** qu'avec un encadrant dans le monde (examinateur en mode qui a encore ses droits,
 ou staff Helper+) ;
 fermé : écran opaque « DOUANE · Ouverture dès l'arrivée d'un examinateur », immobile, tchat coupé, voix coupée (sauf
@@ -824,7 +827,7 @@ Chaque message S → C porte `"v":1`.
 | `question` | `texte` (vide = effacer) | Une ligne en haut : « Question · … » |
 | `bienvenue` | `titre` (« Bienvenue sur Reborn »), `s` (3) | Écran opaque, nuit, titre or et filet ; la sélection s'ouvre ensuite (roster sur `reborn:character`) |
 | `resultat` | `resultat` (`NEEDS_REVISION` \| `REJECTED` \| `PENDING`), `texte`, `s` (8) | Écran court avec `texte`, puis expulsion avec le même texte : « La douane n'est pas validée aujourd'hui. Le commentaire de l'examinateur est dans ton launcher. », ou, pour `PENDING` (décision en attente d'envoi, API muette), « La douane est terminée. Résultat sous peu dans ton launcher. » |
-| `plaques` | `examinateurs` (UUID des examinateurs en mode dans le monde) | Plaque « Examinateur » au-dessus de ces joueurs ; au-dessus des autres occupants du monde de la douane, le **pseudo** du profil à la place d'« Inconnu » (`reborn:tablist` ne change pas). Envoyé à tous les occupants qui écoutent le canal, à chaque changement et toutes les 10 s. Vaut jusqu'à `fin` ou jusqu'au changement de monde |
+| `plaques` | `examinateurs` (UUID des examinateurs en mode dans le monde) | Nametag « Examinateur » au-dessus de ces joueurs ; au-dessus des autres occupants du monde de la douane, le **pseudo** du profil à la place d'« Inconnu » (`reborn:tablist` ne change pas). Envoyé à tous les occupants qui écoutent le canal, à chaque changement et toutes les 10 s. Vaut jusqu'à `fin` ou jusqu'au changement de monde |
 | `fin` | — | Sortie de la douane : tout effacer (ligne, question, écran) et cesser d'appliquer les `plaques`. Envoyé aussi à tout joueur qui quitte le monde de la douane (staff, examinateur) |
 | `toast` | `m`, `erreur` | Notification courte (aussi pour l'examinateur) |
 
@@ -986,7 +989,8 @@ affiche l'action telle quelle si elle ne la connaît pas) :
 - `BIBLIOTHEQUE` : `PRISE`, `DEPOT`, `VOL` (cible = nom de la bibliothèque), `PARCHEMINS_…` (alertes staff).
 - `STAFF` : `COMMANDE` (toute commande d'un staff, de la console `CONSOLE`, du RCON), `PANEL_WEB`, `TP_VERS`,
   `RAMENE`, `RETOUR`, `RENVOYE`, `GEL`, `DEGEL`, `GEL_RECONNEXION`, `VOIR_SAC`, `ECRAN_NOIR`, `ECRAN_NOIR_FIN`,
-  `SEISME`, `ANNONCE_GLOBALE`, `ANNONCE_PERSO`, `TENUE_IMPOSEE`, `TENUE_LEVEE`, `EMOTE_FORCEE`, `NOTE_AJOUT`,
+  `SEISME`, `ANNONCE_GLOBALE`, `ANNONCE_PERSO`, `NARRATION`, `NARRATION_TEXTE`, `NARRATION_FIN`, `NARRATION_REFUS`
+  (01/11, §4 bis.3 bis), `TENUE_IMPOSEE`, `TENUE_LEVEE`, `EMOTE_FORCEE`, `NOTE_AJOUT`,
   `NOTE_SUPPRESSION`, `PERSO_RESET(_DEMANDE)`, `PERSO_SUPPRIME` / `PERSO_SUPPR_DEMANDE`, `MODE_STAFF`,
   `JOURNAL_CONSULTE`, `INVENTAIRE_AUTRUI`, `VOIX_COUPEE` / `VOIX_RETABLIE` (31/10 : « 15 min — motif », « restait
   12 min », ou depuis Plasmo « /vmute », « /vunmute », « fin automatique » ; celles de la douane vont en `SYSTEME` ;
@@ -1007,6 +1011,9 @@ affiche l'action telle quelle si elle ne la connaît pas) :
 | `note_del` | auteur, ou Admin | `pid` (ou `t`), `id` | `notes` + `toast` |
 | `act` | selon `op` | `t` **ou** `pid`, `op`, et selon `op` : `m` (message), `s` (secondes), `v` (valeur), `r` (rayon), `d` (durée en minutes, `voix_couper`) | `toast` + `profile` |
 | `annonce` | Modérateur | `m` (message), `titre` (facultatif), `s` (durée d'affichage, défaut 8) | `toast` |
+| `narration` | selon `portee` : Helper `joueur` ; Modérateur `ici`, `monde`, `tous` ; en mode animation, `ici` aussi | `portee`, `t` **ou** `pid` (le N° vise le **personnage** : le joueur qui le joue en ce moment, sinon « Personnage #N° hors ligne » — comme `/narration joueur #N°`), `r`, `s` (entier strict), `mode`, `segs` (ou `texte`), `tchat`, `confirme` (obligatoire pour `tous`), `pos` ; garde-fou sous Modérateur — §4 bis.3 bis | `toast` (+ `narrations` si elle est partie) |
+| `narration_fin` | Helper (les siennes) ; Modérateur (toutes) | `id` (absent ou vide : toutes, ou les siennes) | `toast` + `narrations` |
+| `narrations` | Helper | — | `narrations` (narrations en cours, pour l'outil « Narration » du volet : client `staff/GardeNarration`, qui la demande à l'ouverture et toutes les 5 s) |
 | `seisme` | Admin | `r` (rayon en blocs autour du staff ; 0 = tout le serveur), `f` (force 1-10, défaut 5), `s` (durée, défaut 4), `m` (message facultatif) | `toast` |
 | `modestaff` | Helper | — (bascule) | `toast` + `snap` (`modeStaff`) + `mode` |
 | `modeanim` | `reborn.staff.animation` | — (bascule, 14/10) | `toast` + `snap` (`modeAnim`) + `mode` |
@@ -1106,7 +1113,7 @@ tâche de fond, puis répond ; dans ce cas `acteur` / `cible` peuvent n'avoir qu
 - `person` (chaque joueur de `players`, `alerts`) : `notes` (nombre), `etiquettes` (tableau des étiquettes des notes),
   `gele` (bool), `noir` (bool), `modeStaff` (bool), `modeAnim` (bool, 14/10) ; 31/10 : `voixCoupee` (bool),
   `voixFin` (epoch ms ; **-1 = sans fin**, `/vmute` permanent ; 0 = libre), `voixMotif`, `voixPar` (pseudo du staff,
-  vide si console). L'état du joueur (`state`, fiche et plaques du mode staff) ajoute « Voix coupée » (fiche :
+  vide si console). L'état du joueur (`state`, fiche et nametags du mode staff) ajoute « Voix coupée » (fiche :
   « Voix coupée · 12 min » ou « · sans fin »).
 
 `cherche` (S → C, 14/10) :
@@ -1135,6 +1142,198 @@ mode staff ou du mode animation ; le mod affiche un indicateur discret en haut �
 discret en haut au centre**, DA Reborn, fondu, `s` secondes. L'auteur n'est **jamais** envoyé aux joueurs (il est au
 journal). **Sans le mod** : titre + sous-titre vanilla (global) ; sous-titre + ligne de tchat (perso).
 
+### 4 bis.3 bis Canal `reborn:narration` (S → C) — narration au centre de l'écran (lot 2, 01/11)
+
+> Décision du 01/11 (« oui pour /narration, en plus des plaques ») : un texte RP au centre de l'écran pendant un event,
+> au style des annonces narratives du lot 2. Serveur : `staff/outils/Narrations` (commande, Poste de garde, API) ; mod :
+> `recit/NarrationClient` (receveur), `recit/Recit` (file, minuteurs, pages) et `recit/RecitHud` (dessin, place,
+> visibilité). Décision du 02/11 : la narration est **en plein écran, blanc pur, plus grande** — variante V2 de la
+> planche d1 en Philosopher Bold, 3 lignes par page, fondus d'opacité 600 / 700 ms, réglée en un seul endroit
+> (`recit/Gabarit.NARRATION`) ; le texte de 340 px des
+> maquettes a1 à a8 est celui des **stèles et plaques** lues en concentration (lot 4, `Gabarit.STELE`), jamais celui de
+> la narration. L'annonce (§4 bis.3) reste l'outil hors RP du haut de l'écran.
+
+**Messages** (JSON UTF-8 brut, sans préfixe de longueur, même codec que `reborn:annonce`). Le mod enregistre un receveur
+S2C pour `reborn:narration` : c'est ce qui le fait apparaître dans `getListeningPluginChannels()` côté serveur ; sinon le
+serveur passe au repli tchat.
+
+```json
+{"v":1,"t":"narration","id":"n42","segs":[["Les ",""],["ombres","ombre"],[" s'étirent.",""]],"s":0,"mode":"file"}
+{"v":1,"t":"narration","id":"n43","segs":[["Ça commence ici.",""]],"s":-1,"mode":"remplace","pos":40}
+{"v":1,"t":"narration","id":"n41","segs":[["Le portail s'ouvre.",""]],"s":90,"mode":"file","ecoule":23417}
+{"v":1,"t":"narration_fin","id":"n42"}
+{"v":1,"t":"narration_fin","id":""}
+```
+
+| Champ | Contenu |
+|---|---|
+| `v` | `1`. Ne change que pour une rupture : un message d'une autre version est ignoré, comme un `t` inconnu ; les champs inconnus sont ignorés |
+| `t` | `narration` ou `narration_fin` |
+| `id` | Chaîne opaque (`n` suivi d'un nombre), unique pendant la vie du serveur |
+| `segs` | Tableau **non vide** de `[texte, couleur]`. `texte` jamais vide ; `\n` = retour à la ligne, `\n\n` = paragraphe (jamais plus de deux à la suite) ; espaces réduites, aucune en début ou fin de ligne ; ni `§`, ni caractère de contrôle ou de format (le liant U+200D des émojis reste), ni U+2028 / U+2029 (déjà changés en `\n`) ; deux segments voisins n'ont jamais la même couleur. **1 000 caractères au plus** (points de code, `\n` compris). `couleur` : `""` blanc `#FFFFFF`, `rouge` `#E5483C`, `or` `#F2D08A`, `ombre` gris neutre `#8F8B8E` (maquettes v2 du 01/11), `gris` `#C2B59A` ; clé inconnue = blanc. La typographie française (apostrophes, guillemets, espaces fines) reste au mod |
+| `s` | Durée **D**. `0` = automatique : `D = clamp(1 300 + n × 1 000 / 30 ; 4 000 ; 60 000)` ms (règle du 02/11, vidéos de Ketto : 3 lignes pleines ≈ 210 caractères tenues ≈ 7 s, plus les fondus), avec `n` = nombre de points de code de tous les `segs` **tels que reçus** (`\n` compris, avant la typographie du mod), **plus 1 200 ms par page au-delà de la première** (deux fondus de page de 600 ms : chaque page garde sa tenue). Le mod compte les vraies pages ; le serveur les **estime** (`Narrations.pagesEstimees` : texte de 3 lignes au plus = 1 page, sinon chaque paragraphe en pages de 3 lignes de ≈ 70 caractères) pour sa file et son rattrapage — écart possible d'une à deux secondes sur un long texte. `2` à `180` = `s` secondes. `-1` = **tenue** jusqu'à `narration_fin`, effacée d'elle-même 10 min après son début. D court du début du fondu d'entrée (600 ms) à la fin du fondu de sortie (700 ms). Le serveur n'envoie que 0, -1 ou 2-180 (toute autre valeur : le mod prend 0) |
+| `mode` | `file` : passe quand l'écran est libre, 400 ms après la fin de la précédente ; 8 en attente au plus (une 9e fait sortir la plus ancienne en attente). `remplace` : celle à l'écran s'efface en 150 ms, **la file est vidée**, la nouvelle s'affiche aussitôt (sans la pause de 400 ms). Valeur inconnue = `file` |
+| `pos` | **Facultatif**, entier 0-100 : centre du bloc en % de la hauteur de l'écran. **Absent** = position par défaut du mod (centre de l'allure de la narration, 50 % pour l'instant, et ses règles à terre / inconscient). La commande ne l'envoie jamais ; le Poste de garde et l'API peuvent |
+| `ecoule` | **Facultatif**, entier > 0 (ms), seulement au **rattrapage** d'une narration déjà commencée. `s` reste la durée d'origine ; le mod l'affiche comme si elle avait commencé `ecoule` ms plus tôt : temps restant `D − ecoule` (tenue : `600 000 − ecoule`), page de départ = celle dont la tranche (fondus de la page + part du reste au prorata des caractères) contient l'instant `ecoule`, fondu d'entrée normal sur cette page. Le serveur garantit `D − ecoule ≥ 5 000` ; si `ecoule ≥ D`, le message est ignoré. Un mod qui ignorerait ce champ la rejouerait depuis le début pour toute sa durée : lisible, d'où `v` qui reste à 1 |
+
+**`narration_fin`** : `id` **à l'écran** → fondu de sortie de 700 ms, puis la file reprend (400 ms après) ; **en file** →
+retirée ; inconnu ou déjà finie → ignoré. **`id` vide = tout effacer**, écran et file. Le serveur n'envoie rien à la fin
+normale d'une durée : le mod tient son minuteur, qui continue quand la narration est masquée (écran opaque, F1). Le mod
+efface tout à la déconnexion ; le rattrapage refait l'état à la reconnexion. Pages (règle du mod, revue du 02/11) :
+**3 lignes par page** au plus, un paragraphe commence toujours une page (sa ligne vide ne compte pas), coupées de
+préférence après une fin de phrase ; chaque page a ses fondus (entrée 600 ms ou fondu de page 600 ms, sortie 700 ms ou
+fondu de page 600 ms) plus une part du reste de D au prorata de ses caractères. Le serveur modélise la file du mod :
+une narration arrêtée reste 700 ms (fondu de sortie) avant la pause de 400 ms, et une 9e en attente fait sortir la plus
+ancienne en attente.
+
+**Destinataires** — à l'envoi, les joueurs en ligne dans la portée, l'émetteur compris s'il y est. La portée n'est
+évaluée qu'à l'envoi et au rattrapage : un joueur qui sort de la zone ou change de monde garde la narration, un joueur qui
+y entre ne la reçoit pas.
+
+| Portée | Qui la reçoit |
+|---|---|
+| `joueur <cible>` | la cible seule (staff : pseudo, nom RP, `#N°` ; animateur sans grade : pseudo exact d'un joueur qu'il voit) |
+| `ici [rayon]` | même monde, à `rayon` blocs au plus du staff (distance 3D, comme `/seisme`) ; 30 par défaut, 64 au plus |
+| `monde` | le monde du staff |
+| `tous` | tout le serveur, douane comprise |
+| API | la liste fournie |
+
+**Sans le mod** (client qui n'écoute pas `reborn:narration`, dont un mod trop ancien) : le texte part en lignes de tchat
+italiques, aux mêmes couleurs, une ligne par `\n`, une ligne vide par paragraphe ; ni durée ni arrêt, aucun son. Option
+`tchat` (Poste de garde, `+tchat`, API) : les joueurs du mod reçoivent **aussi** ces lignes. Ces lignes ne partent
+**qu'une fois par joueur** : une reconnexion (rattrapage) refait l'écran, pas le tchat.
+
+**Rattrapage** (joueur qui se connecte) : pendant ses 40 premiers ticks (le temps que le mod déclare ses canaux), rien ne
+lui part en direct. Au 40e tick, il reçoit les narrations envoyées avant son arrivée dont il est dans la portée (`tous` ;
+`monde` s'il y est ; `ici` s'il est dans le rayon ; `joueur` si c'est lui ; API : s'il était sur la liste), celles qu'il
+avait déjà reçues et celles parties pendant ses 40 ticks. Le serveur refait sa file comme le mod la tient (file,
+remplace, arrêts, 10 min d'une tenue) : celle qui passe encore part avec son `s` d'origine et `ecoule` (s'il reste au
+moins 5 s), les suivantes telles qu'envoyées, sans `ecoule` ; toutes en `mode:"file"`, dans l'ordre d'envoi. Une
+narration finie, arrêtée ou coupée par un `remplace` n'est jamais renvoyée. Côté mod, ce sont des messages ordinaires.
+
+**Droits** (commande et Poste de garde : `Narrations.refus`, puis le garde-fou `refusEnvoi` ; console = Owner) :
+
+| | Helper | Modérateur et plus, console | Animateur en mode animation (`reborn.staff.animation`, sans grade staff) |
+|---|---|---|---|
+| `joueur` | oui | oui | oui, dans son monde, à 64 blocs au plus |
+| `ici` (64 blocs au plus) | non | oui | oui |
+| `monde` | non | oui | non |
+| `tous` | non | oui, **avec confirmation** | non |
+| `-1` (tenir) | non | oui | non |
+| `remplace` | ses narrations seulement (*) | oui | ses narrations seulement (*) |
+| arrêter | les siennes | toutes | les siennes (même sorti du mode) |
+
+Un staff en mode animation garde les droits de son grade, plus `ici`. **Garde-fou sous Modérateur** (Helper,
+animateur) : 3 s au moins entre deux narrations, 5 joueurs différents par minute au plus en `joueur`, refus avec le délai
+à attendre ; le Modérateur, la console et l'API n'en ont pas. (*) Sous Modérateur, `remplace` arrête seulement les
+narrations de l'émetteur encore en cours chez l'un des destinataires (`narration_fin` pour chacune), puis envoie la
+nouvelle en `file` : elle passe derrière celles des autres. Grades : `OutilsStaff.G_NARRATION_JOUEUR` (Helper),
+`G_NARRATION` (Modérateur).
+
+**Confirmation de `tous`** : en jeu, la commande montre un résumé avec **[Confirmer]** / **[Annuler]** (`/narration
+confirmer <jeton>`, `/narration annuler <jeton>`, 60 s ; un second `tous` remplace l'attente et le dit, un ancien bouton
+est refusé) ; le Poste de garde exige `confirme:true` (le volet montre le résumé et demande la confirmation avant
+d'envoyer, comme l'annonce globale) ; la console envoie directement.
+
+**Poste de garde** (canal `reborn:staff`, C → S, champ `a`) :
+
+```json
+{"a":"narration","portee":"ici","r":30,"s":0,"mode":"file","tchat":false,
+ "segs":[["Le vent tourne. Quelque chose approche de la ",""],["porte Est","rouge"],[".",""]]}
+{"a":"narration","portee":"joueur","pid":"00042","s":30,"texte":"Tu entends <ombre>des pas</> derrière toi."}
+{"a":"narration","portee":"tous","confirme":true,"s":-1,"mode":"remplace","segs":[["Ça commence ici.",""]]}
+{"a":"narration_fin","id":"n42"}
+{"a":"narration_fin"}
+{"a":"narrations"}
+```
+
+| Champ | Contenu |
+|---|---|
+| `portee` | `joueur`, `ici`, `monde` ou `tous` (autre → refus) |
+| `t` / `pid` | Cible de `joueur` (§4 bis.1), en ligne |
+| `r` | Rayon de `ici` : entier 1-64, défaut 30, autour du staff |
+| `s` | Entier JSON : `0` auto (défaut), `-1` tenir, `2` à `180` ; une chaîne, un booléen, un nombre non entier ou une autre valeur → refus |
+| `mode` | `file` (défaut) ou `remplace` |
+| `segs` | Tableau de `[texte, couleur]` (ou une simple chaîne = un segment blanc). Texte **littéral** : aucune balise lue ; un vrai retour à la ligne (`\n` en JSON) = à la ligne, la suite `\` + `n` reste du texte. Même nettoyage que pour le canal ; `§` **et le caractère qui le suit** retirés ; clé inconnue → blanc. Refus : plus de 1 000 segments, plus de 4 000 caractères bruts, plus de 1 000 caractères une fois nettoyé, texte vide. `"segs":null` = absent |
+| `texte` | Seulement sans `segs` : le texte avec balises, lu comme la commande (balise inconnue → refus avec le motif) |
+| `tchat` | Booléen : aussi en lignes de tchat pour les joueurs du mod (défaut `false`) |
+| `confirme` | Booléen, **obligatoire à `true` pour `tous`** |
+| `pos` | Facultatif : entier 0-100 (absent ou `null` = défaut du mod ; autre valeur → refus) |
+
+Ordre des contrôles (le premier refus part en `toast`) : portée, rayon, droits, `confirme`, `s`, `pos`, texte, cible,
+garde-fou. Un refus de **droits** ou du **garde-fou** est journalisé (`STAFF NARRATION_REFUS`).
+
+Réponses (S → C) : toujours un `toast`, « Narration envoyée à 12 joueur(s) · auto (14 s) [· 1 sans le mod (tchat)]
+[· 1 des tiennes remplacée(s)] [· en file derrière n41 : à l'écran dans ~25 s | · en file derrière n40 (tenue) : elle
+passera à son arrêt, 10 min au plus]. », ou le motif du refus ; puis, après un envoi réussi, après `narration_fin` (même
+refusé) et sur `narrations`, l'état :
+
+```json
+{"t":"narrations","dernier":"n42","actives":[{"id":"n42","portee":"ici · 30 blocs","joueurs":12,"s":0,"reste":9,
+  "mode":"file","texte":"Le vent tourne. Quelque chose approche de la porte Est.","par":"Omar","moi":true,"arreter":true}]}
+```
+
+`dernier` = la narration que la requête vient de créer (vide sinon) ; `actives` = narrations encore à l'écran ou en file
+chez quelqu'un (estimation du serveur), la plus récente d'abord, 10 au plus ; `portee` = libellé (« joueur Pseudo »,
+« ici · 30 blocs », « monde world », « tout le serveur », ou l'origine de l'API) ; `joueurs` = destinataires (rattrapages
+compris) ; `s` tel qu'envoyé ; `reste` = secondes avant sa fin estimée chez le dernier destinataire (attente en file
+comprise), `-1` = tenue ; `mode` tel qu'envoyé (un `remplace` sous Modérateur part en `file`) ; `texte` à plat, 80
+caractères au plus ; `par` = émetteur (pseudo, `CONSOLE` ou origine de l'API, staff seulement) ; `moi` = le spectateur en
+est l'auteur ; `arreter` = il peut l'arrêter. `narration_fin` sans `id` : un Modérateur arrête tout et envoie
+`narration_fin` à `id` vide à **tous** les joueurs du mod (narrations de l'API comprises) ; un Helper arrête les siennes.
+Avec `id` : la sienne, ou n'importe laquelle à partir de Modérateur, tant que le serveur s'en souvient (40 min au plus)
+et qu'elle n'est pas déjà arrêtée. Un ancien mod ignore `narrations` (type inconnu). Un grade 0 n'ouvre pas le Poste de
+garde : l'animateur sans grade passe par la commande.
+
+**API Java** (autres émetteurs : cinématiques, douane, quêtes ; thread principal) — `plugin.outilsStaff().narrations()` :
+
+```java
+Narrations.Envoi e = narrations.envoyer(joueurs, List.of(new Narrations.Segment("Les ", ""),
+        new Narrations.Segment("ombres", "ombre")), Narrations.AUTO, Narrations.Mode.FILE);
+narrations.envoyer(joueurs, segments, 30, Narrations.Mode.REMPLACE, 40, false, acteur, "cinématique intro");
+narrations.fin(e.id());   // arrête la sienne
+narrations.toutFinir();   // efface tout, narrations du staff comprises
+```
+
+Le texte est nettoyé comme celui du staff mais **coupé** à 1 000 caractères (« … ») au lieu d'être refusé ; `secondes`
+est ramené dans le protocole ; `null` si le texte est vide. Pas de garde-fou ; `REMPLACE` coupe l'écran et vide la file
+de ses destinataires. Les joueurs de la liste qui se reconnectent la rattrapent. À l'arrêt du serveur, rien n'est envoyé
+(le plugin est déjà désactivé ; le mod efface tout à la déconnexion).
+
+**Journal** (`STAFF`, tout est tracé quel que soit le grade) :
+- `NARRATION` : acteur, cible (`joueur`), lieu (centre de `ici`, sinon le staff), détail « ici · 30 blocs · 12 joueur(s) ·
+  auto (14 s) [· remplace | · remplace (les siennes)] [· + tchat] · « texte à plat, 300 caractères au plus » · n42 »
+  (API : l'origine en tête) ;
+- `NARRATION_TEXTE` : au-delà de 300 caractères, le texte entier en morceaux de 550 caractères au plus (« n42 · 1/2 ·
+  « … » ») ;
+- `NARRATION_FIN` : « n42 (ici · 30 blocs, posée par Omar) », « tout · 2 narration(s) · n41, n42 », « tout · aucune en
+  cours (écrans nettoyés) », « n41, n42 (les siennes) », « n41 (remplacée(s) par n43) » ; API : « n44 (…, par son
+  émetteur) », « tout · 2 narration(s) (API) » ;
+- `NARRATION_REFUS` : refus de droits ou du garde-fou au Poste de garde, « ici · 30 blocs · Helper · Poste de garde ·
+  motif » (une commande refusée est déjà au journal des commandes).
+
+L'auteur n'est **jamais** envoyé aux joueurs.
+
+**Limites** : 1 000 caractères une fois nettoyé (points de code) ; à l'entrée du Poste de garde, 4 000 caractères bruts et
+1 000 segments ; la ligne de tchat de Minecraft coupe une commande à 256 caractères (au-delà : le Poste de garde, ou
+plusieurs narrations à la suite, qui s'enchaînent).
+
+### 4 bis.3 ter Entre deux mods client : `ObjectShare` de reborn-ost ↔ reborn-hud (lot 2, 01/11)
+
+Pas un canal réseau : un contrat **local au client** entre `reborn-ost` (≥ 0.2.6) et `reborn-hud` (≥ lot 2), sans
+dépendance de compilation, par l'`ObjectShare` de Fabric Loader. Le lecteur en haut à droite est dessiné par
+`reborn-hud` (`ost/OstHud`, élément « Musique ») ; `reborn-ost` ne fait que publier.
+
+| Clé | Posée par | Valeur | Lue par |
+|---|---|---|---|
+| `reborn-ost:lecture` | `reborn-ost` (`OstLecture.publier`, une fois à l'initialisation) | `Object[]{String[] textes, long[] etat}`, deux tableaux **partagés par référence**, mis à jour en place à chaque fin de tick client : `textes[0]` = trackId (`mystere/aube`), `textes[1]` = titre du HUD (la catégorie tant que les pistes n'ont pas de titre), `""` sans piste ; `etat[0]` = 0 rien, 1 lecture, 2 pause ; `etat[1]` = 1 si la piste s'entend (gain effectif non nul : hors de la zone d'une diffusion positionnelle, la source tourne à gain 0) ; `etat[2]` = `Util.getMillis()` du dernier changement | `reborn-hud` (`ost/OstLien`, à chaque image, sans allocation) |
+| `reborn-hud:ost-rendu` | `reborn-hud` (pendant son initialisation) | présence seule | `reborn-ost` au `CLIENT_STARTED` : sans cette clé (reborn-hud trop ancien), il dessine son bandeau de secours (`ui/OstHudOverlay`) ; jamais les deux à la fois |
+
+Écrivain et lecteur sont sur le fil principal (tick et rendu). Ajouter un champ = l'ajouter **en fin** de tableau ;
+ne jamais changer le sens d'un indice existant. Depuis la revue du 02/11, `reborn-ost` 0.2.6 lit les pistes **en flux**
+(fil `Reborn-OST`, tranches de ≈ 0,19 s, ≈ 2,2 s d'avance) : l'état publié ne change pas de forme ; une source arrêtée
+faute de son (gel du jeu de plus de 2 s) reste « lecture » et repart, seule la fin du fichier est une fin de piste.
+
 ### 4 bis.4 Canal `reborn:ecran` (S → C)
 
 ```json
@@ -1158,13 +1357,15 @@ journal). **Sans le mod** : titre + sous-titre vanilla (global) ; sous-titre + l
 ```
 
 Envoyé **chaque seconde** au staff en mode staff, pour les joueurs du même monde à ≤ 64 blocs. Affichage attendu :
-petite plaque au-dessus de la tête (N°, nom RP, pseudo, état, PV), visible du seul staff ; `on:false` = tout
-effacer. Les staffs en mode staff se voient entre eux (ils sont invisibles aux joueurs).
+petit nametag au-dessus de la tête (N°, nom RP, pseudo, état, PV), visible du seul staff ; `on:false` = tout
+effacer. Les staffs en mode staff se voient entre eux (ils sont invisibles aux joueurs). Le nom du canal et la valeur
+`t` restent `plaques` (protocole) ; côté code, ce sont les nametags staff (`ModeStaff.CANAL_NAMETAGS`, mod :
+`staff/NametagsStaff`).
 
 ### 4 bis.6 Commandes en jeu (équivalents tapés, mêmes droits)
 
-Détail dans §2.1 : `/journal`, `/note`, `/annonce`, `/annoncejoueur`, `/aller`, `/ramener`, `/retour`, `/geler`,
-`/degeler`, `/voirsac`, `/noir`, `/seisme`, `/tenue`, `/emoteforcee`, `/modestaff`,
+Détail dans §2.1 : `/journal`, `/note`, `/annonce`, `/annoncejoueur`, `/narration` (01/11), `/aller`, `/ramener`,
+`/retour`, `/geler`, `/degeler`, `/voirsac`, `/noir`, `/seisme`, `/tenue`, `/emoteforcee`, `/modestaff`,
 `/modeanim`.
 
 ### 4 bis.7 Mode staff et mode animation (14/10)
@@ -1195,7 +1396,7 @@ commandes staff, `/voirsac`, `/emoteforcee`, `/playemote <emote> <joueur>`, choi
 MJ incarne un personnage pour un event — visible, mécaniques RP permises. **Journal** : `STAFF / MODE_ANIMATION`
 (entrée, sortie et durée), et `STAFF / ANIMATION` pour **chaque commande, chaque message et chaque coup porté** pendant
 le mode (en plus des catégories habituelles). Indicateurs : `modeAnim` dans `person` et `snap`, « Animation » dans
-l'état des plaques (`reborn:plaques`) et du Poste de garde, message `mode` → ligne fine en haut à droite de l'écran de
+l'état des nametags staff (`reborn:plaques`) et du Poste de garde, message `mode` → ligne fine en haut à droite de l'écran de
 l'animateur, ligne « X passe en mode animation » au chat staff. Exclusif avec le mode staff ; tombe à la déconnexion.
 
 ---

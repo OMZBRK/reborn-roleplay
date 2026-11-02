@@ -1,7 +1,7 @@
 package fr.reborn.hud.menu.character;
 
 import fr.reborn.hud.menu.RebornFont;
-import fr.reborn.hud.nameplate.Nameplates;
+import fr.reborn.hud.nametag.Nametags;
 import fr.reborn.hud.skin.RebornSkins;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
@@ -20,7 +20,7 @@ import java.util.UUID;
 
 /**
  * Maquettes, <b>inactives en production</b> ({@code REBORN_MOCKUPS=1}) : sélection du personnage en « scène »
- * (illustration du village en fond, persos posés devant, plaques de nom du jeu) et parcours de création narratif
+ * (illustration du village en fond, persos posés devant, nametags du jeu) et parcours de création narratif
  * (une question par écran, logos des villages). Capture dans run/screenshots/maquette_*.png. Canevas 960×540.
  */
 public final class SceneMockups {
@@ -145,12 +145,12 @@ public final class SceneMockups {
             }
         }
 
-        /** Plaque de nom du jeu, agrandie. */
-        void plate(GuiGraphicsExtractor g, Who w, float x, float y, float scale, float alpha) {
+        /** Nametag du jeu, agrandi. */
+        void nametag(GuiGraphicsExtractor g, Who w, float x, float y, float scale, float alpha) {
             g.pose().pushMatrix();
             g.pose().translate(px(x), py(y));
             g.pose().scale(scale * s, scale * s);
-            Nameplates.drawVillagePlate(g, font, 0, 0, w.name + " " + w.clan, w.clanColor, w.village, alpha);
+            Nametags.drawVillageNametag(g, font, 0, 0, w.name + " " + w.clan, w.clanColor, w.village, alpha);
             g.pose().popMatrix();
         }
 
@@ -204,12 +204,12 @@ public final class SceneMockups {
             g.nextStratum();
             actor(g, CAST[focus], xs[focus], ground, 118, 0);
             g.nextStratum();
-            // plaques de nom du jeu au-dessus des têtes
+            // nametags du jeu au-dessus des têtes
             for (int i = 0; i < 3; i++) {
                 boolean on = i == focus;
                 float sz = on ? 118 : 96, fy = ground - (on ? 0 : 18);
                 float top = fy - sz * 1.9f - 6;
-                plate(g, CAST[i], xs[i], top, on ? 1.6f : 1.25f, on ? 1f : 0.7f);
+                nametag(g, CAST[i], xs[i], top, on ? 1.6f : 1.25f, on ? 1f : 0.7f);
                 if (on) {
                     float b = (float) Math.sin(t() * 3) * 2;
                     rect(g, xs[i] - 1, top - 34 + b, 2, 6, GOLD);
@@ -301,7 +301,7 @@ public final class SceneMockups {
                 default -> {
                     title(g, qx, 110, "EST-CE BIEN TOI ?");
                     Who w = CAST[0];
-                    plate(g, w, qx + 120, 178, 1.6f, 1f);
+                    nametag(g, w, qx + 120, 178, 1.6f, 1f);
                     String[][] rows = {{"VILLAGE", "Konohagakure"}, {"CLAN", "Uchiha · Sharingan"},
                             {"NINDŌ", "Ne jamais revenir sur sa parole"}, {"GRADE", "Académicien"}};
                     for (int i = 0; i < rows.length; i++) {

@@ -70,7 +70,7 @@ combat hors zone ──► PV ≤ 5 % ──► ⓪ DOULEUR (debout, à bout de 
 
 ### ⓪ Douleur — sous 5 % des PV (14/10, Pain RP du Game Plan RedLine)
 
-Code : `ko/DouleurManager.java` ; mod `ko/KoClient` (caméra, sons), `ko.fsh` (mode 4), `nameplate/Nameplates`
+Code : `ko/DouleurManager.java` ; mod `ko/KoClient` (caméra, sons), `ko.fsh` (mode 4), `nametag/Nametags`
 (glyphe au nom), `mixin/CameraKoMixin`, `mixin/SoundEngineKoMixin`.
 
 - **Entrée** : les PV tombent à 5 % du max ou moins (`ko.douleur.seuil-pct`), hors terrain d'entraînement, hors duel,
@@ -85,7 +85,7 @@ Code : `ko/DouleurManager.java` ; mod `ko/KoClient` (caméra, sons), `ko.fsh` (m
   au menu R), ni exécuter (pas d'invite F) ; elle peut parler, faire des `/me`, se bander.
 - **Sortie** : remonter au-dessus du seuil (bandage, paume, repos jusqu'à 30 %) ; à 0 PV → agonie ; exécutée →
   inconsciente.
-- **Ce que voient les autres** (v2 du 14/10) : l'état est **intégré au nom RP** (plaque de nom existante, quand on
+- **Ce que voient les autres** (v2 du 14/10) : l'état est **intégré au nom RP** (nametag existant, quand on
   regarde la personne à 5 blocs) — le nom se teinte d'un rose pâle et un petit glyphe 痛 est accolé à droite ; plus
   de ligne séparée au-dessus. À portée (3,5 blocs), en la visant : l'invite **« [F] Exécuter »** sous le viseur, dans
   le style de « [F] Ramasser » (§8). Plus la démarche ralentie.
@@ -458,7 +458,7 @@ ni parler, ni lancer de commande, ni ouvrir d'inventaire, ni être blessé.
   (`SoundEngineKoMixin`) en douleur et à terre ; tout ce qui bouge suit « Effets de distorsion ».
 - **14/10 : plus de voile rouge sur les bords** (effet « RPG » rejeté, [`../design/DIRECTION_ARTISTIQUE.md`](../design/DIRECTION_ARTISTIQUE.md)
   §3) : à terre et en ATA, la vignette rouge est remplacée par un léger assombrissement.
-- État au **nom RP** (plaque de nom, `nameplate/Nameplates`) : nom teinté et petit glyphe accolé — 痛 douleur, 倒 à
+- État au **nom RP** (nametag, `nametag/Nametags`) : nom teinté et petit glyphe accolé — 痛 douleur, 倒 à
   terre, 気絶 inconscient, 屍 mort ; plus d'étiquette séparée (l'ancienne `EtatTete` est supprimée).
 - Le HUD du KO évite le chat et les jauges. Les titres vanilla ne s'affichent que pour un client sans mod.
 - Canaux `reborn:ko` (état) et `reborn:ko_event` (cartes). Code : `ko/KoHudSync.java`, mod `ko/KoHud.java`.

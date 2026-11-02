@@ -59,6 +59,17 @@ public final class OstTrackMeta {
         return (e != null && e.title != null && !e.title.isBlank()) ? e.title : fallback;
     }
 
+    /**
+     * Titre du lecteur en haut à droite (lot 2, décision du 01/11) : le titre du tableau s'il en a un, sinon le nom de
+     * la catégorie (« Mystère », « Combat »…), <b>jamais le nom de fichier</b> (des fichiers portent des noms d'OST
+     * de l'anime). Au 01/11, {@code tracks.json} ne liste que les 43 pistes de l'ancien seed, toutes sans titre : c'est
+     * donc toujours la catégorie qui s'affiche.
+     */
+    public static String titreHud(OstTrack track) {
+        Entry e = META.get(track.trackId());
+        return (e != null && e.title != null && !e.title.isBlank()) ? e.title : track.category().displayName();
+    }
+
     /** Durée en secondes (0 = inconnue → on n'affiche rien). */
     public static int duration(String trackId) {
         Entry e = META.get(trackId);

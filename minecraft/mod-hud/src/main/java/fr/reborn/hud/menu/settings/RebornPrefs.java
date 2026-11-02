@@ -2,6 +2,7 @@ package fr.reborn.hud.menu.settings;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.annotations.SerializedName;
 import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,8 +83,12 @@ public final class RebornPrefs {
     // ────────────────── Tablist ──────
     /** true = maintenir Tab (overlay lecture seule) ; false = presser pour ouvrir l'écran interactif. */
     public boolean tablistHold = false;
-    /** Style de la plaque de nom au-dessus des têtes : 0 détouré, 1 filet doré, 2 emblème du village, 3 ruban laqué. */
-    public int nameplateStyle = 0;
+    /**
+     * Style du nametag au-dessus des têtes : 0 détouré, 1 filet doré, 2 emblème du village, 3 ruban laqué. Clé JSON
+     * {@code nameplateStyle} gardée (fichiers reborn_prefs.json déjà écrits).
+     */
+    @SerializedName("nameplateStyle")
+    public int nametagStyle = 0;
 
     // ────────────────── Inventaire ──────
     /** true = la touche E ouvre la SACOCHE RP (si ShinobiCore présent) ; false = inventaire
@@ -96,6 +101,10 @@ public final class RebornPrefs {
     // ────────────────── Radio ──────
     /** Élément HUD « Escouade » : toute l'escouade (ceux qui se taisent en retrait) au lieu de ceux qui parlent seulement. */
     public boolean radioToutEscouade = false;
+
+    // ────────────────── Musique (OST) ──────
+    /** Élément HUD « Musique » : le lecteur s'efface après ses 10 s pleines (fondu de 800 ms) au lieu de rester à 70 %. */
+    public boolean ostMasquerApres10s = false;
 
     // ────────────────── Touches ──────
     /** Carte des touches déjà migrée ({@code keybind/TouchesMigration.VERSION}) : 0 = jamais (anciens défauts). */
@@ -189,10 +198,11 @@ public final class RebornPrefs {
         this.camVanilla = other.camVanilla;
         this.walkStyle = other.walkStyle;
         this.tablistHold = other.tablistHold;
-        this.nameplateStyle = other.nameplateStyle;
+        this.nametagStyle = other.nametagStyle;
         this.sacocheInventory = other.sacocheInventory;
         this.aurasSol = other.aurasSol;
         this.radioToutEscouade = other.radioToutEscouade;
+        this.ostMasquerApres10s = other.ostMasquerApres10s;
         this.touchesVersion = other.touchesVersion;
         this.touchesPv = other.touchesPv;
         this.fpsVersion = other.fpsVersion;
