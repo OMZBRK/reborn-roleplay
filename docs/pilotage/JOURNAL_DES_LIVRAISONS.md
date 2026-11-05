@@ -12,6 +12,7 @@
 
 | Version | Manifest | Date | Contenu | Commit(s) |
 |---|---|---|---|---|
+| 0.4.198 | 3.1.156 | 05/11 | Vitals compacts hors combat, bloc complet en combat (replié après 8 s), filet rouge sous 25 %, préférence « Vitals toujours détaillés » ; retours du lot 3 : Stream qui défile, vraie identité (plus la fiche de démo), « Serveur x.y.z », lien direct vers les options de Minecraft | `b186f8a`, `a169fac` |
 | 0.4.196 | 3.1.155 | 05/11 | Game Plan n° 17 lot 3 « Échap et touches » : Échap e5 (colonne de Ketto, cartes à la Zenkai, Boutique en vitrine, Récompenses, Stream / Dev blog / Discord), Paramètres au format de Ketto (5 onglets, sous-liste, Réinitialiser la section, Taille des menus Reborn, options Minecraft redirigées), Concentration Y, Couper le micro I, touches Plasmo fusionnées, migration 4, écran des touches avec conflits, rappels déplaçables, macrons dans ArcadePix | `b8526ed` |
 | 0.4.194 | 3.1.152 | 01/11 | Game Plan n° 17 lot 1 : nom au regard, bulle et /me sans fond ancrés sur la tête, portées de la voix sur H, outils staff voix | `2fd727a` |
 | 0.4.184 | 3.1.141 | 16/10 | Volet Faction sur J (sections, grades de section, caisse et taxe, tenue prêtée, invitations R et volet, annonces, tag dans la tablist, outil Factions au F7), cloche d'annonces (bande en haut de l'écran), volières et missives par corbeau | `a0c79ed` |
