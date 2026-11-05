@@ -92,12 +92,26 @@ public final class KeybindButton extends Button {
         boolean hovered = isHovered();
 
         // Touche laquée des Paramètres (plaque segmentée) : rouge en écoute, éclaircie au survol.
-        fr.reborn.hud.menu.settings.ReglagesArt.segment(ctx, x0 + 1, y0 + (h - 16) / 2, w - 3, live ? 2 : hovered ? 1 : 0);
-        String key = mapping.getTranslatedKeyMessage().getString();
+        // Lot 3 (planche t2) : plaque à la largeur du nom de la touche, calée à droite de la zone cliquable ; une touche
+        // partagée avec une autre action (TouchesConflits) garde la plaque sombre, cerclée et lettrée de vermillon (t2-b2).
+        boolean conflit = !live && fr.reborn.hud.keybind.TouchesConflits.enConflit(mapping);
+        String key = mapping.isUnbound() ? "—" : mapping.getTranslatedKeyMessage().getString();
         String label = live ? "› " + key + " ‹" : key;
-        int color = live || hovered ? fr.reborn.hud.ui.DaKit.CREME : fr.reborn.hud.ui.DaKit.OR_CLAIR;
-        fr.reborn.hud.ui.DaKit.inter9(ctx, tr, fr.reborn.hud.ui.DaKit.inter(fr.reborn.hud.ui.DaKit.ellipse(tr, label, w - 10)),
-            x0 + w / 2f - 1, y0 + h / 2f, color, 1);
+        Component texte = fr.reborn.hud.ui.DaKit.inter(fr.reborn.hud.ui.DaKit.ellipse(tr, label, w - 10));
+        int pw = Math.min(w, Math.max(24, tr.width(texte) + 14));
+        int xp = x0 + w - pw, py = y0 + (h - 16) / 2;
+        fr.reborn.hud.menu.settings.ReglagesArt.segment(ctx, xp + 1, py, pw - 3, live ? 2 : hovered ? 1 : 0);
+        if (conflit) {
+            // filet vermillon d'1 px autour de la plaque sombre
+            int r = fr.reborn.hud.ui.DaKit.ROUGE_CLAIR, xa = xp + 1, xb = xp + pw - 2;
+            ctx.fill(xa, py, xb, py + 1, r);
+            ctx.fill(xa, py + 15, xb, py + 16, r);
+            ctx.fill(xa, py + 1, xa + 1, py + 15, r);
+            ctx.fill(xb - 1, py + 1, xb, py + 15, r);
+        }
+        int color = conflit ? fr.reborn.hud.ui.DaKit.ROUGE_CLAIR
+            : live || hovered ? fr.reborn.hud.ui.DaKit.CREME : fr.reborn.hud.ui.DaKit.OR_CLAIR;
+        fr.reborn.hud.ui.DaKit.inter9(ctx, tr, texte, xp + pw / 2f - 1, y0 + h / 2f, color, 1);
     }
 
     @Override

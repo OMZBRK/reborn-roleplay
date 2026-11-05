@@ -30,6 +30,20 @@ public class SliderWidget extends AbstractWidget {
     private final IntConsumer onChange;
     private boolean dragging = false;
 
+    /** Curseur tenu à la souris (un seul à la fois) : les Paramètres attendent le relâché pour écrire ({@link Enregistrement}). */
+    private static SliderWidget enGlisse;
+
+    /** Un curseur est-il tenu à la souris ? (rafraîchissement de page et écritures sur disque attendent le relâché) */
+    public static boolean glisse() {
+        return enGlisse != null;
+    }
+
+    /** Fin de glissé forcée (relâché hors du curseur, fermeture de l'écran) : écrit ce qui attend. */
+    public static void finGlisse() {
+        enGlisse = null;
+        Enregistrement.vider();
+    }
+
     public SliderWidget(int x, int y, int width, int height,
                         int initialValue, int min, int max, String suffix,
                         IntConsumer onChange) {
@@ -75,6 +89,7 @@ public class SliderWidget extends AbstractWidget {
     public void onClick(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
         double mouseX = event.x(), mouseY = event.y();
         dragging = true;
+        enGlisse = this;
         applyMouseValue(mouseX);
     }
 
@@ -88,6 +103,7 @@ public class SliderWidget extends AbstractWidget {
     public void onRelease(net.minecraft.client.input.MouseButtonEvent event) {
         double mouseX = event.x(), mouseY = event.y();
         dragging = false;
+        if (enGlisse == this) finGlisse();
     }
 
     private void applyMouseValue(double mouseX) {

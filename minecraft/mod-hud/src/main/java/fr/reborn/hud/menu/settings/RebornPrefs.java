@@ -20,8 +20,8 @@ import java.nio.file.Path;
  * options.txt sera nécessaire (PR ultérieure), on ajoute un sync
  * dans {@link #save()}.
  *
- * <p>Le lien "Options avancées Minecraft" du VideoTab ouvre l'écran
- * options vanilla pour les vraies prefs gameplay (FPS, VSync, etc.).
+ * <p>Les réglages de Minecraft (FPS, VSync, etc.) restent dans {@code options.txt} : Paramètres › Graphismes les
+ * écrit directement ; « Compte › Avancé » ouvre les écrans d'options d'origine.
  *
  * <p>Singleton chargé une fois au boot du title screen.
  */
@@ -111,6 +111,23 @@ public final class RebornPrefs {
     public int touchesVersion = 0;
     /** Raccourci « couper le micro » de Plasmo Voice (M, conflit avec la carte) déjà migré. */
     public boolean touchesPv = false;
+    /** Raccourcis de Plasmo Voice fusionnés avec les touches Reborn (lot 3, {@code voice/PlasmoTouches}) : 0 = jamais. */
+    public int touchesPvVersion = 0;
+
+    // ────────────────── Menus Reborn (lot 3) ──────
+    /**
+     * « Taille des menus Reborn » (Paramètres › Graphismes › Affichage) : false = Automatique (hauteur logique visée
+     * 540, la règle du 10/10), true = Petite (hauteur visée 720 : échelle 2 au lieu de 3 en 1440p, 3 au lieu de 4 en
+     * 4K, identique en 1080p). Lu par {@code ui/MenuScale#cibleH}.
+     */
+    public boolean menusPetits = false;
+
+    // ────────────────── Rappels de touches (lot 3) ──────
+    /** Paramètres › Interface › Rappels de touches › « Avec des notifications » : false = rappels masqués tant
+     *  qu'une notification est affichée (lu par {@code keybind/RappelsTouches}). */
+    public boolean rappelsAvecNotifs = true;
+    /** « Portée de la voix » : la ligne « Voix : chuchotée » 2,5 s après un appui sur H (lu par RappelsTouches). */
+    public boolean rappelsPortee = true;
 
     // ────────────────── Images par seconde ──────
     /** Réglages d'images par seconde déjà migrés ({@code runtime/FpsDefauts.VERSION}) : 0 = jamais. */
@@ -205,6 +222,10 @@ public final class RebornPrefs {
         this.ostMasquerApres10s = other.ostMasquerApres10s;
         this.touchesVersion = other.touchesVersion;
         this.touchesPv = other.touchesPv;
+        this.touchesPvVersion = other.touchesPvVersion;
         this.fpsVersion = other.fpsVersion;
+        this.menusPetits = other.menusPetits;
+        this.rappelsAvecNotifs = other.rappelsAvecNotifs;
+        this.rappelsPortee = other.rappelsPortee;
     }
 }

@@ -79,6 +79,10 @@ public final class HudEditSidePanel {
     private int y0, height;
     private HudElement selectedElement = HudElement.CHAT;
     private boolean collapsed = false;
+    /** Panneau posé au bord gauche (lot 3, maquette t2-c) : l'élément choisi est à droite, le panneau ne doit pas le
+     *  cacher ; {@link HudEditScreen} décide du côté. */
+    private boolean aGauche = false;
+    private int ecranL;
 
     private final List<HitTarget> hitTargets = new ArrayList<>();
     private final java.util.Map<String, int[]> presetRects = new java.util.HashMap<>();
@@ -125,8 +129,31 @@ public final class HudEditSidePanel {
         onToggleCollapse.run();
     }
 
-    /** Bord gauche de la zone occupée (limite du canvas) — languette si replié. */
+    /** Bord gauche de la zone occupée — languette si repliée. */
     public int leftEdge() { return collapsed ? tabX : x0; }
+
+    /** Panneau au bord gauche de l'écran (sinon au bord droit). */
+    public boolean aGauche() { return aGauche; }
+
+    /** Change de bord (l'appelant relance {@link #layout} et replace ses champs de saisie). */
+    public void setAGauche(boolean gauche) { this.aGauche = gauche; }
+
+    /** Bord gauche du canvas (0, ou le bord droit du panneau posé à gauche, marge comprise). */
+    public int canvasGauche() {
+        if (!aGauche) return 0;
+        return (collapsed ? tabX + TAB_W : x0 + WIDTH) + MARGIN;
+    }
+
+    /** Bord droit du canvas (exclu). */
+    public int canvasDroite() { return aGauche ? ecranL : leftEdge(); }
+
+    /** x dans la zone du panneau (carte ou languette, marge de l'écran comprise). */
+    public boolean occupe(double x) { return x < canvasGauche() || x >= canvasDroite(); }
+
+    /** La bande horizontale [gauche, droite) passe sous le panneau. */
+    public boolean chevauche(int gauche, int droite) {
+        return aGauche ? gauche < canvasGauche() : droite > canvasDroite();
+    }
 
     /**
      * Recalcule TOUTE la géométrie, y compris repliée : les {@code EditBox} de
@@ -135,8 +162,9 @@ public final class HudEditSidePanel {
      * est replié doit quand même mettre les rects à jour.
      */
     public void layout(int screenWidth, int screenHeight) {
-        this.x0 = screenWidth - WIDTH - MARGIN;
-        this.tabX = screenWidth - TAB_W - MARGIN;
+        this.ecranL = screenWidth;
+        this.x0 = aGauche ? MARGIN : screenWidth - WIDTH - MARGIN;
+        this.tabX = aGauche ? MARGIN : screenWidth - TAB_W - MARGIN;
         this.y0 = MARGIN;
         this.height = screenHeight - MARGIN * 2;
         this.footerTop = y0 + height - FOOTER_H;
@@ -280,12 +308,12 @@ public final class HudEditSidePanel {
         renderFooter(ctx, mouseX, mouseY);
     }
 
-    /** Languette repliée : planche étroite, chevron « ‹ » d'ouverture au milieu. */
+    /** Languette repliée : planche étroite, chevron d'ouverture au milieu (« ‹ » à droite, « › » posée à gauche). */
     private void renderCollapsedTab(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
         boolean hov = inside(mouseX, mouseY, tabX, y0, TAB_W, height);
         DaKit.coupe(ctx, EditeurArt.LANGUETTE, tabX - 2, y0 - 2, TAB_W + 8, height + 8, 0, 0, 22, 532, 6, 18, 22, 532);
-        DaKit.blit(ctx, EditeurArt.PIECES, tabX + (TAB_W - 5) / 2, y0 + height / 2 - 4, 34, 0, 5, 9, 160, 64,
-            DaKit.blanc(hov ? 1f : 0.7f));
+        DaKit.blit(ctx, EditeurArt.PIECES, tabX + (TAB_W - 5) / 2, y0 + height / 2 - 4, aGauche ? 28 : 34, 0, 5, 9,
+            160, 64, DaKit.blanc(hov ? 1f : 0.7f));
         hitTargets.add(new HitTarget(tabX, y0, TAB_W, height, this::toggleCollapsed));
     }
 
@@ -303,11 +331,11 @@ public final class HudEditSidePanel {
             hov ? DaKit.ROUGE_CLAIR : DaKit.DOUX);
         hitTargets.add(new HitTarget(cx, cy, CLOSE_SZ, CLOSE_SZ, onClose));
 
-        // Repli du panneau (chevron ›) — à gauche du ✕.
+        // Repli du panneau (chevron › vers le bord, ‹ quand il est posé à gauche) — à gauche du ✕.
         int vx = cx - CLOSE_SZ - 2;
         boolean vHov = inside(mouseX, mouseY, vx, cy, CLOSE_SZ, CLOSE_SZ);
-        DaKit.blit(ctx, EditeurArt.PIECES, vx + (CLOSE_SZ - 5) / 2, cy + (CLOSE_SZ - 9) / 2, 28, 0, 5, 9, 160, 64,
-            DaKit.blanc(vHov ? 1f : 0.65f));
+        DaKit.blit(ctx, EditeurArt.PIECES, vx + (CLOSE_SZ - 5) / 2, cy + (CLOSE_SZ - 9) / 2, aGauche ? 34 : 28, 0, 5, 9,
+            160, 64, DaKit.blanc(vHov ? 1f : 0.65f));
         hitTargets.add(new HitTarget(vx, cy, CLOSE_SZ, CLOSE_SZ, this::toggleCollapsed));
 
         // Petit engrenage « réglages chat » à gauche du repli.

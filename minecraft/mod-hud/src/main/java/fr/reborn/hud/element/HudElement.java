@@ -46,9 +46,10 @@ public enum HudElement {
     // Lot 2, étape 2b (01/11) : colonne bas-droite, une seule échelle (kHud) — qui parle en haut (voix de proximité,
     // noms dans la police du récit, vumètre) et les rappels de touches en bas (« Portée de la voix [H] » permanent,
     // lignes du moment au-dessus), les notifications entre les deux ; tracés en pixels écran par voice/QuiParleHud et
-    // keybind/RappelsTouches.
+    // keybind/RappelsTouches. Lot 3 (05/11) : plus de base permanente, Concentration seule en temps normal, le reste en
+    // concentration, en combat ou pendant une action ; toujours en bas à droite par défaut.
     QUI_PARLE     ("qui_parle",       "Qui parle",    "Noms de ceux qui parlent autour de toi (voix de proximité)", HudAnchor.BOTTOM_RIGHT, 0, 0, 1.00f),
-    RAPPELS       ("rappels",         "Rappels de touches", "Portée de la voix [H] et les touches utiles du moment", HudAnchor.BOTTOM_RIGHT, 0, 0, 1.00f);
+    RAPPELS       ("rappels",         "Rappels de touches", "Concentration, puis les touches du moment (concentration, combat, action)", HudAnchor.BOTTOM_RIGHT, 0, 0, 1.00f);
 
     private final String id;
     private final String displayName;

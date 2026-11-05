@@ -1,13 +1,9 @@
 package fr.reborn.hud.voice;
 
-import com.mojang.blaze3d.platform.InputConstants;
-import fr.reborn.hud.keybind.HudKeybinds;
 import fr.reborn.hud.radio.RadioClient;
-import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import su.plo.voice.api.client.PlasmoVoiceClient;
 import su.plo.voice.api.client.audio.capture.ClientActivation;
 import su.plo.voice.api.client.audio.source.ClientAudioSource;
-import su.plo.voice.api.client.config.hotkey.Hotkey;
 import su.plo.voice.api.client.event.audio.capture.ClientActivationRegisteredEvent;
 import su.plo.voice.api.client.event.audio.source.AudioSourceWriteEvent;
 import su.plo.voice.api.client.event.render.HudActivationRenderEvent;
@@ -16,7 +12,6 @@ import su.plo.voice.proto.data.audio.source.SourceInfo;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -30,9 +25,9 @@ import java.util.concurrent.ConcurrentHashMap;
  *       {@link RadioClient} à la réception de {@code parle} / {@code tait}.</li>
  *   <li><b>Icône d'activation masquée</b> pour la radio ({@link HudActivationRenderEvent}) : l'élément « Escouade » du
  *       HUD suffit.</li>
- *   <li><b>Touche</b> : l'activation « radio » envoyée par le serveur est forcée en push-to-talk et reçoit la touche
- *       Reborn « Parler à la radio » (B par défaut, réglable dans les contrôles Reborn) ; resynchronisée si le joueur
- *       la change.</li>
+ *   <li><b>Touche</b> : l'activation « radio » envoyée par le serveur est forcée en push-to-talk ; sa touche est celle
+ *       de « Parler à la radio » (B par défaut), recopiée dans les deux sens par {@link PlasmoTouches} (lot 3 : la
+ *       recopie à sens unique d'ici et la migration du « couper le micro » sur M y sont reprises).</li>
  * </ul>
  */
 public final class RadioVoix {
@@ -42,7 +37,6 @@ public final class RadioVoix {
     private final PlasmoVoiceClient client;
     private final Map<UUID, Filtre> filtres = new ConcurrentHashMap<>();
     private volatile UUID ligneRadio;
-    private InputConstants.Key derniereTouche;
 
     RadioVoix(PlasmoVoiceClient client) {
         this.client = client;
@@ -52,60 +46,12 @@ public final class RadioVoix {
 
     @EventSubscribe
     public void onActivationRegistered(ClientActivationRegisteredEvent event) {
-        if (NOM.equals(event.getActivation().getName())) {
-            derniereTouche = null;
-            regler(event.getActivation());
-        }
+        if (NOM.equals(event.getActivation().getName())) regler(event.getActivation());
     }
 
     @EventSubscribe
     public void onHudActivation(HudActivationRenderEvent event) {
         if (NOM.equals(event.getActivation().getName())) event.setRender(false);
-    }
-
-    /** Thread client, chaque tick : resynchronise la touche si le joueur l'a changée dans les contrôles Reborn. */
-    void tick() {
-        if (HudKeybinds.RADIO_PARLER == null) return;
-        migrerMuet();
-        InputConstants.Key k = KeyMappingHelper.getBoundKeyOf(HudKeybinds.RADIO_PARLER);
-        if (k.equals(derniereTouche)) return;
-        client.getActivationManager().getActivationByName(NOM).ifPresent(this::regler);
-    }
-
-    /**
-     * Migration des touches du 15/10 (une fois, drapeau {@code RebornPrefs.touchesPv}) : le raccourci « couper le
-     * micro » de Plasmo Voice est sur M par défaut, comme la carte Reborn ; s'il y est encore (jamais changé) et que la
-     * carte est bien sur M, on le laisse sans touche (le micro se coupe toujours depuis le menu Plasmo Voice, touche V).
-     * Un raccourci personnalisé n'est pas touché.
-     */
-    private void migrerMuet() {
-        var prefs = fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE;
-        if (prefs.touchesPv || HudKeybinds.MAP == null) return;
-        try {
-            var hk = client.getHotkeys().getHotkey("key.plasmovoice.general.mute_microphone");
-            if (hk.isEmpty()) return;                                   // Plasmo Voice pas encore prêt : on réessaie
-            Set<Hotkey.Key> keys = hk.get().getKeys();
-            InputConstants.Key carte = KeyMappingHelper.getBoundKeyOf(HudKeybinds.MAP);
-            boolean surM = keys.size() == 1 && keys.contains(Hotkey.Type.KEYSYM.getOrCreate(org.lwjgl.glfw.GLFW.GLFW_KEY_M));
-            if (surM && carte.getType() == InputConstants.Type.KEYSYM && carte.getValue() == org.lwjgl.glfw.GLFW.GLFW_KEY_M) {
-                hk.get().setKeys(Set.of());
-                sauverConfig();
-                org.slf4j.LoggerFactory.getLogger("reborn-hud/touches")
-                    .info("Plasmo Voice : « couper le micro » M -> aucune (M = carte)");
-            }
-        } catch (RuntimeException e) {
-            return;
-        }
-        prefs.touchesPv = true;
-        prefs.save();
-    }
-
-    /** Écrit la config de Plasmo Voice ({@code VoiceClientConfig.save(boolean)}, hors API : par réflexion). */
-    private void sauverConfig() {
-        try {
-            Object cfg = client.getConfig();
-            cfg.getClass().getMethod("save", boolean.class).invoke(cfg, true);
-        } catch (ReflectiveOperationException | RuntimeException ignored) { }
     }
 
     /** Activation radio active (j'émets) ? */
@@ -117,19 +63,9 @@ public final class RadioVoix {
         }
     }
 
+    /** L'activation est forcée en push-to-talk ; sa touche est recopiée par {@link PlasmoTouches} (lien radio). */
     private void regler(ClientActivation a) {
-        if (HudKeybinds.RADIO_PARLER == null) return;
         forcerPushToTalk(a);
-        InputConstants.Key k = KeyMappingHelper.getBoundKeyOf(HudKeybinds.RADIO_PARLER);
-        derniereTouche = k;
-        Hotkey.Type type = switch (k.getType()) {
-            case MOUSE -> Hotkey.Type.MOUSE;
-            case SCANCODE -> Hotkey.Type.SCANCODE;
-            default -> Hotkey.Type.KEYSYM;
-        };
-        try {
-            a.getPttKey().setKeys(k.getValue() < 0 ? Set.of() : Set.of(type.getOrCreate(k.getValue())));
-        } catch (RuntimeException ignored) { }
     }
 
     /**
@@ -186,7 +122,6 @@ public final class RadioVoix {
     void reinitialiser() {
         ligneRadio = null;
         filtres.clear();
-        derniereTouche = null;
     }
 
     /**

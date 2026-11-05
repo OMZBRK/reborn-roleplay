@@ -39,8 +39,10 @@ import java.util.Set;
  *       scrollable des éléments (œil + nom), inspecteur de l'élément sélectionné
  *       (X / Y / taille au clavier), presets nommables, Tout réinitialiser /
  *       Appliquer. Replié, il ne laisse qu'une languette et le canvas récupère
- *       toute la largeur.</li>
- *   <li><b>Canvas</b> (à gauche du panneau) : boîtes fines draggables (déplacer),
+ *       toute la largeur. <b>Lot 3</b> (maquette t2-c) : quand l'élément choisi est à droite (il passerait sous la
+ *       carte), le panneau passe au bord gauche et se replie en languette « › » ; il revient à droite (déplié s'il
+ *       s'était replié tout seul) quand on choisit un élément ailleurs ({@link #ajusterCote()}).</li>
+ *   <li><b>Canvas</b> (à côté du panneau) : boîtes fines draggables (déplacer),
  *       molette = échelle, poignée BR = resize. Plus de grille de points ni de
  *       chrome — juste un voile sombre subtil.</li>
  * </ul>
@@ -94,10 +96,26 @@ public class HudEditScreen extends Screen {
         return new int[]{r[0] + r[2] / 2, r[1] + r[3] / 2};
     }
 
+    /** Le panneau s'est replié tout seul en passant à gauche : il se rouvre en revenant à droite. */
+    private boolean autoReplie = false;
+
     public HudEditScreen(Screen parent) {
+        this(parent, HudElement.CHAT);
+    }
+
+    /**
+     * Éditeur ouvert sur un élément déjà choisi (lot 3 : Paramètres › Interface › Rappels de touches › « Déplacer »
+     * ouvre l'éditeur sur {@link HudElement#RAPPELS}, voir {@code RappelsTouches#ouvrirEditeur}).
+     */
+    public HudEditScreen(Screen parent, HudElement focus) {
         super(Component.translatable("reborn-hud.screen.title"));
         this.parent = parent;
         this.config = RebornHudClient.config();
+        if (focus != null) {
+            this.selectedElement = focus;
+            this.selectedElements.clear();
+            this.selectedElements.add(focus);
+        }
         this.sidePanel = new HudEditSidePanel(config, Minecraft.getInstance().font);
         this.sidePanel.setSelectedElement(this.selectedElement);
         this.sidePanel.onClose = this::onClose;
@@ -112,9 +130,56 @@ public class HudEditScreen extends Screen {
             new fr.reborn.hud.crosshair.CrosshairScreen(this));
         this.sidePanel.onResetSelected = this::resetSelectedElement;
         this.sidePanel.onToggleCollapse = () -> {
+            autoReplie = false;   // le joueur a choisi lui-même (ajusterCote le remet à vrai après son propre repli)
             sidePanel.layout(this.width, this.height);
             updateWidgetVisibility();
         };
+    }
+
+    /**
+     * Côté du panneau selon l'élément choisi (lot 3, maquette t2-c) : un élément qui passerait sous la carte posée à
+     * droite (rappels, qui parle, musique, scoreboard…) l'envoie au bord gauche, repliée en languette « › » ; un
+     * élément ailleurs la ramène à droite, dépliée si elle s'était repliée toute seule. Appelé à l'ouverture, au choix
+     * d'un élément et à la fin d'un glissé, jamais pendant (la carte ne saute pas sous la souris). Ne change rien tant
+     * que le côté ne change pas : une carte rouverte à gauche par le joueur y reste ouverte.
+     */
+    private void ajusterCote() {
+        if (selectedElement == null || this.width <= 0) return;
+        HudElementBounds b = HudElementBounds.currentFor(selectedElement, config.stateOf(selectedElement),
+            this.width, this.height);
+        int bordCarte = this.width - HudEditSidePanel.WIDTH - HudEditSidePanel.MARGIN * 2;
+        // à droite : l'élément passerait sous la carte, et il n'occupe pas déjà tout le bord gauche
+        boolean gauche = b.right() > bordCarte && b.x() > HudEditSidePanel.WIDTH + HudEditSidePanel.MARGIN * 2;
+        if (gauche == sidePanel.aGauche()) return;
+        sidePanel.setAGauche(gauche);
+        if (gauche) {
+            if (!sidePanel.isCollapsed()) {
+                sidePanel.toggleCollapsed();
+                autoReplie = true;
+            }
+        } else if (autoReplie) {
+            if (sidePanel.isCollapsed()) sidePanel.toggleCollapsed();
+            autoReplie = false;
+        }
+        sidePanel.layout(this.width, this.height);
+        replacerChamps();
+        updateWidgetVisibility();
+    }
+
+    /** Recale les champs de saisie sur les rects du panneau (après un changement de côté). */
+    private void replacerChamps() {
+        if (presetNameField != null) {
+            int[] r = sidePanel.presetInputRect();
+            presetNameField.setX(r[0]);
+            presetNameField.setY(r[1]);
+        }
+        int[][] fr = sidePanel.inspectorFieldRects();
+        EditBox[] champs = {fieldX, fieldY, fieldScale};
+        for (int i = 0; i < champs.length; i++) {
+            if (champs[i] == null) continue;
+            champs[i].setX(fr[i][0]);
+            champs[i].setY(fr[i][1]);
+        }
     }
 
     @Override
@@ -137,6 +202,7 @@ public class HudEditScreen extends Screen {
 
         syncInspectorFields();
         updateWidgetVisibility();
+        ajusterCote();
     }
 
     /** Champ de saisie entier (signe autorisé), appliqué à chaque frappe valide. */
@@ -244,6 +310,7 @@ public class HudEditScreen extends Screen {
         config.setState(selectedElement, selectedElement.defaultState());
         config.save();
         showToast(selectedElement.displayName() + " réinitialisé");
+        ajusterCote();
     }
 
     @Override
@@ -253,13 +320,15 @@ public class HudEditScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        int editRight = sidePanel.leftEdge();
+        int editLeft = sidePanel.canvasGauche(), editRight = sidePanel.canvasDroite();
 
         // 1) Voile sombre subtil + lignes de cordeau très légères (repère d'alignement) : un seul élément GUI.
         LotGui grille = LotGui.ouvrir(ctx);
-        grille.fill(0, 0, editRight, this.height, 0x40000000);
-        for (int gx = 24; gx < editRight; gx += 24) grille.fill(gx, 0, gx + 1, this.height, gx % 120 == 0 ? 0x22F2D08A : 0x10FFF0D2);
-        for (int gy = 24; gy < this.height; gy += 24) grille.fill(0, gy, editRight, gy + 1, gy % 120 == 0 ? 0x22F2D08A : 0x10FFF0D2);
+        grille.fill(editLeft, 0, editRight, this.height, 0x40000000);
+        for (int gx = 24; gx < editRight; gx += 24) {
+            if (gx >= editLeft) grille.fill(gx, 0, gx + 1, this.height, gx % 120 == 0 ? 0x22F2D08A : 0x10FFF0D2);
+        }
+        for (int gy = 24; gy < this.height; gy += 24) grille.fill(editLeft, gy, editRight, gy + 1, gy % 120 == 0 ? 0x22F2D08A : 0x10FFF0D2);
         grille.fermer();
 
         // 1bis) Élément « Escouade » (radio) : des têtes d'exemple pour voir la taille (il est vide en silence).
@@ -282,8 +351,8 @@ public class HudEditScreen extends Screen {
         // 1quater) Lecteur OST (lot 2) : le bloc à 100 % sur « Mystère », à sa place en pixels écran.
         HudElementState ost = config.stateOf(HudElement.OST);
         if (ost.visible()) fr.reborn.hud.ost.OstHud.apercu(ctx, ost);
-        // 1quinquies) Colonne bas-droite (lot 2) : qui parle (trois lignes, soi en bas) et rappels de touches (portée de
-        // la voix, arrêter l'animation), vides la plupart du temps comme Escouade.
+        // 1quinquies) Colonne bas-droite (lot 2) : qui parle (trois lignes, soi en bas) et rappels de touches (lot 3 : le
+        // gabarit le plus grand, six lignes de la concentration), vides la plupart du temps comme Escouade.
         HudElementState qui = config.stateOf(HudElement.QUI_PARLE);
         if (qui.visible()) fr.reborn.hud.voice.QuiParleHud.apercu(ctx, qui);
         HudElementState rap = config.stateOf(HudElement.RAPPELS);
@@ -315,7 +384,7 @@ public class HudEditScreen extends Screen {
         HudElement onTop = draggedElement != null ? draggedElement : selectedElement;
         if (onTop != null) {
             HudElementBounds ob = HudElementBounds.currentFor(onTop, config.stateOf(onTop), this.width, this.height);
-            if (ob.right() > sidePanel.leftEdge()) {
+            if (sidePanel.chevauche(ob.x(), ob.right())) {
                 renderHudBox(ctx, onTop, false, true, draggedElement == onTop, mouseX, mouseY);
             }
         }
@@ -466,7 +535,7 @@ public class HudEditScreen extends Screen {
     }
 
     private HudElement elementUnderMouse(int mouseX, int mouseY) {
-        if (mouseX >= sidePanel.leftEdge()) return null; // zone panneau
+        if (sidePanel.occupe(mouseX)) return null; // zone panneau
         if (draggedElement != null) return draggedElement;
         HudElement[] values = HudElement.EDITABLE;
         for (int i = values.length - 1; i >= 0; i--) {
@@ -486,7 +555,7 @@ public class HudEditScreen extends Screen {
         if (selectedElement == null) return false;
         HudElementBounds b = HudElementBounds.currentFor(
             selectedElement, config.stateOf(selectedElement), this.width, this.height);
-        if (b.right() <= sidePanel.leftEdge()) return false; // pas sous le panneau
+        if (!sidePanel.chevauche(b.x(), b.right())) return false; // pas sous le panneau
         // Poignée d'abord : elle est dessinée sur le coin, donc souvent pile sous
         // le panneau pour un élément ancré à droite.
         if (onResizeHandle(selectedElement, mouseX, mouseY)) {
@@ -508,7 +577,7 @@ public class HudEditScreen extends Screen {
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
         double mouseX = event.x(), mouseY = event.y();
         int button = event.button();
-        boolean inPanel = mouseX >= sidePanel.leftEdge();
+        boolean inPanel = sidePanel.occupe(mouseX);
 
         // Panneau : clic droit = suppr preset, clic gauche = hit targets.
         if (inPanel) {
@@ -634,6 +703,7 @@ public class HudEditScreen extends Screen {
             draggedElement = null;
             draggingResize = false;
             activeGuides = List.of();
+            ajusterCote();
             return true;
         }
         return super.mouseReleased(event);
@@ -778,6 +848,7 @@ public class HudEditScreen extends Screen {
         // Sinon la frappe en cours s'appliquerait au NOUVEL élément sélectionné.
         clearFieldFocus();
         syncInspectorFields();
+        ajusterCote();
     }
 
     private void savePresetFromField() {
@@ -849,7 +920,7 @@ public class HudEditScreen extends Screen {
         int alpha = (int) (opacity * 255);
         var c = DaKit.inter(toastText);
         int pillW = (int) Math.ceil(DaKit.largeur8(this.font, c)) + 20, pillH = 16;
-        int pillX = (sidePanel.leftEdge() - pillW) / 2;
+        int pillX = (sidePanel.canvasGauche() + sidePanel.canvasDroite() - pillW) / 2;
         int pillY = this.height - 40;
         if (alpha > 8) plaque(ctx, pillX, pillY, pillW, pillH, DaKit.alpha(0xF00E0A0C, opacity));
         DaKit.inter8(ctx, this.font, c, pillX + pillW / 2f, pillY + pillH / 2f, DaKit.alpha(DaKit.CREME, opacity), 1);

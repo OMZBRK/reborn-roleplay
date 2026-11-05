@@ -29,7 +29,10 @@ import java.util.function.Consumer;
  * (écran de l'escouade) puis B maintenu (pas d'écran), F5 (1ʳᵉ personne puis épaule), triple appui sur le sprint
  * (course de chakra, puis arrêt au relâchement), P puis G (galerie depuis le mode photo), Échap → INTERFACE (éditeur
  * de HUD → « Personnaliser le viseur ») et carte Personnage, N (menu OST si mod-ost est là), « . » (émotes,
- * démarches), Réglages → Contrôles et Caméra. Écrit « [touches] OK … » / « ECHEC … » dans le journal et
+ * démarches), Paramètres › Commandes (chaque sous-catégorie, puis un conflit Concentration / Contextuel) et Caméra.
+ * Lot 3 : migration 4 sur des claviers simulés (AZERTY, QWERTY, QWERTZ, client neuf et déjà migré : Concentration Y,
+ * micro I, échange QWERTZ avec Dégainer), touches cachées déliées, aucun conflit hors F3, et liens avec Plasmo Voice
+ * (« couper le micro » plus sur US M). Écrit « [touches] OK … » / « ECHEC … » dans le journal et
  * {@code run/touches_banc.txt} (avec la carte réelle des touches et les conflits restants), captures
  * {@code run/screenshots/touches_*.png}, puis ferme le jeu.
  */
@@ -42,6 +45,7 @@ public final class TouchesDebug {
     private static double x0, y0, z0;
     private static String modeAvant = "survival";
     private static Method keyPress;
+    private static InputConstants.Key concentrationAvant = InputConstants.UNKNOWN;
 
     private TouchesDebug() {}
 
@@ -151,15 +155,17 @@ public final class TouchesDebug {
         pas(2, mc -> echap(mc), "Échap (mode photo)");
         pas(6, mc -> verifie(ecran(mc) == null, "Échap quitte le mode photo : " + nom(mc)), "vérif");
 
-        // Échap → INTERFACE (éditeur de HUD, viseur) et Personnage
+        // Échap e5 (lot 3) → PARAMÈTRES (Interface › HUD › éditeur, viseur) et PERSONNAGE
         pas(4, mc -> echap(mc), "Échap");
-        pas(22, mc -> fr.reborn.hud.menu.esc.EscTokonoma.survolBanc = fr.reborn.hud.menu.esc.EscTokonoma.BANC_INTERFACE, "survol INTERFACE");
-        pas(12, mc -> shot(mc, "touches_09_echap_interface"), "capture");
+        pas(22, mc -> fr.reborn.hud.menu.esc.EscTokonoma.survolBanc = fr.reborn.hud.menu.esc.EscTokonoma.BANC_INTERFACE, "survol PARAMÈTRES");
+        pas(12, mc -> shot(mc, "touches_09_echap_parametres"), "capture");
         pas(1, mc -> fr.reborn.hud.menu.esc.EscTokonoma.survolBanc = fr.reborn.hud.menu.esc.EscTokonoma.BANC_PERSONNAGE, "survol Personnage");
         pas(12, mc -> shot(mc, "touches_10_echap_personnage"), "capture");
         pas(1, mc -> fr.reborn.hud.menu.esc.EscTokonoma.survolBanc = -1, "");
-        pas(2, mc -> fr.reborn.hud.menu.esc.EscDebug.clic(mc, 1), "clic INTERFACE");
-        pas(8, mc -> verifie(ecran(mc) instanceof fr.reborn.hud.ui.HudEditScreen, "INTERFACE ouvre l'éditeur de HUD : " + nom(mc)), "vérif");
+        pas(2, mc -> fr.reborn.hud.menu.esc.EscDebug.clic(mc, 2), "clic PARAMÈTRES");
+        pas(8, mc -> verifie(ecran(mc) instanceof fr.reborn.hud.menu.screens.ConfigShellScreen, "PARAMÈTRES ouvre les Paramètres : " + nom(mc)), "vérif");
+        pas(2, mc -> mc.setScreenAndShow(new fr.reborn.hud.ui.HudEditScreen(ecran(mc))), "éditeur de HUD");
+        pas(8, mc -> verifie(ecran(mc) instanceof fr.reborn.hud.ui.HudEditScreen, "éditeur de HUD : " + nom(mc)), "vérif");
         pas(4, mc -> shot(mc, "touches_11_editeur_hud"), "capture");
         pas(1, TouchesDebug::clicViseur, "clic « Personnaliser le viseur »");
         pas(8, mc -> verifie(ecran(mc) instanceof fr.reborn.hud.crosshair.CrosshairScreen, "le bouton ouvre le viseur : " + nom(mc)), "vérif");
@@ -167,10 +173,12 @@ public final class TouchesDebug {
         pas(1, mc -> echap(mc), "Échap (viseur)");
         pas(4, mc -> verifie(ecran(mc) instanceof fr.reborn.hud.ui.HudEditScreen, "retour à l'éditeur : " + nom(mc)), "vérif");
         pas(1, mc -> echap(mc), "Échap (éditeur)");
+        pas(4, mc -> verifie(ecran(mc) instanceof fr.reborn.hud.menu.screens.ConfigShellScreen, "retour aux Paramètres : " + nom(mc)), "vérif");
+        pas(1, mc -> echap(mc), "Échap (Paramètres)");
         pas(6, mc -> verifie(ecran(mc) instanceof net.minecraft.client.gui.screens.PauseScreen, "retour à l'Échap : " + nom(mc)), "vérif");
-        pas(4, mc -> fr.reborn.hud.menu.esc.EscDebug.clicUnites(mc, 107, 208), "clic carte Personnage");
+        pas(4, mc -> fr.reborn.hud.menu.esc.EscDebug.clic(mc, 1), "clic PERSONNAGE");
         pas(30, mc -> verifie(ecran(mc) != null && !(ecran(mc) instanceof net.minecraft.client.gui.screens.PauseScreen),
-            "la carte Personnage ouvre la sélection : " + nom(mc)), "vérif");
+            "PERSONNAGE ouvre la sélection : " + nom(mc)), "vérif");
         pas(1, mc -> shot(mc, "touches_13_personnage"), "capture");
         pas(2, mc -> mc.setScreenAndShow(null), "fermer");
 
@@ -192,13 +200,30 @@ public final class TouchesDebug {
         pas(1, mc -> touche(mc, cle(HudKeybinds.ANIMATIONS), false), "");
         pas(4, mc -> verifie(ecran(mc) == null, "« . » referme le menu : " + nom(mc)), "vérif");
 
-        // Réglages → Contrôles, Caméra
-        pas(4, mc -> mc.setScreenAndShow(new fr.reborn.hud.menu.screens.ConfigShellScreen(null, 2)), "Réglages → Contrôles");
-        pas(14, mc -> shot(mc, "touches_17_reglages_controles"), "capture");
-        pas(1, mc -> defiler(mc, 9), "défiler");
-        pas(14, mc -> shot(mc, "touches_18_reglages_controles_suite"), "capture");
-        pas(1, mc -> defiler(mc, 40), "défiler");
-        pas(14, mc -> shot(mc, "touches_19_reglages_controles_fin"), "capture");
+        // Paramètres › Commandes (lot 3, planche t2) : chaque sous-catégorie, puis un conflit (Concentration sur F)
+        String[] sous = {"deplacement", "combat", "monde", "voix", "animations", "menus", "images", "souris", "minecraft", "staff"};
+        for (int i = 0; i < sous.length; i++) {
+            int n = i;
+            pas(4, mc -> mc.setScreenAndShow(commandes(n)), "Commandes › " + sous[n]);
+            pas(14, mc -> shot(mc, String.format("touches_17_commandes_%02d_%s", n, sous[n])), "capture");
+        }
+        pas(2, mc -> {
+            concentrationAvant = KeyMappingHelper.getBoundKeyOf(HudKeybinds.CONCENTRATION);
+            HudKeybinds.CONCENTRATION.setKey(KeyMappingHelper.getBoundKeyOf(HudKeybinds.PICKUP));
+            KeyMapping.resetMapping();
+            mc.setScreenAndShow(commandes(2));
+        }, "Concentration sur la touche de Contextuel");
+        pas(14, mc -> {
+            verifie(TouchesConflits.enConflit(HudKeybinds.CONCENTRATION) && TouchesConflits.enConflit(HudKeybinds.PICKUP),
+                "conflit Concentration / Contextuel signalé des deux côtés (" + TouchesConflits.avec(HudKeybinds.CONCENTRATION) + ")");
+            verifie(!TouchesConflits.enConflit(mc.options.keySwapOffhand) || TouchesConflits.avec(mc.options.keySwapOffhand).contains("Concentration"),
+                "Main secondaire / Contextuel : partage toléré");
+            shot(mc, "touches_18_commandes_conflit");
+        }, "capture");
+        pas(1, mc -> {
+            HudKeybinds.CONCENTRATION.setKey(concentrationAvant);
+            KeyMapping.resetMapping();
+        }, "Concentration rendue");
         pas(1, mc -> mc.setScreenAndShow(new fr.reborn.hud.menu.screens.ConfigShellScreen(null, 3)), "Réglages → Caméra");
         pas(14, mc -> shot(mc, "touches_20_reglages_camera"), "capture");
         pas(2, mc -> mc.setScreenAndShow(null), "fermer");
@@ -295,6 +320,70 @@ public final class TouchesDebug {
         LOG.append(vrai).append(System.lineSeparator());
         verifie("M".equals(HudKeybinds.nom(HudKeybinds.MAP, "?")) || "M".equals(HudKeybinds.nom(GLFW.GLFW_KEY_M)),
             "la carte affiche « M » sur le clavier du poste (" + HudKeybinds.nom(HudKeybinds.MAP, "?") + ")");
+
+        // Lot 3 (migration 4) : Concentration Y et micro I, sur des clients neufs et déjà migrés
+        verifie(TouchesMigration.cible(GLFW.GLFW_KEY_Y, qwerty) == null && TouchesMigration.cible(GLFW.GLFW_KEY_I, qwerty) == null
+            && TouchesMigration.cible(GLFW.GLFW_KEY_Y, azerty) == null && TouchesMigration.cible(GLFW.GLFW_KEY_I, azerty) == null,
+            "QWERTY et AZERTY simulés : Concentration Y et micro I ne bougent pas");
+        verifie(eq(TouchesMigration.cible(GLFW.GLFW_KEY_Y, qwertz), GLFW.GLFW_KEY_Z) && TouchesMigration.cible(GLFW.GLFW_KEY_I, qwertz) == null,
+            "QWERTZ simulé : Concentration → touche US Z (gravée Y), micro I ne bouge pas");
+        // QWERTZ neuf : Dégainer (US Z → US Y) et Concentration (US Y → US Z) s'échangent dans la même passe
+        Map<String, Integer> neuf = TouchesMigration.planifier(simule(GLFW.GLFW_KEY_Z, GLFW.GLFW_KEY_Y), qwertz);
+        verifie(eq(neuf.get("degainer"), GLFW.GLFW_KEY_Y) && eq(neuf.get("concentration"), GLFW.GLFW_KEY_Z),
+            "QWERTZ neuf : Dégainer et Concentration s'échangent (" + neuf + ")");
+        // QWERTZ déjà migré : Dégainer est sur US Y (personnalisée par la version 2), la Concentration va sur US Z
+        Map<String, Integer> migre = TouchesMigration.planifier(simule(GLFW.GLFW_KEY_Y, GLFW.GLFW_KEY_Y), qwertz);
+        verifie(!migre.containsKey("degainer") && eq(migre.get("concentration"), GLFW.GLFW_KEY_Z),
+            "QWERTZ déjà migré : Concentration → US Z, Dégainer reste (" + migre + ")");
+        // AZERTY neuf et déjà migré : rien ne bouge pour Y et I (Dégainer reste sur Z, W étant Avancer)
+        Map<String, Integer> az0 = TouchesMigration.planifier(simule(GLFW.GLFW_KEY_Z, GLFW.GLFW_KEY_Y), azerty);
+        verifie(az0.isEmpty(), "AZERTY neuf : ni Dégainer ni Concentration ne bougent (" + az0 + ")");
+        Map<String, Integer> qw0 = TouchesMigration.planifier(simule(GLFW.GLFW_KEY_Z, GLFW.GLFW_KEY_Y), qwerty);
+        verifie(qw0.isEmpty(), "QWERTY neuf : rien ne bouge (" + qw0 + ")");
+
+        // Carte réelle après migration : Concentration et micro, touches cachées, Plasmo
+        verifie(HudKeybinds.CONCENTRATION != null && !HudKeybinds.CONCENTRATION.isUnbound(),
+            "Concentration liée (" + HudKeybinds.nom(HudKeybinds.CONCENTRATION, "aucune") + ")");
+        verifie(HudKeybinds.MICRO != null && !HudKeybinds.MICRO.isUnbound(),
+            "Couper le micro lié (" + HudKeybinds.nom(HudKeybinds.MICRO, "aucune") + ")");
+        boolean cachees = true;
+        StringBuilder encore = new StringBuilder();
+        for (KeyMapping km : mc.options.keyMappings) {
+            if (TouchesMigration.CACHEES.contains(km.getName()) && !km.isUnbound() && km.isDefault()) {
+                cachees = false;
+                encore.append(' ').append(km.getName());
+            }
+        }
+        verifie(cachees, "touches inutiles de Minecraft déliées (restantes :" + encore + ")");
+        boolean conflits = false;
+        StringBuilder quoi = new StringBuilder();
+        for (KeyMapping km : mc.options.keyMappings) {
+            String c = TouchesConflits.avec(km);
+            if (c != null) { conflits = true; quoi.append(' ').append(km.getName()).append(" ↔ ").append(c).append(';'); }
+        }
+        verifie(!conflits, "aucun conflit hors F3 (" + (conflits ? quoi.toString().trim() : "aucun") + ")");
+        LOG.append("plasmo : ").append(TouchesPlasmo.etat()).append('\n');
+        if (TouchesPlasmo.present()) {
+            String e = TouchesPlasmo.etat();
+            verifie(!e.contains("Couper le micro : reborn=key.keyboard.unknown") && !e.contains("plasmo=KEYSYM:77"),
+                "Plasmo : « couper le micro » suit la touche Reborn, plus rien sur US M (« , » en AZERTY)");
+        }
+    }
+
+    /**
+     * Carte simulée pour {@link TouchesMigration#planifier} : Avancer W, Gauche A, Reculer S, Droite D, Dégainer (défaut
+     * US Z) sur {@code degainer}, Concentration (défaut US Y) sur {@code concentration}, micro I.
+     */
+    private static List<TouchesMigration.Liaison> simule(int degainer, int concentration) {
+        List<TouchesMigration.Liaison> l = new ArrayList<>();
+        l.add(new TouchesMigration.Liaison("avancer", GLFW.GLFW_KEY_W, -1, false));
+        l.add(new TouchesMigration.Liaison("gauche", GLFW.GLFW_KEY_A, -1, false));
+        l.add(new TouchesMigration.Liaison("reculer", GLFW.GLFW_KEY_S, -1, false));
+        l.add(new TouchesMigration.Liaison("droite", GLFW.GLFW_KEY_D, -1, false));
+        l.add(new TouchesMigration.Liaison("degainer", degainer, GLFW.GLFW_KEY_Z, degainer == GLFW.GLFW_KEY_Z));
+        l.add(new TouchesMigration.Liaison("concentration", concentration, GLFW.GLFW_KEY_Y, concentration == GLFW.GLFW_KEY_Y));
+        l.add(new TouchesMigration.Liaison("micro", GLFW.GLFW_KEY_I, GLFW.GLFW_KEY_I, true));
+        return l;
     }
 
     private static boolean eq(Integer a, int b) { return a != null && a == b; }
@@ -329,6 +418,14 @@ public final class TouchesDebug {
         h.mouseClicked(new MouseButtonEvent(c[0], c[1], new MouseButtonInfo(0, 0)), false);
         Screen s = ecran(mc);
         if (s != null) s.mouseReleased(new MouseButtonEvent(c[0], c[1], new MouseButtonInfo(0, 0)));
+    }
+
+    /**
+     * Paramètres ouverts sur COMMANDES, sous-catégorie {@code sous} (onglet nommé du gabarit o2, lot 3).
+     */
+    private static Screen commandes(int sous) {
+        return new fr.reborn.hud.menu.screens.ConfigShellScreen(null,
+            fr.reborn.hud.menu.screens.ConfigShellScreen.Onglet.COMMANDES, sous);
     }
 
     private static void defiler(Minecraft mc, int crans) {
@@ -377,7 +474,7 @@ public final class TouchesDebug {
             String n = km.getName();
             if (n.startsWith("key.reborn") || n.startsWith("key.emotecraft") || n.startsWith("key.plasmovoice")
                 || n.equals("key.togglePerspective") || n.equals("key.sprint") || n.equals("key.quickActions")
-                || n.equals("key.socialInteractions") || n.equals("key.inventory") || n.equals("key.advancements")) {
+                || n.equals("key.socialInteractions") || n.equals("key.inventory") || TouchesMigration.CACHEES.contains(n)) {
                 LOG.append(String.format("  %-34s %-28s affiche « %s »%n", n, k.getName(), k.getDisplayName().getString()));
             }
             if (k.equals(InputConstants.UNKNOWN) || debug) continue;

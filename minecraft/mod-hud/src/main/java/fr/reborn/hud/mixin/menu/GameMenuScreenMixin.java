@@ -6,6 +6,7 @@ import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -20,9 +21,13 @@ import java.util.List;
  *
  * <p>Les widgets vanilla (dont le titre « Game Menu ») sont ajoutés dans {@code init()} :
  * on les retire tous au RETURN, puis on annule le render vanilla.
+ *
+ * <p>Depuis l'Échap e5 (lot 3, 05/11), le jeu reste visible derrière : flou des menus de Minecraft (une passe), puis
+ * le voile en dégradé de la piste A ; l'écran n'est donc plus « opaque » (le monde est rendu). Échap ferme avec la
+ * même animation que CONTINUER (180 ms).
  */
 @Mixin(PauseScreen.class) // 26.1 : GameMenuScreen → PauseScreen
-public abstract class GameMenuScreenMixin extends Screen implements fr.reborn.hud.ui.EcranOpaque {
+public abstract class GameMenuScreenMixin extends Screen {
 
     @Unique private EscTokonoma reborn$ui;
 
@@ -38,17 +43,15 @@ public abstract class GameMenuScreenMixin extends Screen implements fr.reborn.hu
         reborn$ui.init();
     }
 
-    /** La pièce couvre tout l'écran : ni flou ni fond vanilla (le flou plein écran coûtait plusieurs ms par image). */
+    /** Flou des menus de Minecraft, voile de l'Échap, sous-titres ; pas le fond sombre vanilla. */
     @Inject(method = "extractBackground", at = @At("HEAD"), cancellable = true)
-    private void reborn$noBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+    private void reborn$fond(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         if (reborn$ui == null) return;
+        this.extractBlurredBackground(ctx);
+        reborn$ui.fond(ctx);
         net.minecraft.client.Minecraft.getInstance().gui.hud.extractDeferredSubtitles();
         ci.cancel();
     }
-
-    /** Le monde n'est pas rendu derrière la pièce (voir {@link fr.reborn.hud.ui.EcranOpaque}). */
-    @Override
-    public boolean couvreEcran() { return reborn$ui != null; }
 
     @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
     private void reborn$render(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta, CallbackInfo ci) {
@@ -62,5 +65,12 @@ public abstract class GameMenuScreenMixin extends Screen implements fr.reborn.hu
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
         if (reborn$ui != null && reborn$ui.mouseClicked(event.x(), event.y(), event.button())) return true;
         return super.mouseClicked(event, doubleClick);
+    }
+
+    // Échap : fermeture animée, comme CONTINUER (PauseScreen ne déclare pas keyPressed non plus).
+    @Override
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        if (reborn$ui != null && event.key() == GLFW.GLFW_KEY_ESCAPE && this.shouldCloseOnEsc() && reborn$ui.continuer()) return true;
+        return super.keyPressed(event);
     }
 }

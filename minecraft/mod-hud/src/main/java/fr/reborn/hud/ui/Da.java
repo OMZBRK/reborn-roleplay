@@ -23,10 +23,24 @@ public final class Da {
 
     private Da() {}
 
-    /** Majuscules sans accents (la fonte ArcadePix n'a pas d'accents). */
+    /** Toutes les marques sauf le macron (U+0304). */
+    private static final java.util.regex.Pattern MARQUES = java.util.regex.Pattern.compile("[\\p{M}&&[^\\u0304]]+");
+    /** Macron qui ne suit pas une voyelle a e i o u : ArcadePix n'a que ā ē ī ō ū (et leurs capitales). */
+    private static final java.util.regex.Pattern MACRON_ORPHELIN = java.util.regex.Pattern.compile("(?<![AEIOUaeiou])\\u0304+");
+
+    /**
+     * Majuscules sans accents (la fonte ArcadePix n'a pas d'accents), <b>sauf le macron</b> des voyelles ā ē ī ō ū (lot 3,
+     * CADRAGE §11 : « Hyūga » s'écrit « HYŪGA » sur le nametag) : NFD, toutes les marques retirées sauf U+0304 après une
+     * voyelle, NFC, capitales.
+     */
     public static String up(String s) {
         if (s == null) return "";
-        return Normalizer.normalize(s, Normalizer.Form.NFD).replaceAll("\\p{M}+", "").toUpperCase(Locale.ROOT);
+        String d = Normalizer.normalize(s, Normalizer.Form.NFD);
+        d = MARQUES.matcher(d).replaceAll("");
+        if (d.indexOf('̄') >= 0) {
+            d = Normalizer.normalize(MACRON_ORPHELIN.matcher(d).replaceAll(""), Normalizer.Form.NFC);
+        }
+        return d.toUpperCase(Locale.ROOT);
     }
 
     public static Component arc(String s) { return RebornFont.arcade(up(s)); }

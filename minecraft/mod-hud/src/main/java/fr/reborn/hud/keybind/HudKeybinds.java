@@ -19,7 +19,9 @@ import java.util.List;
  * La <b>vue</b> est la
  * touche vanilla « Changer de vue » (F5) : en caméra Reborn elle bascule épaule ↔ 1ʳᵉ personne. Éditeur de HUD et
  * viseur : Échap → Interface ; caméra : Réglages → Caméra ; personnage : Échap (carte d'identité) ; course de chakra :
- * touche X seule (le triple appui sur le sprint est retiré le 16/10).
+ * touche X seule (le triple appui sur le sprint est retiré le 16/10). Lot 3 (05/11) : Y concentration, I couper le
+ * micro, couper le son et appuyer pour parler sans touche (les trois dernières fusionnées avec Plasmo Voice,
+ * {@link TouchesPlasmo}).
  *
  * <p>Catégorie « Reborn » ({@link RebornKeyCategory}) dans le menu Commandes vanilla ; tout reste réglable dans
  * Réglages → Contrôles ({@code ControlsTab}, qui itère {@link #REBORN_KEYS}). Les anciens défauts des joueurs existants
@@ -93,6 +95,25 @@ public final class HudKeybinds {
     /** Volet Faction (J, 16/10, FACTION.md) : ta section, ton village, les annonces ; la même touche le referme. */
     public static KeyMapping FACTION;
 
+    /**
+     * Concentration (lot 3, 05/11 ; comportement au lot 4 : traces de pas, plaques, menu d'interaction). Défaut : la
+     * touche <b>gravée Y</b> (TOUCHES_LIBRES.md) : libre dans Minecraft 26.2, Plasmo Voice, Emotecraft, mod-ost et le
+     * modpack, en AZERTY, QWERTY et QWERTZ ; l'index gauche l'atteint en avançant. En QWERTZ, la gravée Y est la position
+     * US Z : {@link TouchesMigration} l'y pose (échange avec Dégainer). Catégorie Monde. Aucun effet avant le lot 4,
+     * qui branche la bascule dans la boucle de fin de tick ({@link #registerClient()}).
+     */
+    public static KeyMapping CONCENTRATION;
+
+    /**
+     * Voix et escouade (lot 3, fusion avec Plasmo Voice, CADRAGE §10) : une seule liaison par action. Ces touches n'ont
+     * <b>aucun code d'action</b> chez nous : elles sont recopiées dans les raccourcis de Plasmo Voice (et inversement,
+     * {@code voice/PlasmoTouches}), c'est Plasmo qui agit, une seule fois. <b>Couper le micro</b> : I (libre partout, à
+     * la même place sur les trois claviers, loin de Y) ; <b>Couper le son</b> et <b>Appuyer pour parler</b> (proximité) :
+     * aucune par défaut (la voix est en détection automatique ; Alt gauche reste au Regard libre). Sans Plasmo Voice,
+     * elles existent mais ne font rien, et les Paramètres les masquent.
+     */
+    public static KeyMapping MICRO, SON, PARLER;
+
     /** Appui plus court que ça sur la touche radio (sans la tenir) = écran de l'escouade. */
     public static final long RADIO_BREF_MS = 250L;
     private static long radioDepuis = -1L;
@@ -107,7 +128,7 @@ public final class HudKeybinds {
 
     private HudKeybinds() {}
 
-    /** Crée + enregistre un bind Reborn (catégorie « Reborn ») et le référence. */
+    /** Crée + enregistre un bind Reborn (catégorie « Reborn ») et le référence ; {@code -1} = aucune touche par défaut. */
     private static KeyMapping bind(String translationKey, int glfwKey) {
         KeyMapping km = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             translationKey, InputConstants.Type.KEYSYM, glfwKey, RebornKeyCategory.REBORN));
@@ -289,8 +310,14 @@ public final class HudKeybinds {
         // Course de chakra (X, 15/10 au soir, demande du user : seule touche depuis le 16/10, triple appui retiré). Même
         // position en AZERTY et QWERTZ. Conflit voulu avec « charger la barre » du créatif (X + chiffre), comme C.
         COURSE_CHAKRA = bind("key.reborn-hud.course_chakra", GLFW.GLFW_KEY_X);
+        // Lot 3 (05/11) : Concentration sur la gravée Y (lot 4 pour l'effet), puis la voix fusionnée avec Plasmo Voice.
+        CONCENTRATION = bind("key.reborn-hud.concentration", GLFW.GLFW_KEY_Y);
+        MICRO = bind("key.reborn-hud.couper_micro", GLFW.GLFW_KEY_I);
+        SON = bind("key.reborn-hud.couper_son", -1);
+        PARLER = bind("key.reborn-hud.parler", -1);
 
         TouchesMigration.init();
+        TouchesPlasmo.init();
         TouchesDebug.init();
 
         // La touche INVENTAIRE vanilla (E par defaut) ouvre la SACOCHE au lieu de
@@ -372,6 +399,12 @@ public final class HudKeybinds {
                 }
             }
             while (FACTION.consumeClick()) fr.reborn.hud.faction.FactionClient.appuiJ();
+            // Concentration : le lot 4 branche la bascule ici (d'ici là, sans effet) ; voix : Plasmo agit sur la même
+            // touche (voice/PlasmoTouches), on ne fait que vider la file.
+            while (CONCENTRATION.consumeClick()) { }
+            while (MICRO.consumeClick()) { }
+            while (SON.consumeClick()) { }
+            while (PARLER.consumeClick()) { }
             while (DUEL_ACCEPT.consumeClick()) {
                 if (Minecraft.getInstance().gui.screen() != null) continue;
                 // Entrée : l'invitation radio d'abord (10 s), puis celle d'une section (Faction), une demande (porter, fouiller),

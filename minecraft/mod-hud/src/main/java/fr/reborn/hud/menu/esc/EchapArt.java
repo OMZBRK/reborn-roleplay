@@ -1,22 +1,30 @@
 package fr.reborn.hud.menu.esc;
 
 import fr.reborn.hud.ui.DaKit;
-import net.minecraft.client.gui.Font;
+import fr.reborn.hud.ui.LotBlit;
+import fr.reborn.hud.ui.LotGui;
+import fr.reborn.hud.ui.TexteCache;
+import fr.reborn.hud.ui.TexteRaster;
+import fr.reborn.hud.ui.TexteRaster.Ancre;
+import fr.reborn.hud.ui.TexteRaster.Police;
+import fr.reborn.hud.ui.TexteRaster.Preset;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 
 /**
- * Textures du menu Échap « Tokonoma » ({@code textures/gui/echap/*}, générées par
- * {@code tools/gen_echap_textures.py} : tailles et ancres = contrat en tête du générateur) et texte de la scène.
+ * Kit de l'Échap e5 (Game Plan n° 17, lot 3, maquette validée le 05/11 : {@code e5_echap_final.png}, script
+ * {@code _maquettes_e5_final.py}) : textures, couleurs, styles de texte et formes. Tout se dessine en <b>pixels
+ * écran</b> ({@link DaKit#debutPx}) : la colonne de gauche suit la hauteur de la fenêtre (k = H / 1080, comme
+ * MenuScale), la grille de droite est du pixel art à P pixels écran par pixel d'art (P entier, 3 en 1080p, 2 en 768p,
+ * 4 en 1440p), son texte à kk = P / 3. L'Inter ne descend jamais sous {@value #PLANCHER} px de capitale (lisible en
+ * 1366 × 768).
  *
- * <p>La scène fait 640×360 unités, affichée à {@code k} pixels écran par unité via {@link DaKit#unites} : k est le
- * plus grand entier pour lequel la zone utile {@value #SAFE_W}×{@value #SAFE_H} tient dans la fenêtre (3 en 1080p,
- * fenêtrée ou non, 4 en 1440p, 2 en 1366×768). Le bord de la scène peut donc être un peu rogné, et la pièce se
- * prolonge tout autour ({@code piece.png} 864×528, scène en ({@value #PIECE_MX}, {@value #PIECE_MY})) : l'écran est
- * toujours rempli, sans bande vide, quel que soit son format. Le texte suit la typographie de la fiche, ramenée à la scène : ArcadePix au
- * pixel écran (petit, moyen = taille ×1 de la fiche, grand), Inter proportionnel (Inter 9 de la fiche = 18 px en
- * 1080p).
+ * <p>Textures ({@code textures/gui/echap/e5_*}, tirées des fonctions mêmes de la maquette par
+ * {@code gen_echap_e5.py}, script du lot 3 hors dépôt) : la façade de la Boutique (332 × 156 pixels d'art, trois
+ * états), les chōchin (repos, allumé, éteint), la bande laquée du survol, le pictogramme Stream, l'ombre, le halo et
+ * la lueur en 9 tranches, les emblèmes des villages en masque, le logo réduit d'avance. Le reste (cadres, cartes,
+ * jauge, interrupteurs, cases) est en aplats.
  */
 final class EchapArt {
 
@@ -24,172 +32,239 @@ final class EchapArt {
 
     static Identifier tex(String n) { return DaKit.tex("echap", n); }
 
-    static final Identifier PIECE = tex("piece"), FENETRE = tex("fenetre"), PLAQUES = tex("plaques"),
-        KAMONS = tex("kamons"), CHOCHIN = tex("chochin"), OMAMORI = tex("omamori"), KAWARABAN = tex("kawaraban"),
-        RESEAUX = tex("reseaux"), PIECES = tex("pieces"), INFOBULLE = tex("infobulle"), HALO = tex("halo"),
-        FUSUMA_L = tex("fusuma_l"), FUSUMA_R = tex("fusuma_r");
+    static final Identifier VITRINE = tex("e5_vitrine"), CHOCHIN = tex("e5_chochin"), BANDE = tex("e5_bande"),
+        PICTOS = tex("e5_pictos"), DOUCES = tex("e5_douces"), EMBLEMES = tex("e5_emblemes"), LOGO = tex("e5_logo"),
+        OMAMORI = tex("omamori"), RESEAUX = tex("reseaux"), RBCOIN = DaKit.tex("esc", "rbcoin"),
+        PARCHEMIN = DaKit.tex("shop", "scroll");
 
-    static final int VW = 640, VH = 360;
-    /** Zone utile (tout le contenu) : le reste de la scène est du décor qui peut sortir de l'écran. */
-    static final int SAFE_W = 600, SAFE_H = 332;
-    /** piece.png : la pièce prolongée, scène posée en (PIECE_MX, PIECE_MY). */
-    static final int PIECE_W = 864, PIECE_H = 528, PIECE_MX = 112, PIECE_MY = 84;
+    /* ---- cotes de la façade (pixels d'art, gen_echap_e5.py) ---- */
+    static final int VIT_W = 332, VIT_H = 156, VIT_OX0 = 30, VIT_OX1 = 172, ENS_X = 204, ENS_Y = 56, ENS_W = 120,
+        ENS_H = 34;
+    /* ---- grille de droite (pixels d'art) : 1 002 × 756 px en 1080p ---- */
+    static final int GRILLE_W = 334, BOUTIQUE_H = 158, GOUTTIERE = 6, RANG_H = 88, RECOMP_W = 234, TUILE_H = 26,
+        TUILE_PAS = 31;
+    /* ---- logo réduit d'avance (2160p, 1440p, 1080p, 768p) : largeurs, hauteurs et v des rangées de l'atlas ---- */
+    static final int[] LOGO_W = {448, 299, 224, 160}, LOGO_H = {157, 105, 78, 56}, LOGO_V = {0, 157, 262, 340};
+    static final int LOGO_TW = 448, LOGO_TH = 396;
 
-    /* ---- couleurs (fiche) ---- */
-    static final int CREME = DaKit.CREME, CREME_DOUX = 0xFFD8CCB0, OR = DaKit.OR, OR_CLAIR = DaKit.OR_CLAIR,
-        OR_ETIQ = DaKit.OR_ETIQ, ENCRE = DaKit.ENCRE, ENCRE_DOUCE = DaKit.ENCRE_DOUCE, ENCRE_ROUGE = DaKit.ENCRE_ROUGE,
-        INACTIF = DaKit.INACTIF;
-
-    /** Pixels écran par unité de scène (fixé à chaque image). */
-    static int k = 3;
-
-    /* ================================================================ texte */
-
-    static final int PETIT = 1, MOYEN = 2, GRAND = 4;
-
-    /** Facteur ArcadePix : un pixel de fonte = ⌈taille·k/3⌉ pixels écran (au moins 1 ; lisible en 1366×768). */
-    static float sArc(int taille) {
-        return Math.max(1, (int) Math.ceil(taille * k / 3f - 0.01f)) / (float) k;
+    /** Rangée de l'atlas du logo la plus proche d'une largeur voulue. */
+    static int rangLogo(int w) {
+        int best = 0;
+        for (int i = 1; i < LOGO_W.length; i++) if (Math.abs(LOGO_W[i] - w) < Math.abs(LOGO_W[best] - w)) best = i;
+        return best;
     }
 
-    static float largeurArc(Font f, String s, int taille) {
-        return (f.width(DaKit.arcade(s)) - 1) * sArc(taille);
+    /* ---- couleurs (RGB) ---- */
+    static final int CREME = 0xF5E9D0, REPOS = 0xCFC3AE, DOUX = 0xC2B59A, GRIS = 0x8A8070, HUD = 0xF3F0EA,
+        OR = 0xD9A95E, OR_CLAIR = 0xF2D08A, OR_ETEINT = 0x8E6A30, BLANC = 0xFDFBF6, VERT = 0x63C97C,
+        ROUGE_HOV = 0xC82A2E, LAQUE_C = 0x4A1418, LAQUE_HOV = 0x6A1C20, ENCRE_C = 0x070506, ENCRE = 0x0E0A0C,
+        NUIT_H = 0x1C1519, NUIT_H_HOV = 0x261C22, NUIT_B = 0x100C0F, CASE_FOND = 0x2A2627, CASE_LISERE = 0x5A5254,
+        DIRECT = 0xFF5A4E;
+
+    /** Plancher de l'Inter (px de capitale). */
+    static final double PLANCHER = 8.6;
+
+    /** Préréglage des menus (maquettes du lot 3) : sans contour, ombre 40 %. */
+    static final Preset MENU = new Preset("MENU", 0f, 0.40f, 0.85f);
+
+    /* ---- styles de texte (constants : rien n'est alloué à chaque image) ---- */
+    private static TexteCache.Style st(Police p, Preset pr, int rgb, Ancre a) {
+        return new TexteCache.Style(p, pr, TexteRaster.cleRgb(rgb), a, true, false);
     }
 
-    /** ArcadePix, haut des capitales en yHaut ; ancre 0 gauche, 1 centre, 2 droite. Renvoie la largeur. */
-    static float arc(GuiGraphicsExtractor g, Font f, String s, float x, float yHaut, int col, int ancre, int taille,
-                     boolean ombre) {
-        Component c = DaKit.arcade(s);
-        float sc = sArc(taille);
-        float w = (f.width(c) - 1) * sc;
-        float x0 = ancre == 1 ? x - w / 2f : ancre == 2 ? x - w : x;
-        if (ombre) DaKit.texteEchelle(g, f, c, x0 + sc, yHaut + sc, 0xFF000000 | 0x140608, sc);
-        DaKit.texteEchelle(g, f, c, x0, yHaut, col, sc);
-        return w;
-    }
+    static final Police PHILO = Police.PHILOSOPHER, IB = Police.INTER_GRAS, IM = Police.INTER_MEDIUM;
+    static final Ancre G = Ancre.GAUCHE, C = Ancre.CENTRE, D = Ancre.DROITE;
 
-    /** ArcadePix MOYEN s'il tient dans maxW unités, sinon PETIT (petites fenêtres : k = 2). */
-    static int tailleQuiTient(Font f, String s, float maxW) {
-        return largeurArc(f, s, MOYEN) <= maxW ? MOYEN : PETIT;
-    }
+    static final TexteCache.Style
+        P_CREME = st(PHILO, MENU, CREME, G), P_REPOS = st(PHILO, MENU, REPOS, G), P_OR = st(PHILO, MENU, OR_CLAIR, G),
+        P_BLANC = st(PHILO, MENU, BLANC, G), P_OR_D = st(PHILO, MENU, OR, D), P_BLANC_D = st(PHILO, MENU, BLANC, D),
+        I_DOUX = st(IM, Preset.HUD, DOUX, G), I_GRIS_D = st(IM, MENU, GRIS, D), I_CREME = st(IM, Preset.HUD, CREME, G),
+        I_GRIS = st(IM, Preset.HUD, GRIS, G), I_HUD_C = st(IM, Preset.HUD, HUD, C),
+        B_DOUX = st(IB, MENU, DOUX, G), B_OR = st(IB, Preset.HUD, OR_CLAIR, G), B_OR_D = st(IB, Preset.HUD, OR_CLAIR, D),
+        B_CREME_C = st(IB, Preset.HUD, CREME, C), B_HUD_C = st(IB, Preset.HUD, HUD, C), B_DOUX_C = st(IB, Preset.HUD, DOUX, C),
+        B_VERT = st(IB, Preset.HUD, VERT, G), B_GRIS = st(IB, Preset.HUD, GRIS, G), B_CREME_D = st(IB, Preset.HUD, CREME, D);
 
-    /** Échelle Inter pour une taille « fiche » (9 = corps de texte). */
-    static float sInter(float taille) { return taille * 2f / 27f; }
+    /** Capitale Inter à l'échelle s, jamais sous le plancher. */
+    static double capInter(double cap, double s) { return Math.max(cap * s, PLANCHER); }
 
-    static float largeurInter(Font f, String s, float taille) { return f.width(DaKit.inter(s)) * sInter(taille); }
+    static int r(double v) { return TexteRaster.arrondi(v); }
 
-    /** Inter, milieu des capitales en ymil. Renvoie la largeur. */
-    static float inter(GuiGraphicsExtractor g, Font f, String s, float x, float ymil, int col, int ancre, float taille) {
-        Component c = DaKit.inter(s);
-        float sc = sInter(taille);
-        float w = f.width(c) * sc;
-        float x0 = ancre == 1 ? x - w / 2f : ancre == 2 ? x - w : x;
-        DaKit.texteEchelle(g, f, c, x0, ymil - 4f * sc, col, sc);
-        return w;
-    }
+    /* ================================================================ libellé : poignée de texte + largeur mesurée */
 
-    /** Inter gras (petites capitales d'étiquette : sans accents, majuscules). */
-    static float interGras(GuiGraphicsExtractor g, Font f, String s, float x, float ymil, int col, int ancre, float taille) {
-        Component c = DaKit.interGras(s);
-        float sc = sInter(taille);
-        float w = f.width(c) * sc;
-        float x0 = ancre == 1 ? x - w / 2f : ancre == 2 ? x - w : x;
-        DaKit.texteEchelle(g, f, c, x0, ymil - 4f * sc, col, sc);
-        return w;
-    }
+    /** Une ligne de texte affichée (poignée {@link TexteCache.Texte}) et sa largeur, mesurée quand elle change. */
+    static final class Lib {
+        final TexteCache.Texte t = new TexteCache.Texte();
+        private String mT;
+        private TexteCache.Style mS;
+        private double mCap, mInter, mW = Double.NaN;
 
-    /** Coupe s (Inter, taille donnée) par « … » pour tenir dans maxW unités. */
-    static String ellipse(Font f, String s, float maxW, float taille) {
-        if (s == null) return "";
-        if (largeurInter(f, s, taille) <= maxW) return s;
-        String e = s;
-        while (e.length() > 1 && largeurInter(f, e + "…", taille) > maxW) e = e.substring(0, e.length() - 1);
-        return e.trim() + "…";
-    }
-
-    static String ellipseArc(Font f, String s, float maxW, int taille) {
-        if (s == null) return "";
-        if (largeurArc(f, s, taille) <= maxW) return s;
-        String e = s;
-        while (e.length() > 1 && largeurArc(f, e + "..", taille) > maxW) e = e.substring(0, e.length() - 1);
-        return e.trim() + "..";
-    }
-
-    /** Découpe en lignes Inter (au plus maxLignes, la dernière coupée par « … »). */
-    static java.util.List<String> lignes(Font f, String s, float maxW, float taille, int maxLignes) {
-        java.util.List<String> out = new java.util.ArrayList<>();
-        if (s == null || s.isBlank()) return out;
-        StringBuilder cur = new StringBuilder();
-        String[] mots = s.trim().split(" +");
-        int i = 0;
-        for (; i < mots.length; i++) {
-            String cand = cur.isEmpty() ? mots[i] : cur + " " + mots[i];
-            if (!cur.isEmpty() && largeurInter(f, cand, taille) > maxW) {
-                out.add(cur.toString());
-                cur = new StringBuilder(mots[i]);
-                if (out.size() == maxLignes) break;
-            } else {
-                cur = new StringBuilder(cand);
-            }
+        /** Largeur d'avance (px) ; 0 tant que la police n'est pas chargée. */
+        double largeur(String s, TexteCache.Style st, double cap, double inter) {
+            if (s.equals(mT) && st == mS && cap == mCap && inter == mInter && !Double.isNaN(mW)) return mW;
+            mT = s;
+            mS = st;
+            mCap = cap;
+            mInter = inter;
+            mW = TexteRaster.largeur(s, st.police(), cap, inter, st.typo());
+            return Double.isNaN(mW) ? 0 : mW;
         }
-        if (out.size() < maxLignes && !cur.isEmpty()) out.add(cur.toString());
-        else if (out.size() == maxLignes && i < mots.length) {
-            StringBuilder reste = new StringBuilder(out.get(maxLignes - 1));
-            for (int j = i; j < mots.length; j++) reste.append(' ').append(mots[j]);
-            out.set(maxLignes - 1, ellipse(f, reste.toString(), maxW, taille));
+
+        /** Pose la ligne (x selon l'ancre du style, yc = milieu des capitales), en pixels écran. */
+        void ligne(GuiGraphicsExtractor ctx, String s, TexteCache.Style st, double cap, double f, double inter, double x,
+                   double yc, float a) {
+            t.ligne(s, st, cap, f, inter, x, yc).dessinerPx(ctx, a);
         }
-        return out;
     }
 
-    /* ================================================================ pièces */
+    /* ================================================================ aplats */
 
-    static void blit(GuiGraphicsExtractor g, Identifier id, int x, int y, int u, int v, int w, int h, int tw, int th) {
-        DaKit.blit(g, id, x, y, u, v, w, h, tw, th);
+    static int argb(int rgb, float a) { return DaKit.argb(rgb, a); }
+
+    static void rect(LotGui l, int x0, int y0, int x1, int y1, int rgb, float a) {
+        if (a > 0.003f) l.fill(x0, y0, x1, y1, argb(rgb, a));
     }
 
-    static void blit(GuiGraphicsExtractor g, Identifier id, int x, int y, int u, int v, int w, int h, int tw, int th,
-                     int argb) {
-        DaKit.blit(g, id, x, y, u, v, w, h, tw, th, argb);
+    /**
+     * Dégradé horizontal (gauche → droite) : l'aplat en dégradé vertical de Minecraft, tourné d'un quart de tour.
+     */
+    static void degradeH(GuiGraphicsExtractor ctx, int x0, int y0, int x1, int y1, int gauche, int droite) {
+        if (x1 <= x0 || y1 <= y0) return;
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x0, y1);
+        ctx.pose().rotate((float) (-Math.PI / 2));
+        ctx.fillGradient(0, 0, y1 - y0, x1 - x0, gauche, droite);
+        ctx.pose().popMatrix();
     }
 
-    /** Halo en crans (48×48, blanc) teint, centré, à la taille 48 × m (m entier ≥ 1) ou 24 (m = 0). */
-    static void halo(GuiGraphicsExtractor g, float cx, float cy, int m, int argb) {
-        int s = m <= 0 ? 24 : 48 * m;
-        DaKit.etire(g, HALO, Math.round(cx - s / 2f), Math.round(cy - s / 2f), s, s, 48, 48, argb);
+    /** Filet effacé aux deux bouts (fondu de la boussole : plein sur la moitié du milieu). */
+    static void filetFondu(GuiGraphicsExtractor ctx, int x, int y, int L, int h, int rgb, float a) {
+        if (a <= 0.003f || L <= 4) return;
+        int q = L / 4;
+        degradeH(ctx, x, y, x + q, y + h, argb(rgb, 0), argb(rgb, a));
+        ctx.fill(x + q, y, x + L - q, y + h, argb(rgb, a));
+        degradeH(ctx, x + L - q, y, x + L, y + h, argb(rgb, a), argb(rgb, 0));
     }
 
-    /** Cabochon de touche (42×12, bords 4 / 6) à la largeur w, en (x, y). */
-    static void cabochon(GuiGraphicsExtractor g, int x, int y, int w, float a) {
-        int col = DaKit.blanc(a);
-        DaKit.blit(g, PIECES, x, y, 0, 0, 4, 12, 128, 48, col);
-        for (int xx = x + 4; xx < x + w - 6; xx += 32) DaKit.blit(g, PIECES, xx, y, 4, 0, Math.min(32, x + w - 6 - xx), 12, 128, 48, col);
-        DaKit.blit(g, PIECES, x + w - 6, y, 36, 0, 6, 12, 128, 48, col);
+    /** Pilule (bouts ronds) h de haut, rangée par rangée. */
+    static void pilule(LotGui l, int x, int y, int w, int h, int rgb, float a) {
+        if (a <= 0.003f) return;
+        int col = argb(rgb, a);
+        double rr = h / 2.0;
+        for (int j = 0; j < h; j++) {
+            double dy = j + 0.5 - rr;
+            int in = (int) Math.round(rr - Math.sqrt(Math.max(0, rr * rr - dy * dy)));
+            l.fill(x + in, y + j, x + w - in, y + j + 1, col);
+        }
     }
 
-    /** Badge laqué (rouge = LIVE, noir = hors ligne) à la largeur w (coupe horizontale). */
-    static void badge(GuiGraphicsExtractor g, int x, int y, int w, boolean rouge) {
-        DaKit.coupeH(g, PIECES, x, y, w, rouge ? 0 : 46, 14, 44, 11, 4, 128, 48);
+    /** Disque plein de rayon r centré en (cx, cy). */
+    static void disque(LotGui l, int cx, int cy, int rayon, int rgb, float a) {
+        if (a <= 0.003f) return;
+        int col = argb(rgb, a);
+        for (int j = -rayon; j < rayon; j++) {
+            double dy = j + 0.5;
+            int hw = (int) Math.round(Math.sqrt(Math.max(0, rayon * rayon - dy * dy)));
+            if (hw > 0) l.fill(cx - hw, cy + j, cx + hw, cy + j + 1, col);
+        }
     }
 
-    static void fleche(GuiGraphicsExtractor g, int x, int y, boolean droite, boolean survol) {
-        int u = (survol ? 60 : 44) + (droite ? 8 : 0);
-        DaKit.blit(g, PIECES, x, y, u, 0, 8, 9, 128, 48);
+    /**
+     * Cadre de carte en pixel art (cadre_art de la piste A) à P px par pixel d'art : contour d'encre aux coins coupés,
+     * anneau laqué, filet d'or intérieur, équerres d'or de 6 pixels aux quatre coins.
+     */
+    static void cadre(LotGui l, int x, int y, int w, int h, int P, boolean survol, float a) {
+        int aw = w / P, ah = h / P;
+        // contour d'encre (coins coupés)
+        rect(l, x + P, y, x + (aw - 1) * P, y + P, ENCRE_C, a);
+        rect(l, x + P, y + (ah - 1) * P, x + (aw - 1) * P, y + ah * P, ENCRE_C, a);
+        rect(l, x, y + P, x + P, y + (ah - 1) * P, ENCRE_C, a);
+        rect(l, x + (aw - 1) * P, y + P, x + aw * P, y + (ah - 1) * P, ENCRE_C, a);
+        // anneau laqué (retrait 1) et filet d'or (retrait 2)
+        anneau(l, x, y, aw, ah, P, 1, survol ? LAQUE_HOV : LAQUE_C, a);
+        anneau(l, x, y, aw, ah, P, 2, survol ? OR : OR_ETEINT, a * (survol ? 0.85f : 0.40f));
+        // équerres
+        int eq = survol ? OR_CLAIR : OR;
+        int L = 6;
+        for (int c = 0; c < 4; c++) {
+            boolean droite = (c & 1) != 0, bas = (c & 2) != 0;
+            int cx = droite ? aw - 2 : 1, cy = bas ? ah - 2 : 1;
+            int hx0 = droite ? cx - L + 1 : cx, vy0 = bas ? cy - L + 1 : cy;
+            rect(l, x + hx0 * P, y + cy * P, x + (hx0 + L) * P, y + (cy + 1) * P, eq, a);
+            rect(l, x + cx * P, y + vy0 * P, x + (cx + 1) * P, y + (vy0 + L) * P, eq, a);
+            int px = cx + (droite ? -1 : 1), py = cy + (bas ? -1 : 1);
+            rect(l, x + px * P, y + py * P, x + (px + 1) * P, y + (py + 1) * P, OR_CLAIR, a);
+        }
     }
 
-    static void piece(GuiGraphicsExtractor g, int x, int y) {
-        DaKit.blit(g, PIECES, x, y, 78, 0, 10, 10, 128, 48);
+    private static void anneau(LotGui l, int x, int y, int aw, int ah, int P, int i, int rgb, float a) {
+        int x0 = x + i * P, y0 = y + i * P, x1 = x + (aw - i) * P, y1 = y + (ah - i) * P;
+        rect(l, x0, y0, x1, y0 + P, rgb, a);
+        rect(l, x0, y1 - P, x1, y1, rgb, a);
+        rect(l, x0, y0 + P, x0 + P, y1 - P, rgb, a);
+        rect(l, x1 - P, y0 + P, x1, y1 - P, rgb, a);
     }
 
-    static void ryo(GuiGraphicsExtractor g, int x, int y) {
-        DaKit.blit(g, PIECES, x, y, 98, 14, 6, 6, 128, 48);
+    /** Case de touche du lot 2 (coins rognés de 2 px, liseré en haut, ombre d'1 px) : fond à 92 %. */
+    static void caseTouche(LotGui l, int x, int y, int w, int h, float a) {
+        int fond = argb(CASE_FOND, 0.92f * a), ombre = argb(ENCRE, 0.6f * a), lis = argb(CASE_LISERE, 0.9f * a);
+        l.fill(x + 3, y + h, x + w + 1, y + h + 1, ombre);
+        l.fill(x + w, y + 3, x + w + 1, y + h, ombre);
+        l.fill(x + 2, y, x + w - 2, y + 1, lis);
+        l.fill(x + 1, y + 1, x + w - 1, y + 2, fond);
+        l.fill(x + 1, y + 1, x + 2, y + 2, lis);
+        l.fill(x + w - 2, y + 1, x + w - 1, y + 2, lis);
+        l.fill(x, y + 2, x + w, y + h - 2, fond);
+        l.fill(x + 1, y + h - 2, x + w - 1, y + h - 1, fond);
+        l.fill(x + 2, y + h - 1, x + w - 2, y + h, fond);
     }
 
-    static void filet(GuiGraphicsExtractor g, int x, int y, int w) {
-        DaKit.blit(g, PIECES, x, y, 0, 28, Math.min(60, w), 1, 128, 48);
+    /* ================================================================ textures */
+
+    /** Région (u, v, uw, vh) d'une texture posée à la taille (w, h) (pixel art : multiples entiers). */
+    static void blit(GuiGraphicsExtractor ctx, Identifier id, int x, int y, int w, int h, float u, float v, int uw, int vh,
+                     int tw, int th, float a) {
+        if (w <= 0 || h <= 0 || a <= 0.003f) return;
+        ctx.blit(RenderPipelines.GUI_TEXTURED, id, x, y, u, v, w, h, uw, vh, tw, th, DaKit.blanc(a));
     }
 
-    /** Infobulle de washi (coupe : capD = capB = 10) : boîte (x, y, w, h), texture posée 2 unités plus haut / à gauche. */
-    static void infobulle(GuiGraphicsExtractor g, int x, int y, int w, int h) {
-        DaKit.coupe(g, INFOBULLE, x - 2, y - 2, w + 8, h + 8, 0, 0, 176, 80, 10, 10, 176, 80);
+    static void blitTeint(GuiGraphicsExtractor ctx, Identifier id, int x, int y, int w, int h, float u, float v, int uw,
+                          int vh, int tw, int th, int argb) {
+        if (w <= 0 || h <= 0 || (argb >>> 24) == 0) return;
+        ctx.blit(RenderPipelines.GUI_TEXTURED, id, x, y, u, v, w, h, uw, vh, tw, th, argb);
+    }
+
+    /** Masques doux (9 tranches de {@code e5_douces}) : ombre portée, halo d'or, lueur. */
+    static final int OMBRE = 0, HALO = 128, LUEUR = 256;
+
+    /**
+     * Ombre ou halo d'une carte (x, y, w, h) : le masque de 128 texels (bord de la carte à 32 texels) agrandi de s,
+     * en 9 tranches (coins de 64 texels, bords étirés).
+     */
+    static void doux(GuiGraphicsExtractor ctx, int u0, int x, int y, int w, int h, double s, int argb) {
+        if ((argb >>> 24) == 0) return;
+        int pad = r(32 * s), c = r(64 * s);
+        int X = x - pad, Y = y - pad, W = w + 2 * pad, H = h + 2 * pad;
+        if (W < 2 * c || H < 2 * c) c = Math.min(W, H) / 2;
+        int mw = W - 2 * c, mh = H - 2 * c;
+        LotBlit l = LotBlit.ouvrir(ctx, DOUCES, 384, 128);
+        l.etire(X, Y, c, c, u0, 0, 64, 64, argb);
+        l.etire(X + W - c, Y, c, c, u0 + 64, 0, 64, 64, argb);
+        l.etire(X, Y + H - c, c, c, u0, 64, 64, 64, argb);
+        l.etire(X + W - c, Y + H - c, c, c, u0 + 64, 64, 64, 64, argb);
+        if (mw > 0) {
+            l.etire(X + c, Y, mw, c, u0 + 63, 0, 2, 64, argb);
+            l.etire(X + c, Y + H - c, mw, c, u0 + 63, 64, 2, 64, argb);
+        }
+        if (mh > 0) {
+            l.etire(X, Y + c, c, mh, u0, 63, 64, 2, argb);
+            l.etire(X + W - c, Y + c, c, mh, u0 + 64, 63, 64, 2, argb);
+        }
+        if (mw > 0 && mh > 0) l.etire(X + c, Y + c, mw, mh, u0 + 63, 63, 2, 2, argb);
+        l.fermer();
+    }
+
+    /** Lueur ronde de rayon rayon (px) centrée en (cx, cy). */
+    static void lueur(GuiGraphicsExtractor ctx, int cx, int cy, int rayon, int argb) {
+        blitTeint(ctx, DOUCES, cx - rayon, cy - rayon, 2 * rayon, 2 * rayon, LUEUR, 0, 128, 128, 384, 128, argb);
     }
 }

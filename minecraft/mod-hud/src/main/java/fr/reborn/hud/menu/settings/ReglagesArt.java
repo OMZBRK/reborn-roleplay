@@ -1,8 +1,15 @@
 package fr.reborn.hud.menu.settings;
 
 import fr.reborn.hud.ui.DaKit;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.resources.Identifier;
+
+import java.text.Normalizer;
+import java.util.Arrays;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Textures des Paramètres Reborn ({@code textures/gui/reglages/*}, générées par {@code tools/gen_reglages_textures.py} ;
@@ -25,7 +32,17 @@ public final class ReglagesArt {
     /** Pièce de laque et byōbu, centrée, calée en haut. */
     public static void fond(GuiGraphicsExtractor g, int w, int h) {
         g.fill(0, 0, w, h, 0xFF0A0608);
-        DaKit.blit(g, FOND, w / 2 - FOND_W / 2, 0, 0, 0, FOND_W, FOND_H, FOND_W, FOND_H);
+        // Écran logique plus grand que la pièce (1366 × 768 en « Petite », écrans larges) : pièce agrandie pour couvrir
+        float k = Math.max(w / (float) FOND_W, h / (float) FOND_H);
+        if (k <= 1f) {
+            DaKit.blit(g, FOND, w / 2 - FOND_W / 2, 0, 0, 0, FOND_W, FOND_H, FOND_W, FOND_H);
+            return;
+        }
+        g.pose().pushMatrix();
+        g.pose().translate(w / 2f, 0);
+        g.pose().scale(k, k);
+        DaKit.blit(g, FOND, -FOND_W / 2, 0, 0, 0, FOND_W, FOND_H, FOND_W, FOND_H);
+        g.pose().popMatrix();
     }
 
     /** En-tête suspendu (plaque 520 de large), centré en cx. */
@@ -99,5 +116,166 @@ public final class ReglagesArt {
         DaKit.blit(g, PIECES, x, y, 108, 0, 6, 2, 120, 40);
         for (int yy = y + 2; yy < y + h - 2; yy += 12) DaKit.blit(g, PIECES, x, yy, 108, 2, 6, Math.min(12, y + h - 2 - yy), 120, 40);
         DaKit.blit(g, PIECES, x, y + h - 2, 108, 14, 6, 2, 120, 40);
+    }
+
+    /* ================================================================ lot 3 (gabarit o2 des Paramètres) */
+
+    /** Ombre de l'ArcadePix ×1 ({@link DaKit#arcX1}). */
+    private static final int OMBRE_ARC = 0xFF0A0406;
+
+    /**
+     * ArcadePix ×1 <b>avec ses accents</b> (« PARAMÈTRES », « GÉNÉRAL », « CAMÉRA ») : ArcadePix n'a que l'ASCII, la
+     * lettre de base est écrite par {@link DaKit#arcX1} et l'accent est dessiné au pixel au-dessus (même dessin que les
+     * maquettes o2 : aigu, grave, circonflexe, tréma sur deux rangées d'1 GUI, une rangée libre au-dessus de la
+     * capitale ; cédille sous la ligne). Haut des capitales en y, ancre 0 gauche, 1 centre, 2 droite. Positions des
+     * accents calculées une fois par texte (mémo) : rien d'alloué ensuite hors du composant de texte.
+     */
+    public static int titre(GuiGraphicsExtractor g, Font f, String texte, float x, float y, int col, int ancre,
+                            boolean ombre) {
+        int w = DaKit.arcX1(g, f, DaKit.arcade(texte), x, y, col, ancre, ombre);
+        int[] acc = accents(f, texte);
+        if (acc.length == 0) return w;
+        int x0 = Math.round(ancre == 1 ? x - w / 2f : ancre == 2 ? x - w : x);
+        int yy = Math.round(y);
+        if (ombre) poserAccents(g, acc, x0 + 1, yy + 1, OMBRE_ARC);
+        poserAccents(g, acc, x0, yy, col);
+        return w;
+    }
+
+    private static final Map<String, int[]> ACCENTS = new ConcurrentHashMap<>();
+    private static final int[] SANS = new int[0];
+    private static final int AIGU = 0, GRAVE = 1, CIRC = 2, TREMA = 3;
+
+    /** Paires (avance de la lettre en GUI, type d'accent) du texte mis en capitales. */
+    private static int[] accents(Font f, String texte) {
+        if (texte == null) return SANS;
+        int[] r = ACCENTS.get(texte);
+        if (r != null) return r;
+        if (ACCENTS.size() > 512) ACCENTS.clear();
+        String up = Normalizer.normalize(texte.toUpperCase(Locale.ROOT), Normalizer.Form.NFC);
+        int[] tmp = new int[up.length() * 2];
+        int n = 0;
+        for (int i = 0; i < up.length(); i++) {
+            String nfd = Normalizer.normalize(up.substring(i, i + 1), Normalizer.Form.NFD);
+            int type = nfd.indexOf('́') >= 0 ? AIGU : nfd.indexOf('̀') >= 0 ? GRAVE
+                : nfd.indexOf('̂') >= 0 ? CIRC : nfd.indexOf('̈') >= 0 ? TREMA
+                : nfd.indexOf('̧') >= 0 ? 4 : -1;
+            if (type < 0) continue;
+            tmp[n++] = f.width(DaKit.arcade(up.substring(0, i)));
+            tmp[n++] = type;
+        }
+        r = n == 0 ? SANS : Arrays.copyOf(tmp, n);
+        ACCENTS.put(texte, r);
+        return r;
+    }
+
+    /** Accents au pixel (rangées du masque des maquettes : 0-1 au-dessus de la capitale, 10-11 sous la ligne). */
+    private static void poserAccents(GuiGraphicsExtractor g, int[] acc, int x0, int y, int col) {
+        for (int i = 0; i < acc.length; i += 2) {
+            int c = x0 + acc[i] + 3;          // milieu de l'encre d'une capitale de 7
+            int h0 = y - 3, h1 = y - 2;
+            switch (acc[i + 1]) {
+                case AIGU -> {
+                    g.fill(c, h0, c + 2, h0 + 1, col);
+                    g.fill(c - 1, h1, c + 1, h1 + 1, col);
+                }
+                case GRAVE -> {
+                    g.fill(c - 1, h0, c + 1, h0 + 1, col);
+                    g.fill(c, h1, c + 2, h1 + 1, col);
+                }
+                case CIRC -> {
+                    g.fill(c - 1, h0, c + 2, h0 + 1, col);
+                    g.fill(c - 2, h1, c, h1 + 1, col);
+                    g.fill(c + 1, h1, c + 3, h1 + 1, col);
+                }
+                case TREMA -> {
+                    g.fill(c - 2, h1, c - 1, h1 + 1, col);
+                    g.fill(c + 2, h1, c + 3, h1 + 1, col);
+                }
+                default -> {                  // cédille
+                    g.fill(c, y + 7, c + 2, y + 8, col);
+                    g.fill(c - 1, y + 8, c + 1, y + 9, col);
+                }
+            }
+        }
+    }
+
+    /** Chevron d'or de 5×3 (liste déroulante), pointe en bas ; (x, y) = milieu du haut. */
+    public static void chevron(GuiGraphicsExtractor g, int x, int y, int col) {
+        for (int i = 0; i < 3; i++) g.fill(x - 2 + i, y + i, x + 3 - i, y + i + 1, col);
+    }
+
+    /** Segments (y, x0, x1, …, -1) de l'icône « ↺ » pour un côté en pixels écran, recalculés seulement à un changement
+     *  d'échelle. */
+    private static int[] reinitRuns = SANS;
+    private static int reinitCote = -1;
+
+    /**
+     * Icône « ↺ » de « Réinitialiser la section » (maquette o2 : arc de 40° à 330°, pointe de flèche en haut à droite),
+     * ~5,5 GUI de côté, dessinée en pixels écran par segments horizontaux (RebornFont n'a pas les flèches). (x, yc) =
+     * bord gauche et milieu, en GUI.
+     */
+    public static void iconeReinit(GuiGraphicsExtractor g, float x, float yc, int col) {
+        int s = DaKit.echelleGui();
+        int n = Math.max(5, Math.round(5.5f * s));
+        if (n != reinitCote) {
+            reinitRuns = runsReinit(n, s);
+            reinitCote = n;
+        }
+        int[] r = reinitRuns;
+        DaKit.debutPx(g);
+        int px = Math.round(x * s), py = Math.round(yc * s - n / 2f);
+        for (int i = 0; i + 2 < r.length && r[i] >= 0; i += 3) {
+            g.fill(px + r[i + 1], py + r[i], px + r[i + 2], py + r[i] + 1, col);
+        }
+        DaKit.finPx(g);
+    }
+
+    private static int[] runsReinit(int n, int s) {
+        boolean[][] m = new boolean[n][n];
+        double c = (n - 1) / 2.0, ro = n / 2.0 - 0.35, ep = Math.max(1.0, 0.9 * s);
+        for (int y = 0; y < n; y++) {
+            for (int xx = 0; xx < n; xx++) {
+                double dx = xx - c, dy = y - c, d = Math.sqrt(dx * dx + dy * dy);
+                double a = Math.toDegrees(Math.atan2(dy, dx));
+                if (a < 0) a += 360;              // 0 = est, sens horaire (y vers le bas), comme Pillow
+                if (d <= ro && d >= ro - ep && a >= 40 && a <= 330) m[y][xx] = true;
+            }
+        }
+        // pointe de flèche : triangle (0,60 n ; 0) (n ; 0,08 n) (0,80 n ; 0,46 n)
+        double[][] t = {{0.60 * n, 0}, {n, 0.08 * n}, {0.80 * n, 0.46 * n}};
+        for (int y = 0; y < n; y++) {
+            for (int xx = 0; xx < n; xx++) {
+                if (dansTriangle(xx + 0.5, y + 0.5, t)) m[y][xx] = true;
+            }
+        }
+        int[] out = new int[n * n * 3 + 1];
+        int k = 0;
+        for (int y = 0; y < n; y++) {
+            int xx = 0;
+            while (xx < n) {
+                if (!m[y][xx]) {
+                    xx++;
+                    continue;
+                }
+                int a = xx;
+                while (xx < n && m[y][xx]) xx++;
+                out[k++] = y;
+                out[k++] = a;
+                out[k++] = xx;
+            }
+        }
+        out[k] = -1;
+        return Arrays.copyOf(out, k + 1);
+    }
+
+    private static boolean dansTriangle(double px, double py, double[][] t) {
+        double d1 = signe(px, py, t[0], t[1]), d2 = signe(px, py, t[1], t[2]), d3 = signe(px, py, t[2], t[0]);
+        boolean neg = d1 < 0 || d2 < 0 || d3 < 0, pos = d1 > 0 || d2 > 0 || d3 > 0;
+        return !(neg && pos);
+    }
+
+    private static double signe(double px, double py, double[] a, double[] b) {
+        return (px - b[0]) * (a[1] - b[1]) - (a[0] - b[0]) * (py - b[1]);
     }
 }

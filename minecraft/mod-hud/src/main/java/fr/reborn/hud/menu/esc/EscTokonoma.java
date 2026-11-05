@@ -1,147 +1,156 @@
 package fr.reborn.hud.menu.esc;
 
-import fr.reborn.hud.menu.IconPack;
 import fr.reborn.hud.menu.RebornBranding;
 import fr.reborn.hud.menu.RebornSounds;
 import fr.reborn.hud.menu.screens.ConfigShellScreen;
 import fr.reborn.hud.menu.stats.StatsData;
 import fr.reborn.hud.menu.widget.DisconnectConfirmScreen;
 import fr.reborn.hud.menu.widget.ReportScreen;
+import fr.reborn.hud.monnaie.RbCoins;
 import fr.reborn.hud.ui.DaKit;
+import fr.reborn.hud.ui.LotGui;
+import fr.reborn.hud.ui.TexteCache;
+import fr.reborn.hud.ui.TexteRaster.Masque;
 import fr.reborn.hud.ui.UiAmbience;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.resources.Identifier;
 import net.minecraft.util.Util;
 
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Random;
-import java.util.function.Supplier;
 
 import static fr.reborn.hud.menu.esc.EchapArt.*;
 
 /**
- * Menu Échap « tokonoma » : une pièce traditionnelle de nuit. Fenêtre ronde sur le village,
- * logo Reborn Roleplay et menu en plaques laquées suspendues à gauche ; poutre aux emblèmes des
- * cinq villages et, dans l'alcôve, quatre éléments distincts : Boutique (devanture noren, écran vide en attendant ses
- * visuels — décision du 15/10),
- * Stream (kamishibai), Dev blog (kawaraban) et Récompenses (omamori). Réseaux en bas à droite.
+ * Menu Échap <b>e5</b> (Game Plan n° 17, lot 3, validé le 05/11 : {@code e5_echap_final.png}). Le jeu reste visible
+ * derrière, flouté (le flou des menus de Minecraft, une passe) et voilé en dégradé (sombre à gauche, × 0,5 sous la
+ * grille). À gauche, la colonne de la piste A : logo, identité du personnage, PAUSE, CONTINUER, PERSONNAGE,
+ * PARAMÈTRES, SIGNALER, (POSTE DE GARDE pour le staff), QUITTER, pied « [Échap] RETOUR » et version. À droite, la
+ * grille : la <b>Boutique</b> en vitrine (façade d'échoppe, enseigne BOUTIQUE, solde de RBCoins, rien d'autre ; le clic
+ * ouvre la boutique ; fermée : volets tirés, « Bientôt »), les <b>Récompenses</b> en bande longue (les cinq charmes,
+ * Actif / À faire, jauge du prochain versement) et trois petites cartes qui redirigent (Stream, Dev blog, Discord =
+ * nombre de membres).
  *
- * <p>Ouverture : deux fusuma coulissent ; fermeture par « Reprendre » : elles se referment.
- * La scène fait 640×360 unités, affichée à un nombre entier k de pixels écran par unité
- * (DA §6 : une seule grille, aucun filtrage), le plus grand qui laisse voir toute la zone utile ; la pièce
- * prolongée remplit le reste de l'écran (voir {@link EchapArt}) ; le décor fixe est une texture (piece.png), le
- * code ne pose que ce qui bouge et le texte. Textures : {@code textures/gui/echap/*}
- * ({@code tools/gen_echap_textures.py}, cf. {@link EchapArt}) ; sons : {@code sounds/esc/*}.
+ * <p>Une seule chose survolée à la fois. Ouverture 300 ms (la colonne glisse de 6 px, les cartes suivent en fondu,
+ * 40 ms l'une après l'autre), fermeture 180 ms d'un bloc (CONTINUER, Échap ou RETOUR). Tout est dessiné en pixels
+ * écran ({@link EchapArt}) ; textes au moteur {@code TexteRaster}, une poignée par libellé, rien n'est alloué à
+ * chaque image hors des lots d'aplats.
  */
 public final class EscTokonoma {
 
-    private static final int OPEN_MS = 720, CLOSE_MS = 300;
-    /** Banc de captures : zone survolée imposée ({@code REBORN_ESC_SURVOL=<id>}, client de dev seulement). */
-    private static final int SURVOL_FORCE = survolForce();
-    /** Banc des touches ({@code keybind/TouchesDebug}) : zone survolée imposée à chaud (−1 = aucune). */
-    public static int survolBanc = -1;
-    /** Zones du banc : plaque INTERFACE et carte d'identité (Personnage). */
-    public static final int BANC_INTERFACE = 1, BANC_PERSONNAGE = 50;
+    private static final int OPEN_MS = 300, CLOSE_MS = 180, CARTE_MS = 140, DECALAGE_MS = 40;
 
-    private static int survolForce() {
+    /* ---- entrées de la colonne (identifiants stables : survol, banc) ---- */
+    static final int E_CONTINUER = 0, E_PERSONNAGE = 1, E_PARAMETRES = 2, E_SIGNALER = 3, E_GARDE = 4, E_QUITTER = 5;
+    private static final String[] LIBELLES = {"CONTINUER", "PERSONNAGE", "PARAMÈTRES", "SIGNALER", "POSTE DE GARDE",
+        "QUITTER"};
+    private static final int[] LISTE = {E_CONTINUER, E_PERSONNAGE, E_PARAMETRES, E_SIGNALER, E_QUITTER};
+    private static final int[] LISTE_STAFF = {E_CONTINUER, E_PERSONNAGE, E_PARAMETRES, E_SIGNALER, E_GARDE, E_QUITTER};
+
+    /* ---- zones de la grille ---- */
+    public static final int H_BOUTIQUE = 10, H_STREAM = 11, H_BLOG = 12, H_DISCORD = 13, H_CHARME = 20, H_RETOUR = 30;
+
+    /** Banc de captures : zone survolée imposée ({@code REBORN_ESC_SURVOL=<id>}, client de dev seulement). */
+    private static final int SURVOL_FORCE = entierEnv("REBORN_ESC_SURVOL");
+    /** Banc : liste du staff imposée ({@code REBORN_ESC_STAFF=1}). */
+    private static final boolean STAFF_FORCE = entierEnv("REBORN_ESC_STAFF") == 1;
+    /** Bancs ({@code EscDebug}, {@code keybind/TouchesDebug}) : zone survolée imposée à chaud (−1 = aucune). */
+    public static int survolBanc = -1;
+    /**
+     * Zones des bancs : PARAMÈTRES (l'éditeur de HUD et le viseur sont dans Paramètres › Interface depuis le lot 3) et
+     * PERSONNAGE (l'entrée remplace la carte d'identité).
+     */
+    public static final int BANC_INTERFACE = E_PARAMETRES, BANC_PERSONNAGE = E_PERSONNAGE;
+
+    private static int entierEnv(String nom) {
         try {
-            String v = System.getenv("REBORN_ESC_SURVOL");
+            String v = System.getenv(nom);
             return v == null || v.isBlank() ? -1 : Integer.parseInt(v.trim());
         } catch (NumberFormatException e) {
             return -1;
         }
     }
 
-    /** Logo Reborn Roleplay en pixel art à l'échelle de la scène (150×52, 1 texel = 1 unité). */
-    private static final Identifier LOGO = tex("logo");
-
-    private static final String[] VILLAGE_IDS = {"konoha", "suna", "kiri", "kumo", "iwa"};
-    private static final String[] VILLAGE_NAMES = {"KONOHA", "SUNA", "KIRI", "KUMO", "IWA"};
-    private static final String[] VILLAGE_TITRES = {"Konohagakure", "Sunagakure", "Kirigakure", "Kumogakure", "Iwagakure"};
-    private static final String[] VILLAGE_LANDS = {"Pays du Feu", "Pays du Vent", "Pays de l'Eau", "Pays de la Foudre",
-        "Pays de la Terre"};
-
-    /**
-     * Plaques du menu (15/10 : INTERFACE ajoutée — l'éditeur de HUD et le viseur n'ont plus de touche). Pas de 20
-     * unités (22 avant, pour 4 plaques) : les cordons peints dans {@code piece.png} restent cachés sous les plaques, les
-     * bouts visibles entre deux plaques sont recopiés de la texture ({@link #drawMenu}).
-     */
-    private static final String[] MENU = {"REPRENDRE", "INTERFACE", "PARAMETRES", "SIGNALER", "DECONNEXION"};
-    private static final int MENU_Y = 230, MENU_PAS = 20;
-
-    /** Activations qui rapportent des RBCoins par heure de jeu (état réel à brancher sur l'API). */
-    private record Charm(String title, String how) {}
-    private static final Charm[] CHARMS = {
-        new Charm("Boost Discord", "Booste le Discord Reborn."),
-        new Charm("Tag dans le pseudo", "Ajoute le tag Reborn à ton pseudo."),
-        new Charm("Lien dans la bio", "Mets le lien Reborn dans ta bio."),
-        new Charm("Stream Reborn", "Streame sur le serveur."),
-        new Charm("Premium", "Soutiens le serveur."),
-    };
-    private static final int[] CHARM_COL = {0xDC5AC8, 0x468CDC, 0x46AA64, 0x965AF0, 0xE6B43C};
-
-    // Lien lu au clic : celui de Discord vient de l'API (/menu/panel), avec
-    // l'invitation officielle en repli (RebornBranding.discordUrl).
-    private record Social(String label, Supplier<String> url) {}
-    private static final Social[] SOCIALS = {
-        new Social("Discord", RebornBranding::discordUrl),
-        new Social("X", () -> RebornBranding.X_URL),
-        new Social("YouTube", () -> RebornBranding.YOUTUBE_URL),
-        new Social("Site", () -> RebornBranding.SITE_URL),
+    /** Les cinq charmes (ordre et omamori de la maquette e5) : id API, colonne de omamori.png, libellé, aide. */
+    private record Charme(String id, int omamori, String libelle, String aide) {}
+    private static final Charme[] CHARMES = {
+        new Charme("premium", 3, "Premium", "Soutiens le serveur."),
+        new Charme("boost", 1, "Boost Discord", "Booste le Discord Reborn."),
+        new Charme("tag", 2, "Tag dans le pseudo", "Ajoute le tag Reborn à ton pseudo."),
+        new Charme("bio", 0, "Lien dans la bio", "Mets le lien Reborn dans ta bio."),
+        new Charme("stream", 4, "Stream Reborn", "Streame sur le serveur."),
     };
 
-    // Zones cliquables (ids) recalculées à chaque image.
-    private static final int H_SHOP = 10, H_STREAM = 11, H_STREAM_PREV = 12, H_STREAM_NEXT = 13,
-        H_BLOG = 14, H_BLOG_PREV = 15, H_BLOG_NEXT = 16, H_CHARM = 20, H_SOCIAL = 30, H_KAMON = 40, H_PERSO = 50;
-    private record Hit(int id, int x, int y, int w, int h) {
-        boolean in(double mx, double my) { return mx >= x && mx < x + w && my >= y && my < y + h; }
-    }
+    private static final String[] VILLAGE_IDS = {"konoha", "suna", "kiri", "kumo", "iwa", "ame"};
+    private static final String[] VILLAGE_TITRES = {"Konohagakure", "Sunagakure", "Kirigakure", "Kumogakure",
+        "Iwagakure", "Amegakure"};
+
+    private static final String VERSION = "reborn-hud " + net.fabricmc.loader.api.FabricLoader.getInstance()
+        .getModContainer("reborn-hud").map(c -> c.getMetadata().getVersion().getFriendlyString()).orElse("?");
 
     // ── état ──
     private static boolean active;            // un menu Échap Reborn est à l'écran
-    private static boolean closeSoundPlayed;  // « Reprendre » a déjà joué la fermeture
+    private static boolean closeSoundPlayed;  // la fermeture a déjà joué son son
     private static boolean silentStatsRequest;
+    /** L'Échap à l'écran (bancs). */
+    private static EscTokonoma courant;
 
     private final Screen screen;
     private final long openedAt = System.currentTimeMillis();
     private long closingAt = -1L;
     private boolean fermetureDemandee;
-    private long lastFrame = System.currentTimeMillis();
     private boolean openSoundPlayed;
-    private final List<Hit> hits = new ArrayList<>();
     private int hovered = -1;
-    private final float[] hov = new float[64];
-    private final float[] charmKick = new float[CHARMS.length];
-    private int streamIdx, blogIdx;
-    private long lastStreamRotate = System.currentTimeMillis(), lastBlogRotate = System.currentTimeMillis();
-    private final int[][] stars;
-    /** Origine de la scène, en unités (entières) depuis le coin de l'écran. */
-    private int ox, oy;
-    private double mxU, myU;
+    private final Mise m = new Mise();
+    /** Bords des colonnes des charmes (px), mesurés à la dernière image. */
+    private final int[] bords = new int[CHARMES.length + 1];
+    private int bordsY0, bordsY1 = -1;
+
+    // ── libellés (une poignée de texte chacun) ──
+    private final Lib lPause = new Lib(), lNom = new Lib(), lSous = new Lib(), lRetour = new Lib(), lTouche = new Lib(),
+        lVersion = new Lib(), lBoutique = new Lib(), lChevron = new Lib(), lSolde = new Lib(), lRb = new Lib(),
+        lBientot = new Lib(), lRecTitre = new Lib(), lTaux = new Lib(), lProchain = new Lib(), lMinuteur = new Lib(),
+        lAide = new Lib();
+    private final Lib[] lEntrees = libs(LIBELLES.length), lCharmes = libs(CHARMES.length),
+        lEtats = libs(CHARMES.length), lTitres = libs(3), lLignes = libs(3), lChevrons = libs(3);
+    private final TexteCache.Texte filetPause = new TexteCache.Texte();
+    private Masque filetMasque;
+    private int filetL = -1, filetEp = -1;
+
+    // ── textes calculés quand leur source change (pas de format à chaque image) ──
+    private long soldeVu = Long.MIN_VALUE;
+    private String soldeTxt = "—";
+    private EscData.Snapshot snapVu;
+    private boolean snapLu;
+    private String blogLigne = "Aucune note", discordTitre = "Discord", discordLigne = "Rejoindre";
+    private long minuteurSec = -1;
+    private String minuteurTxt = "";
+    private int tauxVu = -1;
+    private String tauxTxt = "";
+    /** Identité de la colonne (nom, rang · village, emblème) : relue quand la fiche ({@link StatsData}) change. */
+    private StatsData.Snapshot statsVu;
+    private boolean statsLu;
+    private String nomTxt = "", sousTxt = "";
+    private int villageVu = -1;
+
+    private static Lib[] libs(int n) {
+        Lib[] l = new Lib[n];
+        for (int i = 0; i < n; i++) l[i] = new Lib();
+        return l;
+    }
 
     public EscTokonoma(Screen screen) {
         this.screen = screen;
-        Random r = new Random(7);
-        stars = new int[18][3];
-        for (int[] s : stars) {
-            double a = Math.PI + r.nextDouble() * Math.PI, d = 10 + r.nextDouble() * 38;
-            s[0] = (int) Math.round(Math.cos(a) * d);
-            s[1] = (int) Math.round(Math.sin(a) * d * 0.8 - 4);
-            s[2] = r.nextInt(628);
-        }
     }
 
     /** Appelé à chaque {@code init} de l'écran pause (ouverture, retour d'un sous-écran, redimensionnement). */
     public void init() {
         boolean wasActive = active;
         active = true;
+        courant = this;
         closeSoundPlayed = false;
         EscData.refreshIfStale();
         if (StatsData.get() == null
@@ -169,93 +178,525 @@ public final class EscTokonoma {
         if (cur == null && !closeSoundPlayed) RebornSounds.playReborn("esc.close", 1.0f, 0.55f);
     }
 
-    // ═════════════════════════════════════════════════════════════ rendu
+    // ═════════════════════════════════════════════════════════════ géométrie
 
-    /** Partie visible de la fenêtre, en unités (pour caler les infobulles). */
-    private int visL, visT, visR, visB;
+    /** Cotes de l'Échap pour une fenêtre (pixels écran). */
+    static final class Mise {
+        int W, H, P, X, gx, gy, pied, tx, tw, th, ry, nEntrees;
+        double k, kk;
+        int[] liste = LISTE;
+
+        void calculer(int W, int H, boolean staff) {
+            this.W = W;
+            this.H = H;
+            k = H / 1080.0;
+            int p = Math.max(1, (int) Math.floor(3 * k + 0.25));
+            while (p > 1 && (GRILLE_W * p + r(120 * k) + r(470 * k) > W
+                || r(150 * k) + (BOUTIQUE_H + GOUTTIERE + RANG_H) * p > H - r(90 * k))) p--;
+            P = p;
+            kk = P / 3.0;
+            X = r(120 * k);
+            gx = W - r(120 * k) - GRILLE_W * P;
+            gy = r(150 * k);
+            ry = gy + (BOUTIQUE_H + GOUTTIERE) * P;
+            tx = gx + (RECOMP_W + GOUTTIERE) * P;
+            tw = (GRILLE_W - RECOMP_W - GOUTTIERE) * P;
+            th = TUILE_H * P;
+            pied = H - r(56 * k);
+            liste = staff ? LISTE_STAFF : LISTE;
+            nEntrees = liste.length;
+        }
+
+        /** Centre vertical de la n-ième entrée de la colonne. */
+        int yEntree(int n) { return r((428 + 57 * n) * k); }
+
+        int tuileY(int i) { return ry + i * TUILE_PAS * P; }
+    }
+
+    private static boolean staff() {
+        return STAFF_FORCE || RebornBranding.isStaff() || fr.reborn.hud.staff.StaffClient.modeActif()
+            || fr.reborn.hud.staff.StaffClient.snapshot() != null;
+    }
+
+    /** Zone sous le point (px écran), ou −1. */
+    private int zone(double mx, double my) {
+        Mise g = m;
+        double k = g.k;
+        if (mx >= r(56 * k) && mx < r(436 * k)) {
+            for (int n = 0; n < g.nEntrees; n++) {
+                int yc = g.yEntree(n);
+                if (my >= yc - r(28.5 * k) && my < yc + r(28.5 * k)) return g.liste[n];
+            }
+        }
+        int ys = g.pied;
+        if (mx >= g.X - 4 && mx < g.X + r(140 * k) && my >= ys - r(16 * k) && my < ys + r(16 * k)) return H_RETOUR;
+        int P = g.P;
+        if (dans(mx, my, g.gx, g.gy, GRILLE_W * P, BOUTIQUE_H * P)) return H_BOUTIQUE;
+        if (bordsY1 > 0 && my >= bordsY0 && my < bordsY1) {
+            for (int i = 0; i < CHARMES.length; i++) if (mx >= bords[i] && mx < bords[i + 1]) return H_CHARME + i;
+        }
+        for (int i = 0; i < 3; i++) if (dans(mx, my, g.tx, g.tuileY(i), g.tw, g.th)) return H_STREAM + i;
+        return -1;
+    }
+
+    private static boolean dans(double mx, double my, int x, int y, int w, int h) {
+        return mx >= x && mx < x + w && my >= y && my < y + h;
+    }
+
+    // ═════════════════════════════════════════════════════════════ animation
+
+    private static float clamp01(float v) { return Math.max(0f, Math.min(1f, v)); }
+
+    private static float sortie(float t) { float u = 1f - t; return 1f - u * u * u; }
+
+    private float fermeture(long now) {
+        return closingAt > 0 ? 1f - clamp01((now - closingAt) / (float) CLOSE_MS) : 1f;
+    }
+
+    private float ouverture(long now) { return sortie(clamp01((now - openedAt) / (float) OPEN_MS)); }
+
+    private float aCarte(long now, int i) {
+        return sortie(clamp01((now - openedAt - DECALAGE_MS * i) / (float) CARTE_MS)) * fermeture(now);
+    }
+
+    // ═════════════════════════════════════════════════════════════ fond : flou de Minecraft + voile
+
+    private static final float[] VX = {0f, .15f, .23f, .30f, .38f, .60f, 1f};
+    private static final float[] AX = {.94f, .87f, .80f, .70f, .56f, .48f, .50f};
+    private static final float[] VY = {0f, .08f, .30f, .90f, .94f, 1f};
+    private static final float[] AY = {.20f, 0f, 0f, 0f, .38f, .66f};
 
     /**
-     * Échelle et origine de la scène pour la fenêtre courante : k entier, le plus grand dont la zone utile
-     * (SAFE_W × SAFE_H) tient dans la fenêtre ; origine entière en unités (négative : bord de scène rogné).
+     * Voile de la piste A (cotes de Ketto à gauche, × 0,5 sous la grille, bande sombre en bas), posé après le flou des
+     * menus de Minecraft : deux dégradés d'encre (horizontal puis vertical), dont le produit donne exactement
+     * flou × fx × fy + encre × (1 − fx·fy). Il monte avec l'ouverture.
      */
-    private void geometrie() {
-        var w = Minecraft.getInstance().getWindow();
-        int pw = w.getWidth(), ph = w.getHeight();
-        k = Math.max(1, Math.min(pw / SAFE_W, ph / SAFE_H));
-        int lw = -Math.floorDiv(-pw, k), lh = -Math.floorDiv(-ph, k);
-        ox = Math.floorDiv(lw - VW, 2);
-        oy = Math.floorDiv(lh - VH, 2);
-        visL = -ox;
-        visT = -oy;
-        visR = lw - ox;
-        visB = lh - oy;
+    public void fond(GuiGraphicsExtractor ctx) {
+        long now = System.currentTimeMillis();
+        float a = ouverture(now) * fermeture(now);
+        var win = Minecraft.getInstance().getWindow();
+        int W = win.getWidth(), H = win.getHeight();
+        DaKit.debutPx(ctx);
+        for (int i = 0; i < VX.length - 1; i++) {
+            degradeH(ctx, r(VX[i] * W), 0, r(VX[i + 1] * W), H, argb(ENCRE, AX[i] * a), argb(ENCRE, AX[i + 1] * a));
+        }
+        for (int i = 0; i < VY.length - 1; i++) {
+            if (AY[i] <= 0f && AY[i + 1] <= 0f) continue;
+            ctx.fillGradient(0, r(VY[i] * H), W, r(VY[i + 1] * H), argb(ENCRE, AY[i] * a), argb(ENCRE, AY[i + 1] * a));
+        }
+        DaKit.finPx(ctx);
     }
 
-    private void versUnites(double mouseX, double mouseY) {
-        double gs = Math.max(1, Minecraft.getInstance().getWindow().getGuiScale());
-        mxU = mouseX * gs / k - ox;
-        myU = mouseY * gs / k - oy;
-    }
+    // ═════════════════════════════════════════════════════════════ rendu
 
     public void render(GuiGraphicsExtractor ctx, int width, int height, int mouseX, int mouseY) {
         long now = System.currentTimeMillis();
-        float dt = Math.min(0.1f, (now - lastFrame) / 1000f);
-        lastFrame = now;
         if (!openSoundPlayed) { openSoundPlayed = true; RebornSounds.playReborn("esc.open", 1.0f, 0.6f); }
-        // Fin de « Reprendre » : jamais de changement d'écran ici (on est au milieu de l'extraction de l'image) —
-        // la fermeture est postée sur la boucle client et faite avant l'image suivante ; d'ici là, fusuma closes.
+        // Fin de la fermeture : jamais de changement d'écran ici (on est au milieu de l'extraction de l'image) —
+        // la fermeture est postée sur la boucle client et faite avant l'image suivante.
         if (closingAt > 0 && now - closingAt >= CLOSE_MS) demanderFermeture();
 
-        geometrie();
-        versUnites(mouseX, mouseY);
-        float time = (now - openedAt) / 1000f;
-
-        DaKit.unites(ctx, k);
-        ctx.pose().translate(ox, oy);
-        // la pièce prolongée couvre l'écran ; un aplat seulement au-delà (formats extrêmes)
-        if (visL < -PIECE_MX || visT < -PIECE_MY || visR > VW + PIECE_MX || visB > VH + PIECE_MY) {
-            ctx.fill(visL, visT, visR, visB, 0xFF0E0608);
-        }
-
-        hits.clear();
-        Font f = Minecraft.getInstance().font;
-        blit(ctx, PIECE, -PIECE_MX, -PIECE_MY, 0, 0, PIECE_W, PIECE_H, PIECE_W, PIECE_H);
-        drawWindow(ctx, time);
-        drawIdentity(ctx, f);
-        drawMenu(ctx, f);
-        drawKamon(ctx, f, time);
-        drawShop(ctx, f, time);
-        drawStream(ctx, f, now, time);
-        drawBlog(ctx, f, now);
-        drawRack(ctx, f, time, dt);
-        drawFloor(ctx, f);
-
-        // survol (après avoir enregistré toutes les zones)
-        int h = -1;
-        for (Hit hit : hits) if (hit.in(mxU, myU)) h = hit.id;
+        var win = Minecraft.getInstance().getWindow();
+        m.calculer(win.getWidth(), win.getHeight(), staff());
+        double gs = Math.max(1, win.getGuiScale());
+        int h = zone(mouseX * gs, mouseY * gs);
         if (SURVOL_FORCE >= 0) h = SURVOL_FORCE;
         if (survolBanc >= 0) h = survolBanc;
+        if (closingAt > 0) h = -1;
         if (h != hovered) {
             hovered = h;
-            boolean charm = h >= H_CHARM && h < H_CHARM + CHARMS.length;
-            if (h >= 0 && opened(now) >= 1f) RebornSounds.playReborn(charm ? "esc.charm" : "esc.hover", charm ? 1.3f : 1.0f,
-                charm ? 0.18f : 0.3f);
-            if (charm) charmKick[h - H_CHARM] = 1f;
+            boolean charme = h >= H_CHARME && h < H_CHARME + CHARMES.length;
+            if (h >= 0 && now - openedAt >= OPEN_MS) RebornSounds.playReborn(charme ? "esc.charm" : "esc.hover",
+                charme ? 1.3f : 1.0f, charme ? 0.18f : 0.3f);
         }
-        for (int i = 0; i < hov.length; i++) {
-            float target = (i == hovered) ? 1f : 0f;
-            hov[i] += (target - hov[i]) * Math.min(1f, dt * 14f);
-        }
-        drawTooltip(ctx, f);
-        drawFusuma(ctx, now);
-        DaKit.finUnites(ctx);
+        majTextes(now);
+
+        DaKit.debutPx(ctx);
+        float ferme = fermeture(now), ouv = ouverture(now);
+        colonne(ctx, ouv * ferme, -r(6 * m.k * (1f - ouv)));
+        boutique(ctx, aCarte(now, 0));
+        recompenses(ctx, aCarte(now, 1), now);
+        for (int i = 0; i < 3; i++) tuile(ctx, i, aCarte(now, 2 + i));
+        aide(ctx, aCarte(now, 1));
+        DaKit.finPx(ctx);
     }
 
+    /** Textes qui dépendent des données : recalculés seulement quand la donnée change. */
+    private void majTextes(long now) {
+        StatsData.Snapshot st = StatsData.get();
+        if (st != statsVu || !statsLu || nomTxt.isEmpty()) {
+            statsVu = st;
+            statsLu = true;
+            villageVu = village();
+            nomTxt = nom();
+            sousTxt = sousTitre(villageVu);
+        }
+        long rb = RbCoins.solde();
+        if (rb != soldeVu) { soldeVu = rb; soldeTxt = rb < 0 ? "—" : fmt(rb); }
+        EscData.Snapshot s = EscData.get();
+        if (s != snapVu || !snapLu) {
+            snapVu = s;
+            snapLu = true;
+            EscData.PatchNote n = s != null && !s.patchNotes().isEmpty() ? s.patchNotes().get(0) : null;
+            if (n == null) blogLigne = "Aucune note";
+            else {
+                String v = n.versionTexte() != null && !n.versionTexte().isBlank() ? n.versionTexte() : null;
+                String d = n.dateCourte();
+                blogLigne = v != null && d != null ? v + " · " + d : v != null ? v : d != null ? d : "Nouvelle note";
+            }
+            boolean membres = s != null && s.discordMembers() >= 0;
+            discordTitre = membres ? fmt(s.discordMembers()) : "Discord";
+            discordLigne = membres ? "membres" : "Rejoindre";
+        }
+        int taux = EscData.recompenses().taux();
+        if (taux != tauxVu) { tauxVu = taux; tauxTxt = "+" + taux + " / heure de jeu"; }
+        long sec = (EscData.resteAvantVersement(now) + 999) / 1000;
+        if (sec != minuteurSec) {
+            minuteurSec = sec;
+            minuteurTxt = String.format(Locale.ROOT, "%02d:%02d:%02d", sec / 3600, sec / 60 % 60, sec % 60);
+        }
+    }
+
+    // ── colonne de gauche (piste A) ──
+    private void colonne(GuiGraphicsExtractor ctx, float a, int dx) {
+        if (a <= 0.003f) return;
+        double k = m.k, f = Math.max(1, k);
+        int X = m.X + dx;
+        // logo (réduit d'avance : la rangée de l'atlas la plus proche de 224·k)
+        int lw = r(224 * k), row = rangLogo(lw);
+        int lh = r(lw * (double) LOGO_H[row] / LOGO_W[row]);
+        blit(ctx, LOGO, X - r(4 * k), r(150 * k), lw, lh, 0, LOGO_V[row], LOGO_W[row], LOGO_H[row], LOGO_TW, LOGO_TH, a);
+        // identité : emblème du village (or clair), nom, rang · village
+        int yc = r(268 * k), vi = villageVu;
+        int lx = X;
+        if (vi >= 0) {
+            int s = Math.max(16, r(26 * k));
+            blitTeint(ctx, EMBLEMES, X, yc - s / 2, s, s, vi * 26, 0, 26, 26, 156, 26, argb(OR_CLAIR, a));
+            lx = X + s + r(12 * k);
+        }
+        lNom.ligne(ctx, nomTxt, P_CREME, 18 * k, f, 0, lx, yc - r(8 * k), a);
+        String sous = sousTxt;
+        if (!sous.isEmpty()) lSous.ligne(ctx, sous, I_DOUX, capInter(11, k), f, 0, lx, yc + r(13 * k), a);
+        // PAUSE et son filet d'or
+        lPause.ligne(ctx, "PAUSE", P_CREME, 32 * k, f, 2 * k, X, r(342 * k), a);
+        int L = r(227 * k), ep = Math.max(1, r(k));
+        if (L != filetL || ep != filetEp || filetMasque == null) { filetL = L; filetEp = ep; filetMasque = Masque.filet(L, ep, true); }
+        filetPause.forme(filetMasque, OR, k, 0.55f, X - r(5 * k), r(373 * k)).dessinerPx(ctx, a);
+        // entrées : bande laquée au survol (coup de pinceau + filet d'or sous l'entrée)
+        for (int n = 0; n < m.nEntrees; n++) {
+            int id = m.liste[n], y = m.yEntree(n);
+            String lib = LIBELLES[id];
+            boolean hot = hovered == id, garde = id == E_GARDE;
+            double cap = 22 * k, inter = 1.2 * k;
+            if (hot) {
+                int bw = r(380 * k), bh = r(55 * k);
+                blit(ctx, BANDE, r(56 * k) + dx, y - bh / 2, bw, bh, 0, 0, 380, 55, 380, 55, a);
+            }
+            lEntrees[id].ligne(ctx, lib, hot ? P_CREME : garde ? P_OR : P_REPOS, cap, f, inter, X, y, a);
+            if (hot) {
+                double w = lEntrees[id].largeur(lib, P_CREME, cap, inter);
+                ctx.fill(X, y + r(15 * k), X + (int) Math.round(w), y + r(15 * k) + Math.max(1, r(k)), argb(OR_CLAIR, 0.95f * a));
+            }
+            if (garde) DaKit.losange(ctx, X - r(20 * k), y, Math.max(1, r(3 * k)), argb(OR, 0.9f * a), argb(ENCRE, 0.4f * a));
+        }
+        // pied : [Échap] RETOUR, version à droite
+        int yp = m.pied, ch = r(22 * k);
+        double capT = 10 * k;
+        double tw = lTouche.largeur("Échap", TexteCache.Style.TOUCHE, capT, 0);
+        int cw = Math.max(ch, (int) Math.ceil(tw + r(ch * 0.45)));
+        LotGui l = LotGui.ouvrir(ctx);
+        caseTouche(l, X, yp - ch / 2, cw, ch, a);
+        l.fermer();
+        lTouche.ligne(ctx, "Échap", TexteCache.Style.TOUCHE, capT, f, 0, X + cw / 2.0, yp, a);
+        boolean hr = hovered == H_RETOUR;
+        lRetour.ligne(ctx, "RETOUR", hr ? B_CREME_G : B_DOUX, capInter(12, k), f, 0.6 * k, X + cw + r(10 * k), yp, a);
+        lVersion.ligne(ctx, VERSION, I_GRIS_D, capInter(10, k), f, 0, m.W - r(120 * k), yp, a);
+    }
+
+    private static final TexteCache.Style B_CREME_G = new TexteCache.Style(IB, MENU,
+        fr.reborn.hud.ui.TexteRaster.cleRgb(CREME), G, true, false);
+
+    private static String nom() {
+        StatsData.Snapshot s = StatsData.get();
+        String name = s != null ? s.name() : null;
+        if (name == null || name.isBlank() || "?".equals(name)) {
+            var p = Minecraft.getInstance().player;
+            name = p != null ? p.getName().getString() : "";
+        }
+        return name;
+    }
+
+    private static String sousTitre(int vi) {
+        StatsData.Snapshot s = StatsData.get();
+        String rank = s != null && s.rank() != null && !s.rank().isBlank() && !"?".equals(s.rank()) ? s.rank() : null;
+        String vil = vi >= 0 ? VILLAGE_TITRES[vi] : null;
+        if (rank == null) return vil == null ? "" : vil;
+        return vil == null ? rank : rank + " · " + vil;
+    }
+
+    private static int village() {
+        StatsData.Snapshot s = StatsData.get();
+        if (s == null || s.village() == null) return -1;
+        String v = s.village().toLowerCase(Locale.ROOT);
+        for (int i = 0; i < VILLAGE_IDS.length; i++) if (v.startsWith(VILLAGE_IDS[i])) return i;
+        return -1;
+    }
+
+    /** Ombre, halo (survol) et fond nuit d'une carte ; renvoie le y (monté d'un pixel d'art au survol). */
+    private int carte(GuiGraphicsExtractor ctx, int x, int y, int w, int h, boolean survol, boolean fondNuit, float a) {
+        int P = m.P;
+        if (survol) {
+            y -= P;
+            doux(ctx, HALO, x, y, w, h, m.kk, argb(OR, 0.62f * a));
+        }
+        doux(ctx, OMBRE, x, y, w, h, m.kk, argb(ENCRE, (survol ? 0.62f : 0.5f) * a));
+        if (fondNuit) ctx.fillGradient(x + P, y + P, x + w - P, y + h - P, argb(survol ? NUIT_H_HOV : NUIT_H, 0.9f * a),
+            argb(NUIT_B, 0.9f * a));
+        return y;
+    }
+
+    private void cadreCarte(GuiGraphicsExtractor ctx, int x, int y, int w, int h, boolean survol, float a) {
+        LotGui l = LotGui.ouvrir(ctx);
+        cadre(l, x, y, w, h, m.P, survol, a);
+        l.fermer();
+    }
+
+    // ── Boutique : la vitrine ──
+    private void boutique(GuiGraphicsExtractor ctx, float a) {
+        if (a <= 0.003f) return;
+        int P = m.P, x = m.gx, w = GRILLE_W * P, h = BOUTIQUE_H * P;
+        double kk = m.kk, f = Math.max(1, kk);
+        boolean ouverte = EscData.boutiqueOuverte(), ferme = !ouverte;
+        boolean allume = hovered == H_BOUTIQUE && ouverte;
+        int y = m.gy;
+        if (allume) doux(ctx, HALO, x, y - P, w, h, kk, argb(OR, 0.55f * a));   // de jour, un second halo plus large
+        y = carte(ctx, x, y, w, h, allume, false, a);
+        int X0 = x + P, Y0 = y + P;
+        int etat = allume ? 1 : ferme ? 2 : 0;
+        blit(ctx, VITRINE, X0, Y0, VIT_W * P, VIT_H * P, 0, etat * VIT_H, VIT_W, VIT_H, VIT_W, VIT_H * 3, a);
+        // chōchin (allumés au survol : cœur ambré + lueur)
+        for (int c = 0; c < 2; c++) {
+            int lx = X0 + (c == 0 ? VIT_OX0 - 26 : VIT_OX1 + 8) * P, ly = Y0 + 15 * P;
+            if (allume) lueur(ctx, lx + 10 * P, ly + 16 * P, r(120 * kk), argb(0xFF9A50, 0.40f * a));
+            blit(ctx, CHOCHIN, lx, ly, 20 * P, 32 * P, etat * 20, 0, 20, 32, 60, 32, a);
+        }
+        // titre peint sur l'enseigne, chevron dedans
+        int zc = X0 + (ENS_X + ENS_W / 2) * P, yt = Y0 + (ENS_Y + ENS_H / 2) * P;
+        double cap = 36 * kk, inter = 3 * kk;
+        var stT = allume ? P_BLANC : ferme ? P_REPOS : P_CREME;
+        double wt = lBoutique.largeur("BOUTIQUE", stT, cap, inter);
+        int wch = ferme ? 0 : r(24 * kk);
+        double xt = zc - Math.floor((wt + wch) / 2);
+        lBoutique.ligne(ctx, "BOUTIQUE", stT, cap, f, inter, xt, yt + r(kk), a);
+        if (!ferme) lChevron.ligne(ctx, "›", allume ? P_BLANC_D : P_OR_D, 32 * kk, f, 0,
+            xt + Math.floor(wt) + wch + (allume ? r(4 * kk) : 0), yt - r(kk), allume ? a : 0.75f * a);
+        // solde de RBCoins sous l'enseigne
+        int yb = Y0 + (ENS_Y + ENS_H) * P + r(40 * kk);
+        double capS = capInter(24, kk), capR = capInter(13, kk);
+        double ws = lSolde.largeur(soldeTxt, B_OR, capS, 0), wl = lRb.largeur("RBCoins", I_DOUX, capR, 0);
+        int coin = 12 * P;
+        double tot = coin + r(12 * kk) + ws + r(8 * kk) + wl;
+        int bx = (int) (zc - Math.floor(tot / 2));
+        blit(ctx, RBCOIN, bx, yb - coin / 2, coin, coin, 0, 0, 12, 12, 12, 12, ferme ? 0.85f * a : a);
+        int xs = bx + coin + r(12 * kk);
+        lSolde.ligne(ctx, soldeTxt, B_OR, capS, f, 0, xs, yb, a);
+        lRb.ligne(ctx, "RBCoins", I_DOUX, capR, f, 0, xs + Math.round(ws) + r(8 * kk), yb + r(2 * kk), a);
+        if (ferme) {
+            double capB = capInter(10, kk), interB = 1.2 * kk;
+            int bw = (int) Math.round(lBientot.largeur("BIENTÔT", B_CREME_C, capB, interB)) + r(28 * kk), bh = r(24 * kk);
+            int yp = yb + r(40 * kk);
+            LotGui l = LotGui.ouvrir(ctx);
+            pilule(l, zc - bw / 2, yp - bh / 2, bw, bh, 0x3A2E2C, 0.95f * a);
+            l.fermer();
+            lBientot.ligne(ctx, "BIENTÔT", B_CREME_C, capB, f, interB, zc, yp, a);
+        }
+        cadreCarte(ctx, x, y, w, h, allume, a);
+    }
+
+    // ── Récompenses : bande longue ──
+    private void recompenses(GuiGraphicsExtractor ctx, float a, long now) {
+        if (a <= 0.003f) { bordsY1 = -1; return; }
+        int P = m.P, x = m.gx, y = m.ry, w = RECOMP_W * P, h = RANG_H * P;
+        double kk = m.kk, f = Math.max(1, kk);
+        carte(ctx, x, y, w, h, false, true, a);
+        int pad = r(24 * kk);
+        // en-tête : losange, titre, taux à droite, filet laqué
+        int yc = y + r(30 * kk);
+        DaKit.losange(ctx, x + pad + r(3 * kk), yc, Math.max(2, r(3 * kk)), argb(OR, a), argb(ENCRE, 0.4f * a));
+        lRecTitre.ligne(ctx, "RÉCOMPENSES", P_OR, 17 * kk, f, 1.6 * kk, x + pad + r(16 * kk), yc, a);
+        double capT = capInter(12, kk);
+        double wtx = lTaux.largeur(tauxTxt, B_OR_D, capT, 0);
+        lTaux.ligne(ctx, tauxTxt, B_OR_D, capT, f, 0, x + w - pad, yc, a);
+        int cs = 12 * Math.max(1, P - 1);
+        blit(ctx, RBCOIN, (int) (x + w - pad - wtx - r(8 * kk) - cs), yc - cs / 2, cs, cs, 0, 0, 12, 12, 12, 12, a);
+        filetFondu(ctx, x + pad, y + r(54 * kk), w - 2 * pad, Math.max(1, r(kk)), OR_ETEINT, 0.45f * a);
+        // colonnes : largeur proportionnelle au libellé, écarts égaux
+        int n = CHARMES.length, c0 = y + r(60 * kk), c1 = y + h - r(54 * kk), pc = r(12 * kk);
+        double capL = capInter(11.5, kk), somme = 0;
+        double[] lws = LWS;
+        for (int i = 0; i < n; i++) {
+            lws[i] = Math.max(lCharmes[i].largeur(CHARMES[i].libelle(), B_HUD_C, capL, 0), r(60 * kk));
+            somme += lws[i];
+        }
+        double libre = (w - 2 * pc) - somme, bx = x + pc;
+        bords[0] = (int) bx;
+        for (int i = 0; i < n; i++) { bx += lws[i] + libre / n; bords[i + 1] = (int) bx; }
+        bordsY0 = c0;
+        bordsY1 = c1;
+        int s = Math.max(1, P - 1);
+        LotGui l = LotGui.ouvrir(ctx);
+        for (int i = 0; i < n; i++) {
+            if (hovered == H_CHARME + i) {
+                rect(l, bords[i] + 1, c0, bords[i + 1], c1, 0x2A1014, 0.85f * a);
+                int bh = Math.max(1, r(3 * kk));
+                rect(l, bords[i] + 1, c1 - bh, bords[i + 1], c1, ROUGE_HOV, a);
+            }
+            if (i > 0) rect(l, bords[i], c0 + r(10 * kk), bords[i] + 1, c1 - r(10 * kk), 0x3A2E2C, 0.7f * a);
+        }
+        l.fermer();
+        for (int i = 0; i < n; i++) {
+            Charme ch = CHARMES[i];
+            boolean actif = EscData.charmeActif(ch.id()), hot = hovered == H_CHARME + i;
+            int cx = (bords[i] + bords[i + 1]) / 2, yi = c0 + r(6 * kk);
+            blit(ctx, OMAMORI, cx - 12 * s, yi, 24 * s, 40 * s, ch.omamori() * 24, 0, 24, 40, 120, 40, (actif ? 1f : 0.55f) * a);
+            int yl = yi + 40 * s + r(16 * kk);
+            lCharmes[i].ligne(ctx, ch.libelle(), actif || hot ? B_HUD_C : B_DOUX_C, capL, f, 0, cx, yl, a);
+            interrupteur(ctx, i, cx, yl + r(22 * kk), actif, a);
+        }
+        // pied : prochain versement, jauge, minuteur
+        int yp = y + h - r(28 * kk);
+        double capP = capInter(11, kk);
+        double wp = lProchain.largeur("Prochain versement", I_DOUX, capP, 0);
+        lProchain.ligne(ctx, "Prochain versement", I_DOUX, capP, f, 0, x + pad, yp, a);
+        int gx = (int) (x + pad + wp + r(14 * kk)), gw = x + w - pad - r(80 * kk) - gx, gh = Math.max(4, r(6 * kk));
+        long iv = Math.max(60_000L, EscData.recompenses().intervalleMs());
+        float prog = 1f - clamp01(EscData.resteAvantVersement(now) / (float) iv);
+        int gp = Math.round(gw * prog);
+        l = LotGui.ouvrir(ctx);
+        rect(l, gx, yp - gh / 2, gx + gw, yp + gh - gh / 2, 0x2A2222, 0.95f * a);
+        rect(l, gx, yp - gh / 2, gx + gp, yp + gh - gh / 2, OR, 0.95f * a);
+        rect(l, gx, yp - gh / 2, gx + gp, yp - gh / 2 + Math.max(1, r(kk)), OR_CLAIR, 0.95f * a);
+        l.fermer();
+        lMinuteur.ligne(ctx, minuteurTxt, B_CREME_D, capInter(12, kk), f, 0, x + w - pad, yp, a);
+        cadreCarte(ctx, x, y, w, h, false, a);
+    }
+
+    private static final double[] LWS = new double[CHARMES.length];
+
+    /** Interrupteur Actif / À faire sous un charme. */
+    private void interrupteur(GuiGraphicsExtractor ctx, int i, int cx, int cy, boolean actif, float a) {
+        double kk = m.kk;
+        String t = actif ? "Actif" : "À faire";
+        var st = actif ? B_VERT : B_GRIS;
+        double cap = capInter(10.5, kk);
+        double tw = lEtats[i].largeur(t, st, cap, 0);
+        int sw = r(24 * kk), sh = r(12 * kk), g = r(6 * kk);
+        int x0 = (int) (cx - Math.floor((sw + g + tw) / 2));
+        int rr = Math.max(2, r(3 * kk));
+        LotGui l = LotGui.ouvrir(ctx);
+        pilule(l, x0, cy - sh / 2, sw, sh, actif ? 0x3A2E22 : 0x2A2426, a);
+        disque(l, x0 + (actif ? sw - rr - r(3 * kk) : rr + r(3 * kk)), cy, rr, actif ? VERT : 0x6A605C, a);
+        l.fermer();
+        lEtats[i].ligne(ctx, t, st, cap, Math.max(1, kk), 0, x0 + sw + g, cy, a);
+    }
+
+    /** Aide du charme survolé, en infobulle sous la bande (masquée sous kk 0,8 : plancher de lisibilité). */
+    private void aide(GuiGraphicsExtractor ctx, float a) {
+        if (hovered < H_CHARME || hovered >= H_CHARME + CHARMES.length || m.kk < 0.8 || a <= 0.003f) return;
+        int i = hovered - H_CHARME;
+        double kk = m.kk;
+        int x = m.gx, y = m.ry, w = RECOMP_W * m.P, h = RANG_H * m.P;
+        String t = CHARMES[i].aide();
+        double cap = capInter(11, kk);
+        int tw = (int) Math.round(lAide.largeur(t, I_HUD_C, cap, 0));
+        int bw = tw + r(24 * kk), bh = r(28 * kk);
+        int cx = (bords[i] + bords[i + 1]) / 2;
+        int bx = Math.min(Math.max(cx - bw / 2, x), x + w - bw), by = y + h + r(8 * kk);
+        doux(ctx, OMBRE, bx, by, bw, bh, kk, argb(ENCRE, 0.5f * a));
+        LotGui l = LotGui.ouvrir(ctx);
+        rect(l, bx, by, bx + bw, by + bh, OR_ETEINT, a);
+        rect(l, bx + 1, by + 1, bx + bw - 1, by + bh - 1, 0x140E11, 0.97f * a);
+        l.fermer();
+        lAide.ligne(ctx, t, I_HUD_C, cap, Math.max(1, kk), 0, bx + bw / 2.0, by + bh / 2.0, a);
+    }
+
+    // ── petites cartes : Stream, Dev blog, Discord ──
+    private void tuile(GuiGraphicsExtractor ctx, int i, float a) {
+        if (a <= 0.003f) return;
+        int P = m.P, x = m.tx, w = m.tw, h = m.th;
+        double kk = m.kk, f = Math.max(1, kk);
+        boolean survol = hovered == H_STREAM + i;
+        int y = carte(ctx, x, m.tuileY(i), w, h, survol, true, a);
+        // case du pictogramme (carré sombre à filet d'or)
+        int cs = (h - 2 * P - 2 * r(8 * kk)) / P * P;
+        int cx0 = x + P + r(8 * kk), cy0 = y + (h - cs) / 2;
+        LotGui l = LotGui.ouvrir(ctx);
+        rect(l, cx0, cy0, cx0 + cs, cy0 + cs, 0x0C080A, 0.85f * a);
+        int bc = survol ? OR : OR_ETEINT;
+        float ba = (survol ? 0.9f : 0.55f) * a;
+        rect(l, cx0, cy0, cx0 + cs, cy0 + 1, bc, ba);
+        rect(l, cx0, cy0 + cs - 1, cx0 + cs, cy0 + cs, bc, ba);
+        rect(l, cx0, cy0 + 1, cx0 + 1, cy0 + cs - 1, bc, ba);
+        rect(l, cx0 + cs - 1, cy0 + 1, cx0 + cs, cy0 + cs - 1, bc, ba);
+        l.fermer();
+        EscData.Snapshot s = EscData.get();
+        boolean live = s != null && s.liveStreamCount() > 0;
+        String titre, ligne;
+        TexteCache.Style stTitre, stLigne;
+        double capT = 15 * kk, interT = 1.4 * kk;
+        int point = -1;
+        switch (i) {
+            case 0 -> {
+                int p = 16 * P;
+                blit(ctx, PICTOS, cx0 + (cs - p) / 2, cy0 + (cs - p) / 2, p, p, live ? 0 : 16, 0, 16, 16, 32, 16, a);
+                titre = "STREAM";
+                ligne = live ? "En direct" : "Hors ligne";
+                stLigne = live ? I_CREME : I_GRIS;
+                if (live) point = DIRECT;
+                stTitre = survol ? P_BLANC : P_OR;
+            }
+            case 1 -> {
+                int p = 14 * P;
+                blit(ctx, PARCHEMIN, cx0 + (cs - p) / 2, cy0 + (cs - p) / 2, p, p, 0, 0, 14, 14, 14, 14, a);
+                titre = "DEV BLOG";
+                ligne = blogLigne;
+                stLigne = I_DOUX;
+                stTitre = survol ? P_BLANC : P_OR;
+            }
+            default -> {
+                int p = 16 * P;
+                blit(ctx, RESEAUX, cx0 + (cs - p) / 2, cy0 + (cs - p) / 2, p, p, 0, survol ? 16 : 0, 16, 16, 64, 32, a);
+                titre = discordTitre;
+                ligne = discordLigne;
+                stLigne = I_DOUX;
+                stTitre = survol ? P_BLANC : P_CREME;
+                capT = 18 * kk;
+                interT = 0.6 * kk;
+            }
+        }
+        int lx = cx0 + cs + r(14 * kk), yc = y + h / 2;
+        lTitres[i].ligne(ctx, titre, stTitre, capT, f, interT, lx, yc - r(9 * kk), a);
+        int xl = lx;
+        if (point >= 0) {
+            int rr = Math.max(2, r(3 * kk));
+            LotGui lp = LotGui.ouvrir(ctx);
+            disque(lp, lx + rr, yc + r(13 * kk), rr, point, a);
+            lp.fermer();
+            xl = lx + 2 * rr + r(6 * kk);
+        }
+        lLignes[i].ligne(ctx, ligne, stLigne, capInter(11, kk), f, 0, xl, yc + r(13 * kk), a);
+        lChevrons[i].ligne(ctx, "›", survol ? P_BLANC_D : P_OR_D, 22 * kk, f, 0,
+            x + w - r(16 * kk) + (survol ? r(3 * kk) : 0), yc - r(kk), survol ? a : 0.55f * a);
+        cadreCarte(ctx, x, y, w, h, survol, a);
+    }
+
+    // ═════════════════════════════════════════════════════════════ fermeture
+
     /**
-     * Ferme l'écran pause au début de l'image suivante, hors extraction. Changer d'écran pendant le rendu
-     * (l'ancien {@code setScreenAndShow(null)} dans {@link #render}) faisait rendre le monde à une image où il
-     * n'avait pas été extrait : crash Sodium « Global terrain uniforms have not been updated » (15/10).
-     * {@code gui.setScreen} et non {@code setScreenAndShow} : ce dernier forcerait une image sans le monde (flash).
+     * Ferme l'écran pause au début de l'image suivante, hors extraction. Changer d'écran pendant le rendu faisait
+     * rendre le monde à une image où il n'avait pas été extrait : crash Sodium « Global terrain uniforms have not been
+     * updated » (15/10). {@code gui.setScreen} et non {@code setScreenAndShow} : ce dernier forcerait une image sans le
+     * monde (flash).
      */
     private void demanderFermeture() {
         if (fermetureDemandee) return;
@@ -264,381 +705,55 @@ public final class EscTokonoma {
         mc.schedule(() -> { if (mc.gui.screen() == screen) mc.gui.setScreen(null); });
     }
 
-    private float opened(long now) { return Math.min(1f, Math.max(0f, (now - openedAt - 100) / (float) (OPEN_MS - 100))); }
-
-    // ── fenêtre ronde : étoiles qui scintillent, lumières du village, étoile filante ──
-    private void drawWindow(GuiGraphicsExtractor ctx, float time) {
-        int x = 51, y = 28, cx = 106, cy = 74;
-        fr.reborn.hud.ui.LotGui etoiles = fr.reborn.hud.ui.LotGui.ouvrir(ctx);   // 18 étoiles = 1 élément GUI
-        for (int[] s : stars) {
-            float a = 0.25f + 0.75f * (0.5f + 0.5f * (float) Math.sin(time * 1.7f + s[2] / 100f));
-            int sx = cx + s[0], sy = cy + s[1];
-            etoiles.fill(sx, sy, sx + 1, sy + 1, DaKit.argb(0xE8E4FF, a));
-        }
-        etoiles.fermer();
-        float flick = 0.70f + 0.30f * (float) Math.sin(time * 4.3f) * (float) Math.sin(time * 1.9f + 1);
-        blit(ctx, FENETRE, x, y, 112, 0, 112, 112, 224, 112, DaKit.blanc(flick));
-        // étoile filante toutes les ~9 s, gardée dans le disque
-        float cyc = time % 9f;
-        if (cyc > 6.5f && cyc < 7.3f) {
-            float p = (cyc - 6.5f) / 0.8f;
-            fr.reborn.hud.ui.LotGui trainee = fr.reborn.hud.ui.LotGui.ouvrir(ctx);
-            for (int i = 0; i < 6; i++) {
-                float q = p - i * 0.035f;
-                if (q < 0) continue;
-                int px = Math.round(cx - 34 + q * 50), py = Math.round(cy - 34 + q * 18);
-                if (Math.hypot(px - cx - 1, py - cy - 10) < 44) trainee.fill(px, py, px + 1, py + 1, DaKit.argb(0xFFFFFF, 1f - i / 6f));
-            }
-            trainee.fermer();
-        }
-        // halo de lune qui respire
-        float gl = 0.10f + 0.06f * (float) Math.sin(time * 0.9f);
-        halo(ctx, x + 78, y + 30, 1, DaKit.argb(0xFFECC8, gl));
-        blit(ctx, FENETRE, x, y, 0, 0, 112, 112, 224, 112);
-    }
-
-    // ── logo + identité du personnage ──
-    private void drawIdentity(GuiGraphicsExtractor ctx, Font f) {
-        blit(ctx, LOGO, 32, 148, 0, 0, 150, 52, 150, 52);
-        int vi = playerVillage();
-        String who = playerName();
-        float nw = largeurArc(f, who, MOYEN) + (vi >= 0 ? 13 : 0);
-        // Carte « Personnage » (15/10 : plus de touche ;) : nom et village cliquables, flèche d'or à droite du nom.
-        float hv = hov[H_PERSO];
-        hits.add(new Hit(H_PERSO, 40, 201, 134, 20));
-        if (hv > 0.02f) contour(ctx, 38, 200, 138, 22, DaKit.argb(0xF2D08A, 0.85f * hv));
-        fleche(ctx, Math.round(107 + nw / 2f + 5), 201, true, hv > 0.5f);
-        float x = 107 - nw / 2f;
-        if (vi >= 0) {
-            blit(ctx, KAMONS, Math.round(x), 203, vi * 22, 66, 10, 10, 110, 78, 0xFF8E1628);
-            x += 13;
-        }
-        arc(ctx, f, who, x, 205, ENCRE, 0, MOYEN, false);
-        String sub = playerSub(vi);
-        if (!sub.isEmpty()) inter(ctx, f, sub, 107, 215.5f, ENCRE_DOUCE, 1, 7);
-    }
-
-    private static String playerName() {
-        StatsData.Snapshot s = StatsData.get();
-        String name = s != null ? s.name() : null;
-        if (name == null || name.isBlank() || "?".equals(name)) {
-            var p = Minecraft.getInstance().player;
-            name = p != null ? p.getName().getString() : "";
-        }
-        return EscData.arcadeSafe(name, 22);
-    }
-
-    private static String playerSub(int vi) {
-        StatsData.Snapshot s = StatsData.get();
-        String rank = s != null && s.rank() != null && !s.rank().isBlank() && !"?".equals(s.rank()) ? s.rank() : null;
-        String vil = vi >= 0 ? VILLAGE_TITRES[vi] : null;
-        if (rank == null) return vil == null ? "" : vil;
-        return vil == null ? rank : rank + " · " + vil;
-    }
-
-    private static int playerVillage() {
-        StatsData.Snapshot s = StatsData.get();
-        if (s == null || s.village() == null) return -1;
-        String v = s.village().toLowerCase(Locale.ROOT);
-        for (int i = 0; i < VILLAGE_IDS.length; i++) if (v.startsWith(VILLAGE_IDS[i])) return i;
-        return -1;
-    }
-
-    // ── menu : plaques laquées suspendues ──
-    private void drawMenu(GuiGraphicsExtractor ctx, Font f) {
-        // bouts de cordon visibles entre deux plaques : recopiés du premier, peint dans piece.png (106, 245)
-        for (int i = 1; i < MENU.length; i++) {
-            blit(ctx, PIECE, 106, MENU_Y + i * MENU_PAS - 5, 106 + PIECE_MX, 245 + PIECE_MY, 2, 5, PIECE_W, PIECE_H);
-        }
-        for (int i = 0; i < MENU.length; i++) {
-            int y = MENU_Y + i * MENU_PAS;
-            float hv = hov[i];
-            hits.add(new Hit(i, 41, y, 132, 15));
-            boolean hot = hv > 0.5f;
-            int x = 41 + Math.round(hv * 3);
-            int row = !hot ? 0 : (i == MENU.length - 1 ? 2 : 1);
-            blit(ctx, PLAQUES, x - 8, y - 2, 0, row * 20, 144, 20, 144, 60);
-            int col = hot ? CREME : CREME_DOUX;
-            arc(ctx, f, MENU[i], x + 66, y + 4.5f, col, 1, MOYEN, hot);
-        }
-    }
-
-    // ── poutre aux kamon ──
-    private void drawKamon(GuiGraphicsExtractor ctx, Font f, float time) {
-        int mine = playerVillage();
-        for (int i = 0; i < 5; i++) {
-            int x = 262 + i * 70, y = 25;
-            boolean m = i == mine;
-            float hv = hov[H_KAMON + i];
-            hits.add(new Hit(H_KAMON + i, x - 2, y - 2, 22, 22));
-            if (m) {
-                float pulse = 0.5f + 0.5f * (float) Math.sin(time * 2.2f);
-                halo(ctx, x + 9, y + 9, 1, DaKit.argb(0xF6CC78, 0.10f + 0.10f * pulse));
-            }
-            int row = m ? 2 : hv > 0.5f ? 1 : 0;
-            blit(ctx, KAMONS, x - 2, y - 2, i * 22, row * 22, 22, 22, 110, 78);
-            if (m) {
-                int t = tailleQuiTient(f, VILLAGE_NAMES[i], 44);
-                arc(ctx, f, VILLAGE_NAMES[i], x + 23, y + (t == MOYEN ? 6 : 7), OR_CLAIR, 0, t, true);
-            }
-        }
-    }
-
-    // ── Boutique : devanture noren + chōchin (15/10 : l'ancienne échoppe ; l'écran est vide en attendant ses visuels) ──
-    private void drawShop(GuiGraphicsExtractor ctx, Font f, float time) {
-        int x = 236, y = 60, w = 177, h = 121;
-        float hv = hov[H_SHOP];
-        hits.add(new Hit(H_SHOP, x, y, w, h));
-        float flick = 0.8f + 0.2f * (float) Math.sin(time * 6.1f) * (float) Math.sin(time * 2.3f);
-        for (int side = 0; side < 2; side++) {
-            int lx = side == 0 ? x + 17 : x + w - 17, ly = y + 44;
-            halo(ctx, lx, ly + 16, 1, DaKit.argb(0xFF9A50, (0.22f + 0.18f * hv) * flick));
-            float sway = (float) Math.sin(time * 1.4f + side) * 0.05f;
-            ctx.pose().pushMatrix();
-            ctx.pose().translate(lx, ly);
-            ctx.pose().rotate(sway);
-            blit(ctx, CHOCHIN, -10, 0, hv > 0.5f ? 20 : 0, 0, 20, 32, 40, 32);
-            ctx.pose().popMatrix();
-        }
-        arc(ctx, f, "BOUTIQUE", x + w / 2f, y + 52, CREME, 1, GRAND, true);
-        inter(ctx, f, "Bientôt", x + w / 2f, y + 78, DaKit.argb(0xF2D08A, 0.8f), 1, 8);
-        // « Entrer ›» en bas à droite, sur le comptoir
-        float ew = largeurInter(f, "Entrer", 8);
-        int ex = Math.round(x + w - 12 - ew - 10 + hv * 2);
-        inter(ctx, f, "Entrer", ex, y + h - 8, DaKit.argb(0xF5E9D0, 0.75f + 0.25f * hv), 0, 8);
-        fleche(ctx, Math.round(ex + ew + 3), y + h - 12, true, hv > 0.5f);
-        if (hv > 0.02f) contour(ctx, x - 2, y - 2, w + 4, h + 4, DaKit.argb(0xF2D08A, 0.85f * hv));
-    }
-
-    // ── Stream : kamishibai ──
-    private void drawStream(GuiGraphicsExtractor ctx, Font f, long now, float time) {
-        int x = 429, y = 60;
-        float hv = hov[H_STREAM];
-        int sx = x + 30, sy = y + 23, sw = 117, sh = 89;
-        int ts = tailleQuiTient(f, "STREAM", 38);
-        arc(ctx, f, "STREAM", x + 88, y - (ts == MOYEN ? 3 : 2), CREME, 1, ts, true);
-        hits.add(new Hit(H_STREAM, sx, sy, sw, sh));
-
-        EscData.Snapshot snap = EscData.get();
-        List<EscData.Stream> streams = snap != null ? snap.streams() : List.of();
-        if (streams.isEmpty()) {
-            IconPack.twitch(ctx, sx + sw / 2 - 8, sy + 22, 16, 0xFF5A5478);
-            inter(ctx, f, "Aucun stream en ce moment", sx + sw / 2f, sy + 50, 0xFF8C84A0, 1, 7);
-            return;
-        }
-        if (streams.size() > 1 && now - lastStreamRotate > 7000) { streamIdx++; lastStreamRotate = now; }
-        int idx = Math.floorMod(streamIdx, streams.size());
-        EscData.Stream s = streams.get(idx);
-        // badge
-        String badge = s.live() ? "LIVE" : "HORS LIGNE";
-        int bw = Math.round(largeurArc(f, badge, PETIT)) + 10;
-        badge(ctx, sx + 5, sy + 5, bw, s.live());
-        arc(ctx, f, badge, sx + 5 + bw / 2f, sy + 8.5f, CREME, 1, PETIT, false);
-        if (s.live()) {
-            float p = 0.5f + 0.5f * (float) Math.sin(time * 5f);
-            blit(ctx, PIECES, sx + bw + 8, sy + 9, 92, 14, 3, 3, 128, 48, DaKit.blanc(0.3f + 0.7f * p));
-        }
-        String nom = s.nomTexte() != null && !s.nomTexte().isBlank() ? s.nomTexte() : (s.name() != null ? s.name() : "Stream");
-        arc(ctx, f, ellipseArc(f, EscData.arcadeSafe(nom, 24), sw - 12, MOYEN), sx + sw / 2f, sy + 30,
-            hv > 0.5f ? 0xFFFFFFFF : 0xFFE6DCF0, 1, MOYEN, true);
-        String titre = s.titreTexte() != null && !s.titreTexte().isBlank() ? s.titreTexte() : null;
-        if (s.live() && titre != null) {
-            List<String> l = lignes(f, titre, sw - 14, 7, 2);
-            for (int i = 0; i < l.size(); i++) inter(ctx, f, l.get(i), sx + sw / 2f, sy + 46 + i * 7, 0xFFA096B4, 1, 7);
-        } else {
-            inter(ctx, f, "Hors ligne", sx + sw / 2f, sy + 46, 0xFF7C7490, 1, 7);
-        }
-        if (streams.size() > 1) arrows(ctx, f, sx + 4, sy + sh - 13, sw - 8, idx, streams.size(), H_STREAM_PREV, H_STREAM_NEXT,
-            0xFFC8BEDC);
-        if (hv > 0.02f) contour(ctx, sx - 3, sy - 3, sw + 6, sh + 6, DaKit.argb(0xF2D08A, 0.85f * hv));
-    }
-
-    // ── Dev blog : kawaraban ──
-    private void drawBlog(GuiGraphicsExtractor ctx, Font f, long now) {
-        int x = 236 + 21, y = 197;
-        float hv = hov[H_BLOG];
-        int lift = Math.round(hv);
-        blit(ctx, KAWARABAN, x, y - lift, 0, 0, 134, 122, 134, 122);
-        int px = x + 15, py = y + 21 - lift, pw = 104;
-        hits.add(new Hit(H_BLOG, px, py + 14, pw, 82));
-        arc(ctx, f, "DEV BLOG", px + 5, py + 3.5f, CREME, 0, MOYEN, false);
-        EscData.Snapshot snap = EscData.get();
-        List<EscData.PatchNote> notes = snap != null ? snap.patchNotes() : List.of();
-        if (notes.isEmpty()) {
-            inter(ctx, f, "Aucune note pour l'instant", px + pw / 2f, py + 50, ENCRE_DOUCE, 1, 7);
-            return;
-        }
-        if (notes.size() > 1 && now - lastBlogRotate > 8000) { blogIdx++; lastBlogRotate = now; }
-        int idx = Math.floorMod(blogIdx, notes.size());
-        EscData.PatchNote n = notes.get(idx);
-        if (n.date() != null) {
-            String[] parts = n.date().split(" ");              // « 12 MAI 2026 » → « 12 MAI »
-            String d = parts.length >= 2 ? parts[0] + " " + parts[1] : n.date();
-            arc(ctx, f, d, px + pw - 5, py + 4.5f, 0xFFC8BEAA, 2, PETIT, false);
-        }
-        arc(ctx, f, ellipseArc(f, n.version() != null ? n.version() : "PATCH", pw - 16, MOYEN), px + pw / 2f, py + 20,
-            ENCRE_ROUGE, 1, MOYEN, false);
-        filet(ctx, px + pw / 2 - 30, py + 31, 60);
-        String titre = n.titreTexte() != null && !n.titreTexte().isBlank() ? n.titreTexte() : (n.title() != null ? n.title() : "");
-        List<String> l = lignes(f, titre, pw - 14, 8, 4);
-        for (int i = 0; i < l.size(); i++) inter(ctx, f, l.get(i), px + pw / 2f, py + 40 + i * 8, ENCRE, 1, 8);
-        float lw = largeurInter(f, "Lire", 8);
-        inter(ctx, f, "Lire", px + pw - 14 - lw, py + 88, hv > 0.5f ? 0xFFC82A2E : ENCRE_ROUGE, 0, 8);
-        fleche(ctx, px + pw - 11, py + 84, true, hv > 0.5f);
-        if (notes.size() > 1) arrows(ctx, f, px + 2, py + 84, 56, idx, notes.size(), H_BLOG_PREV, H_BLOG_NEXT, ENCRE_DOUCE);
-    }
-
-    // ── Récompenses : omamori ──
-    private void drawRack(GuiGraphicsExtractor ctx, Font f, float time, float dt) {
-        int x = 429, y = 197;
-        arc(ctx, f, "RECOMPENSES", x + 10, y + 9, OR_CLAIR, 0, MOYEN, true);
-        inter(ctx, f, "+5 / h", x + 167, y + 12, OR, 2, 8);
-        for (int i = 0; i < CHARMS.length; i++) {
-            int cx = x + 24 + i * 32, top = y + 26;
-            float hv = hov[H_CHARM + i];
-            charmKick[i] = Math.max(0f, charmKick[i] - dt * 0.9f);
-            float ang = (float) Math.sin(time * 1.6f + i * 1.3f) * 0.05f
-                + (float) Math.sin(time * 9f) * 0.22f * charmKick[i];
-            hits.add(new Hit(H_CHARM + i, cx - 13, top, 26, 42));
-            halo(ctx, cx, top + 24, 1, DaKit.argb(CHARM_COL[i], 0.10f + 0.25f * hv));
-            ctx.pose().pushMatrix();
-            ctx.pose().translate(cx, top);
-            ctx.pose().rotate(ang);
-            blit(ctx, OMAMORI, -12, 0, i * 24, 0, 24, 40, 120, 40);
-            ctx.pose().popMatrix();
-        }
-        // Solde de RBCoins du compte (15/10, ADR 0006 : jamais mêlé au ryo) — transmis par le launcher, sinon « — ».
-        long rb = fr.reborn.hud.monnaie.RbCoins.solde();
-        if (rb != balRb || rbTxt == null) { balRb = rb; rbTxt = (rb < 0 ? "—" : fr.reborn.hud.monnaie.BourseClient.fmt(rb)) + " RBCoins"; }
-        piece(ctx, x + 9, y + 102);
-        float rw = largeurInter(f, rbTxt, 8);
-        inter(ctx, f, rbTxt, x + 23, y + 107, OR_CLAIR, 0, 8);
-        inter(ctx, f, "· +5 par heure de jeu", x + 23 + rw + 4, y + 107, DaKit.argb(0xF2D08A, 0.7f), 0, 8);
-    }
-
-    private long balRb = Long.MIN_VALUE;
-    private String rbTxt;
-    private EscData.Snapshot floorSnap;
-    private String floorLine;
-
-    // ── plancher : communauté + réseaux ──
-    private void drawFloor(GuiGraphicsExtractor ctx, Font f) {
-        EscData.Snapshot snap = EscData.get();
-        if (snap != floorSnap || floorLine == null) {   // String.format à chaque image coûtait : calculé au paquet
-            floorSnap = snap;
-            floorLine = (snap != null && snap.discordMembers() >= 0)
-                ? "Discord : " + fmt(snap.discordMembers()) + " membres" + (snap.discordOnline() >= 0 ? " · " + fmt(snap.discordOnline()) + " en ligne" : "")
-                : "Rejoins la communauté Reborn";
-        }
-        String line = floorLine;
-        // dans la zone utile (y ≤ 346) : le bas du plancher peut sortir de l'écran
-        arc(ctx, f, "REBORN ROLEPLAY", 24, 333, CREME, 0, MOYEN, true);
-        inter(ctx, f, line, 24, 342.5f, DaKit.argb(0xE8C8C0, 0.75f), 0, 7);
-        for (int i = 0; i < SOCIALS.length; i++) {
-            int id = H_SOCIAL + i;
-            float hv = hov[id];
-            int x = 526 + i * 26, y = 330 - Math.round(hv * 2);
-            hits.add(new Hit(id, x - 3, 327, 20, 20));
-            blit(ctx, RESEAUX, x - 1, y - 1, i * 16, hv > 0.5f ? 16 : 0, 16, 16, 64, 32);
-        }
-    }
-
-    private void drawTooltip(GuiGraphicsExtractor ctx, Font f) {
-        String titre = null;
-        List<String> lignes = new ArrayList<>();
-        if (hovered >= H_CHARM && hovered < H_CHARM + CHARMS.length) {
-            Charm c = CHARMS[hovered - H_CHARM];
-            titre = c.title();
-            lignes.add(c.how());
-            lignes.add("+5 RBCoins par heure de jeu");
-        } else if (hovered >= H_SOCIAL && hovered < H_SOCIAL + SOCIALS.length) {
-            titre = SOCIALS[hovered - H_SOCIAL].label();
-        } else if (hovered == 1) {
-            titre = "Personnaliser l'interface";
-            lignes.add("Placer le HUD, régler le viseur");
-        } else if (hovered == H_PERSO) {
-            titre = "Personnage";
-            lignes.add("Sélection et création des personnages");
-        } else if (hovered >= H_KAMON && hovered < H_KAMON + 5) {
-            int i = hovered - H_KAMON;
-            titre = VILLAGE_TITRES[i];
-            lignes.add(VILLAGE_LANDS[i]);
-        }
-        if (titre == null) return;
-        String tA = EscData.arcadeSafe(titre, 30);
-        float w = largeurArc(f, tA, MOYEN);
-        for (String l : lignes) w = Math.max(w, largeurInter(f, l, 8));
-        int bw = Math.round(w) + 14, bh = 15 + lignes.size() * 8;
-        int x = (int) Math.min(Math.min(VW, visR) - bw - 8, mxU + 8), y = (int) Math.max(Math.max(0, visT) + 4, myU - bh - 6);
-        infobulle(ctx, x, y, bw, bh);
-        arc(ctx, f, tA, x + 7, y + 5, ENCRE_ROUGE, 0, MOYEN, false);
-        for (int i = 0; i < lignes.size(); i++) inter(ctx, f, lignes.get(i), x + 7, y + 17 + i * 8, i == lignes.size() - 1 && lignes.size() > 1 ? ENCRE_DOUCE : ENCRE, 0, 8);
-    }
-
-    // ── fusuma : ouverture / fermeture ──
-    private void drawFusuma(GuiGraphicsExtractor ctx, long now) {
-        float p;
-        if (closingAt > 0) p = 1f - ease(Math.min(1f, (now - closingAt) / (float) CLOSE_MS));
-        else p = ease(opened(now));
-        if (p >= 1f) return;
-        int off = Math.round(320 * p);
-        ctx.fill(visL, visT, visR, visB, DaKit.argb(0x000000, 0.35f * (1 - p)));
-        // un second vantail de chaque côté couvre la pièce prolongée
-        blit(ctx, FUSUMA_L, -320 - off, 0, 0, 0, 320, 360, 320, 360);
-        blit(ctx, FUSUMA_L, -off, 0, 0, 0, 320, 360, 320, 360);
-        blit(ctx, FUSUMA_R, 320 + off, 0, 0, 0, 320, 360, 320, 360);
-        blit(ctx, FUSUMA_R, 640 + off, 0, 0, 0, 320, 360, 320, 360);
-        ctx.fill(320 - off - 1, 0, 320 - off + 1, VH, 0xFF2E1A10);
+    /** CONTINUER, Échap ou RETOUR : fermeture animée (180 ms). Vrai si l'Échap s'en charge. */
+    public boolean continuer() {
+        if (closingAt > 0) return true;
+        RebornSounds.playReborn("esc.close", 1.0f, 0.55f);
+        closeSoundPlayed = true;
+        closingAt = System.currentTimeMillis();
+        return true;
     }
 
     // ═════════════════════════════════════════════════════════════ clics
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button != 0 || closingAt > 0) return false;
-        geometrie();
-        versUnites(mouseX, mouseY);
-        int id = -1;
-        // les flèches passent avant le corps du carrousel
-        for (Hit h : hits) if (h.in(mxU, myU) && (id < 0 || isArrow(h.id))) id = h.id;
-        if (id < 0) return false;
+        var win = Minecraft.getInstance().getWindow();
+        m.calculer(win.getWidth(), win.getHeight(), staff());
+        double gs = Math.max(1, win.getGuiScale());
+        int id = zone(mouseX * gs, mouseY * gs);
+        return id >= 0 && agir(id);
+    }
+
+    /** Action d'une zone (clic, bancs). */
+    boolean agir(int id) {
         Minecraft mc = Minecraft.getInstance();
         EscData.Snapshot snap = EscData.get();
         switch (id) {
-            case 0 -> { RebornSounds.playReborn("esc.close", 1.0f, 0.55f); closeSoundPlayed = true; closingAt = System.currentTimeMillis(); }
-            case 1 -> { select(); mc.setScreenAndShow(new fr.reborn.hud.ui.HudEditScreen(screen)); }
-            case 2 -> { select(); mc.setScreenAndShow(new ConfigShellScreen(screen)); }
-            case 3 -> { select(); mc.setScreenAndShow(new ReportScreen(screen)); }
-            case 4 -> { select(); mc.setScreenAndShow(new DisconnectConfirmScreen(screen)); }
-            case H_PERSO -> { select(); fr.reborn.hud.keybind.HudKeybinds.ouvrirPersonnage(mc); }
-            case H_SHOP -> { select(); mc.setScreenAndShow(new fr.reborn.hud.boutique.BoutiqueVideScreen(screen)); }
-            case H_STREAM_PREV, H_STREAM_NEXT -> {
-                streamIdx += id == H_STREAM_NEXT ? 1 : -1; lastStreamRotate = System.currentTimeMillis();
-                RebornSounds.playReborn("esc.page", 1.0f, 0.5f);
-            }
-            case H_BLOG_PREV, H_BLOG_NEXT -> {
-                blogIdx += id == H_BLOG_NEXT ? 1 : -1; lastBlogRotate = System.currentTimeMillis();
-                RebornSounds.playReborn("esc.page", 1.1f, 0.5f);
-            }
+            case E_CONTINUER, H_RETOUR -> continuer();
+            case E_PERSONNAGE -> { select(); fr.reborn.hud.keybind.HudKeybinds.ouvrirPersonnage(mc); }
+            case E_PARAMETRES -> { select(); mc.setScreenAndShow(new ConfigShellScreen(screen)); }
+            case E_SIGNALER -> { select(); mc.setScreenAndShow(new ReportScreen(screen)); }
+            case E_GARDE -> { select(); fr.reborn.hud.staff.StaffClient.send("open"); }
+            case E_QUITTER -> { select(); mc.setScreenAndShow(new DisconnectConfirmScreen(screen)); }
+            case H_BOUTIQUE -> { select(); mc.setScreenAndShow(new fr.reborn.hud.boutique.BoutiqueVideScreen(screen)); }
             case H_STREAM -> {
-                if (snap != null && !snap.streams().isEmpty()) open(snap.streams().get(Math.floorMod(streamIdx, snap.streams().size())).url());
+                if (snap == null || snap.streams().isEmpty()) return true;
+                EscData.Stream choix = snap.streams().get(0);
+                for (EscData.Stream s : snap.streams()) if (s.live()) { choix = s; break; }
+                open(choix.url());
             }
             case H_BLOG -> {
-                if (snap != null && !snap.patchNotes().isEmpty()) open(snap.patchNotes().get(Math.floorMod(blogIdx, snap.patchNotes().size())).url());
+                List<EscData.PatchNote> n = snap != null ? snap.patchNotes() : List.of();
+                open(!n.isEmpty() && n.get(0).url() != null ? n.get(0).url() : RebornBranding.SITE_URL);
             }
+            case H_DISCORD -> open(RebornBranding.discordUrl());
             default -> {
-                if (id >= H_CHARM && id < H_CHARM + CHARMS.length) {
-                    charmKick[id - H_CHARM] = 1f;
-                    RebornSounds.playReborn("esc.charm", 1.0f, 0.45f);
-                } else if (id >= H_SOCIAL && id < H_SOCIAL + SOCIALS.length) {
-                    open(SOCIALS[id - H_SOCIAL].url().get());
-                }
+                if (id >= H_CHARME && id < H_CHARME + CHARMES.length) RebornSounds.playReborn("esc.charm", 1.0f, 0.45f);
+                else return false;
             }
         }
         return true;
-    }
-
-    private static boolean isArrow(int id) {
-        return id == H_STREAM_PREV || id == H_STREAM_NEXT || id == H_BLOG_PREV || id == H_BLOG_NEXT;
     }
 
     private static void select() { RebornSounds.playReborn("esc.select", 1.0f, 0.55f); }
@@ -649,28 +764,58 @@ public final class EscTokonoma {
         try { Util.getPlatform().openUri(URI.create(url)); } catch (Exception ignored) {}
     }
 
-    // ═════════════════════════════════════════════════════════════ petits outils
+    // ═════════════════════════════════════════════════════════════ bancs
 
-    /** Carrousel : flèches « ‹ › » d'or et compteur Inter au centre. */
-    private void arrows(GuiGraphicsExtractor ctx, Font f, int x, int y, int w, int idx, int size, int prevId, int nextId, int col) {
-        inter(ctx, f, (idx + 1) + " / " + size, x + w / 2f, y + 4.5f, col, 1, 7);
-        fleche(ctx, x, y, false, hov[prevId] > 0.5f);
-        fleche(ctx, x + w - 8, y, true, hov[nextId] > 0.5f);
-        hits.add(new Hit(prevId, x - 3, y - 3, 14, 15));
-        hits.add(new Hit(nextId, x + w - 11, y - 3, 14, 15));
+    /**
+     * Centre d'une zone en coordonnées GUI pour la fenêtre courante (banc {@code EscDebug}) : entrées par identifiant
+     * ({@link #E_CONTINUER}…), cartes ({@link #H_BOUTIQUE}…), charmes ({@link #H_CHARME} + i, colonnes égales),
+     * pied ({@link #H_RETOUR}). {@code null} si la zone n'est pas affichée.
+     */
+    public static double[] centreGui(int id) {
+        Minecraft mc = Minecraft.getInstance();
+        var win = mc.getWindow();
+        Mise g = new Mise();
+        g.calculer(win.getWidth(), win.getHeight(), staff());
+        double gs = Math.max(1, win.getGuiScale());
+        double px, py;
+        int P = g.P;
+        if (id >= E_CONTINUER && id <= E_QUITTER) {
+            int n = -1;
+            for (int i = 0; i < g.nEntrees; i++) if (g.liste[i] == id) n = i;
+            if (n < 0) return null;
+            px = g.X + 60;
+            py = g.yEntree(n);
+        } else if (id == H_BOUTIQUE) {
+            px = g.gx + GRILLE_W * P / 2.0;
+            py = g.gy + BOUTIQUE_H * P / 2.0;
+        } else if (id >= H_STREAM && id <= H_DISCORD) {
+            px = g.tx + g.tw / 2.0;
+            py = g.tuileY(id - H_STREAM) + g.th / 2.0;
+        } else if (id >= H_CHARME && id < H_CHARME + CHARMES.length) {
+            int w = RECOMP_W * P;
+            px = g.gx + (id - H_CHARME + 0.5) * w / CHARMES.length;
+            py = g.ry + RANG_H * P / 2.0;
+        } else if (id == H_RETOUR) {
+            px = g.X + 20;
+            py = g.pied;
+        } else return null;
+        return new double[]{px / gs, py / gs};
     }
 
-    /** Contour d'or d'1 unité (survol), coins abattus. */
-    private static void contour(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int c) {
-        ctx.fill(x + 1, y, x + w - 1, y + 1, c);
-        ctx.fill(x + 1, y + h - 1, x + w - 1, y + h, c);
-        ctx.fill(x, y + 1, x + 1, y + h - 1, c);
-        ctx.fill(x + w - 1, y + 1, x + w, y + h - 1, c);
+    /** L'Échap à l'écran, ou null. */
+    static EscTokonoma courant() {
+        Screen s = Minecraft.getInstance().gui.screen();
+        return s instanceof PauseScreen && courant != null && courant.screen == s ? courant : null;
     }
 
     private static String fmt(long v) {
-        return String.format(Locale.FRANCE, "%,d", v).replace(' ', ' ').replace(' ', ' ');
+        String s = Long.toString(Math.abs(v));
+        StringBuilder b = new StringBuilder(s.length() + 4);
+        if (v < 0) b.append('-');
+        for (int i = 0; i < s.length(); i++) {
+            if (i > 0 && (s.length() - i) % 3 == 0) b.append(' ');
+            b.append(s.charAt(i));
+        }
+        return b.toString();
     }
-
-    private static float ease(float t) { return t < 0.5f ? 4 * t * t * t : 1 - (float) Math.pow(-2 * t + 2, 3) / 2; }
 }

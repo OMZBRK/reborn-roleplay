@@ -8,9 +8,9 @@ import net.minecraft.util.Util;
 import java.net.URI;
 
 /**
- * Onglet Discord — infos communauté réelles (compteur live via
- * {@link EscData}) + bouton « Rejoindre ». Les anciens toggles Rich Presence
- * étaient factices (le RPC est géré par le launcher, pas par le mod) : retirés.
+ * Page Discord (Paramètres › Compte › Discord depuis le lot 3, titre posé par l'écran) — infos communauté réelles
+ * (compteur live via {@link EscData}) + « Rejoindre ». Les anciens toggles Rich Presence étaient factices (le RPC est
+ * géré par le launcher, pas par le mod) : retirés.
  */
 public class DiscordTab extends SectionedTab {
 
@@ -19,29 +19,23 @@ public class DiscordTab extends SectionedTab {
         EscData.refreshIfStale();
         EscData.Snapshot snap = EscData.get();
 
-        section("Communauté");
-
         if (snap != null && snap.discordMembers() >= 0) {
-            valueRow("Membres", "Rejoignez la communauté Reborn",
-                snap.discordMembers() + " membres", Colors.WHITE_PURE);
-            valueRow("En ligne", null,
-                snap.discordOnline() + " en ligne", Colors.SUCCESS);
+            valueRow("Membres", "La communauté Reborn.", snap.discordMembers() + " membres", Colors.WHITE_PURE);
+            valueRow("En ligne", null, snap.discordOnline() + " en ligne", Colors.SUCCESS);
         } else {
             // snap null = API injoignable ; sinon l'API répond mais n'a pas de
             // compteur (Discord muet ou invitation à vérifier).
             labelRow("Membres", snap == null
-                ? "Compteur indisponible (API injoignable)"
-                : "Compteur indisponible pour le moment");
+                ? "Compteur indisponible (API injoignable)."
+                : "Compteur indisponible pour le moment.");
         }
 
-        actionButton("→ Rejoindre le Discord", () -> {
+        action("Rejoindre le Discord", "S'ouvre dans le navigateur.", "Rejoindre", () -> {
             try {
                 Util.getPlatform().openUri(URI.create(RebornBranding.discordUrl()));
             } catch (Exception ignored) {
                 // Ouverture navigateur best-effort ; on n'échoue pas l'UI.
             }
         });
-
-        spacer(4);
     }
 }

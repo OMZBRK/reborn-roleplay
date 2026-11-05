@@ -7,7 +7,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 
 /**
- * Onglet Caméra — expose la vue épaule 3e personne Reborn. Depuis le 15/10 c'est le seul endroit (avec le menu caméra
+ * Page Caméra (Paramètres › Interface › Caméra depuis le lot 3, titre posé par l'écran) — expose la vue épaule 3e personne Reborn. Depuis le 15/10 c'est le seul endroit (avec le menu caméra
  * qu'il ouvre) où l'on règle le style Reborn / Minecraft, l'épaule, le préréglage et le repositionnement : les touches
  * Y / U / I / O / ' ont disparu, la touche Vue (F5) bascule seulement épaule ↔ 1ʳᵉ personne. Tout est câblé en direct
  * sur {@link RebornCamera#INSTANCE} et persisté via {@code saveToPrefs()}.
@@ -32,40 +32,36 @@ public class CameraTab extends SectionedTab {
         String vue = mc0 != null && mc0.options != null
             ? mc0.options.keyTogglePerspective.getTranslatedKeyMessage().getString() : "F5";
 
-        section("Caméra");
-
-        row("Style", "Reborn : épaule et 1re personne (" + vue + "). Minecraft : vues d'origine",
-            (cx, cy, cw) -> new SegmentedControl(cx, cy, cw, 24,
-                new SegmentedControl.Option[] {
-                    new SegmentedControl.Option("reborn", "Reborn"),
-                    new SegmentedControl.Option("vanilla", "Minecraft"),
-                },
-                cam.isVanilla() ? "vanilla" : "reborn",
-                v -> cam.setVanilla("vanilla".equals(v), Minecraft.getInstance())));
+        // (le titre « CAMÉRA » est posé par l'écran : gabarit o2 du lot 3)
+        choix("Style", "Reborn : épaule et 1re personne (" + vue + "). Minecraft : vues d'origine.",
+            new SegmentedControl.Option[] {
+                new SegmentedControl.Option("reborn", "Reborn"),
+                new SegmentedControl.Option("vanilla", "Minecraft"),
+            },
+            cam.isVanilla() ? "vanilla" : "reborn",
+            v -> cam.setVanilla("vanilla".equals(v), Minecraft.getInstance()));
 
         CameraPreset[] ps = CameraPreset.values();
         SegmentedControl.Option[] opts = new SegmentedControl.Option[ps.length];
         for (int i = 0; i < ps.length; i++) opts[i] = new SegmentedControl.Option(ps[i].name(), ps[i].label);
-        row("Préréglage", "Cadrage de départ, ajustable ensuite",
-            (cx, cy, cw) -> new SegmentedControl(cx, cy, cw, 24, opts, cam.preset().name(),
-                v -> { cam.setPreset(CameraPreset.valueOf(v)); cam.saveToPrefs(); }));
+        choix("Préréglage", "Cadrage de départ, ajustable ensuite.", opts, cam.preset().name(),
+            v -> { cam.setPreset(CameraPreset.valueOf(v)); cam.saveToPrefs(); });
 
-        labelRow("Repositionner en direct", "Distance, décalage, hauteur : la caméra bouge pendant le réglage");
-        actionButton("→ Ouvrir le menu caméra", () -> {
-            Minecraft mc = Minecraft.getInstance();
-            if (mc != null && mc.player != null) mc.setScreenAndShow(new fr.reborn.hud.camera.CameraScreen(parent));
-        });
+        action("Repositionner en direct", "Distance, décalage, hauteur : la caméra bouge pendant le réglage.", "Ouvrir",
+            () -> {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc != null && mc.player != null) mc.setScreenAndShow(new fr.reborn.hud.camera.CameraScreen(parent));
+            });
 
         section("Vue 3e personne");
 
-        row("Épaule", "Côté par-dessus lequel la caméra regarde",
-            (cx, cy, cw) -> new SegmentedControl(cx, cy, cw, 24,
-                new SegmentedControl.Option[] {
-                    new SegmentedControl.Option("l", "Gauche"),
-                    new SegmentedControl.Option("r", "Droite"),
-                },
-                cam.side() < 0 ? "l" : "r",
-                v -> { cam.setSide("l".equals(v) ? -1 : 1); cam.saveToPrefs(); }));
+        choix("Épaule", "Côté par-dessus lequel la caméra regarde.",
+            new SegmentedControl.Option[] {
+                new SegmentedControl.Option("l", "Gauche"),
+                new SegmentedControl.Option("r", "Droite"),
+            },
+            cam.side() < 0 ? "l" : "r",
+            v -> { cam.setSide("l".equals(v) ? -1 : 1); cam.saveToPrefs(); });
 
         row("Distance", "Recul de la caméra derrière le personnage",
             (cx, cy, cw) -> new SliderWidget(cx, cy, cw, 24,
@@ -84,8 +80,7 @@ public class CameraTab extends SectionedTab {
 
         section("Démarche");
 
-        labelRow("Style de marche", "Animation utilisée quand vous marchez");
-        actionButton("→ Choisir ma démarche", () -> {
+        action("Style de marche", "Animation jouée quand tu marches.", "Choisir", () -> {
             Minecraft mc = Minecraft.getInstance();
             if (mc != null) mc.setScreenAndShow(new AnimationMenuScreen(parent).demarches());
         });

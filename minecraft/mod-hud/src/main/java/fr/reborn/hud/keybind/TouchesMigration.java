@@ -11,7 +11,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.IntFunction;
 
 /**
@@ -30,8 +34,8 @@ import java.util.function.IntFunction;
  *   <li>Vue : la touche vanilla « Changer de vue » (F5) pilote la caméra Reborn (cf. {@link HudKeybinds#vueReborn}),
  *       rien à déplacer.</li>
  * </ul>
- * Le raccourci « couper le micro » de Plasmo Voice (M, conflit avec la carte) est migré à part, quand Plasmo Voice est
- * prêt ({@code voice/RadioVoix}, drapeau {@link RebornPrefs#touchesPv}).
+ * Les raccourcis de Plasmo Voice ne sont pas des touches Minecraft : ils sont repris à part, quand Plasmo est prêt
+ * ({@code voice/PlasmoTouches}, drapeau {@link RebornPrefs#touchesPvVersion}).
  *
  * <p><b>Version 2 — disposition du clavier</b> (15/10) : les défauts de Minecraft sont des <i>positions</i> de touche
  * (noms US) ; en AZERTY la touche « M » de la carte s'affichait « , », « . » s'affichait « : ». Pour chaque touche Reborn
@@ -48,18 +52,49 @@ import java.util.function.IntFunction;
  * la version 2 ne pose une touche que sur une touche libre (la portée passe avant la parade dans la carte) ; seul un
  * joueur en BÉPO migré avant le 31/10 peut avoir la parade sur la touche US H (elle y affiche « c ») : la portée lui
  * cède alors la place (aucune touche, à lier dans Réglages → Contrôles).
+ *
+ * <p><b>Version 4 — lot 3 « Échap et touches »</b> (05/11, TOUCHES_LIBRES.md) :
+ * <ul>
+ *   <li><b>Concentration</b> (gravée Y) et <b>Couper le micro</b> (I) : la règle de la version 2 leur est appliquée chez
+ *       les joueurs déjà migrés. En QWERTZ neuf, Dégainer (US Z → US Y) et Concentration (US Y → US Z) <b>s'échangent</b> :
+ *       {@link #planifier} compte comme libre une cible tenue par une touche Reborn qui part dans la même passe.</li>
+ *   <li>Y et I ne sont <b>jamais prises</b> (règle de H) : si le joueur y a déjà mis autre chose, la nôtre reste sans
+ *       touche ({@link #jamaisPrises}).</li>
+ *   <li>Touches de Minecraft inutiles à Reborn <b>déliées</b> (si elles sont encore sur leur défaut) et <b>cachées</b>
+ *       des Paramètres ({@link #CACHEES}) : Progrès (L), Amis (O, nouveau en 26.2), Effet de spectateur (F4), Barre du
+ *       spectateur (clic molette), Contours en spectateur, Sauver / charger la barre du créatif (C / X), Caméra fluide ;
+ *       Actions rapides et Interactions sociales (déjà déliées en version 1).</li>
+ *   <li>Le « couper le micro » de Plasmo resté sur US M en AZERTY (il affichait « , ») est remplacé par la touche
+ *       Reborn, à la première synchronisation ({@code voice/PlasmoTouches}).</li>
+ * </ul>
+ * Idempotente : chaque partie ne s'applique qu'aux versions antérieures, puis le drapeau passe à {@link #VERSION}.
  */
 public final class TouchesMigration {
 
     private static final Logger LOG = LoggerFactory.getLogger("reborn-hud/touches");
 
     /** Version de la carte des touches ; on la monte si une nouvelle migration s'ajoute. */
-    public static final int VERSION = 3;
+    public static final int VERSION = 4;
+
+    /**
+     * Touches de Minecraft cachées des Paramètres › Commandes (et déliées une fois par la version 4 si elles étaient sur
+     * leur défaut) : inutiles en RP, et en conflit avec des touches Reborn pour plusieurs (C parer, X course, clic
+     * molette choisir le bloc, G et P).
+     */
+    public static final Set<String> CACHEES = Set.of(
+        "key.advancements", "key.friends", "key.toggleSpectatorShaderEffects", "key.spectatorHotbar",
+        "key.spectatorOutlines", "key.saveToolbarActivator", "key.loadToolbarActivator", "key.smoothCamera",
+        "key.quickActions", "key.socialInteractions");
 
     private TouchesMigration() {}
 
     static void init() {
         ClientLifecycleEvents.CLIENT_STARTED.register(TouchesMigration::migrer);
+    }
+
+    /** Migration faite (les liens avec Plasmo attendent qu'elle soit passée). */
+    public static boolean faite() {
+        return RebornPrefs.INSTANCE.touchesVersion >= VERSION;
     }
 
     /** Une touche à migrer : nom de la {@link KeyMapping}, ancien défaut, nouveau ({@code -1} = aucune). */
@@ -77,20 +112,32 @@ public final class TouchesMigration {
     static void migrer(Minecraft mc) {
         RebornPrefs prefs = RebornPrefs.INSTANCE;
         prefs.ensureLoaded();
-        if (prefs.touchesVersion >= VERSION || mc.options == null) return;
+        int v = prefs.touchesVersion;
+        if (v >= VERSION || mc.options == null) return;
         int changees = 0;
         IntFunction<String> nom = k -> GLFW.glfwGetKeyName(k, 0);
-        if (prefs.touchesVersion < 1) changees += anciensDefauts();
-        // version 2 : toutes les touches Reborn ; déjà faite, seulement la touche arrivée depuis (version 3)
-        if (prefs.touchesVersion < 2) changees += clavier(mc, nom);
-        else if (HudKeybinds.VOIX_PORTEE != null) changees += clavier(nom, List.of(HudKeybinds.VOIX_PORTEE));
-        changees += verifierPortee(mc);
+        if (v < 1) changees += anciensDefauts();
+        if (v < 2) {
+            // version 2 : toutes les touches Reborn (Concentration et micro compris, échange QWERTZ)
+            changees += clavier(mc, nom);
+        } else {
+            // déjà faite : seulement les touches arrivées depuis (version 3 : portée ; version 4 : concentration, micro)
+            List<KeyMapping> nouvelles = new ArrayList<>();
+            if (v < 3) nouvelles.add(HudKeybinds.VOIX_PORTEE);
+            nouvelles.add(HudKeybinds.CONCENTRATION);
+            nouvelles.add(HudKeybinds.MICRO);
+            changees += clavier(nom, nouvelles);
+        }
+        if (v < 3) changees += verifierPortee(mc);
+        changees += cacher(mc);
+        changees += jamaisPrises(mc);
         if (changees > 0) {
             KeyMapping.resetMapping();
             mc.options.save();
         }
         prefs.touchesVersion = VERSION;
         prefs.save();
+        LOG.info("touches : carte migrée de la version {} à la version {} ({} changement(s))", v, VERSION, changees);
     }
 
     /**
@@ -124,6 +171,46 @@ public final class TouchesMigration {
         return 1;
     }
 
+    /** Version 4 : touches de Minecraft inutiles, déliées si elles sont encore sur leur défaut (cachées dans tous les cas). */
+    private static int cacher(Minecraft mc) {
+        int changees = 0;
+        for (KeyMapping km : mc.options.keyMappings) {
+            if (!CACHEES.contains(km.getName()) || km.isUnbound() || !km.isDefault()) continue;
+            InputConstants.Key avant = KeyMappingHelper.getBoundKeyOf(km);
+            km.setKey(InputConstants.UNKNOWN);
+            changees++;
+            LOG.info("touche {} : {} -> aucune (cachée, inutile en RP)", km.getName(), avant.getName());
+        }
+        return changees;
+    }
+
+    /**
+     * Version 4 : Concentration et Couper le micro ne prennent jamais une touche déjà donnée à autre chose (règle de H) :
+     * la nôtre reste alors sans touche, à lier dans les Paramètres. Les raccourcis F3 + touche ne comptent pas.
+     */
+    private static int jamaisPrises(Minecraft mc) {
+        int changees = 0;
+        for (KeyMapping km : new KeyMapping[]{HudKeybinds.CONCENTRATION, HudKeybinds.MICRO}) {
+            if (km == null || km.isUnbound()) continue;
+            InputConstants.Key k = KeyMappingHelper.getBoundKeyOf(km);
+            KeyMapping tenue = tenuePar(mc, k, km);
+            if (tenue == null) continue;
+            km.setKey(InputConstants.UNKNOWN);
+            changees++;
+            LOG.info("touche {} : {} déjà prise par {}, laissée au joueur -> aucune (à lier dans les Paramètres)",
+                km.getName(), k.getName(), tenue.getName());
+        }
+        return changees;
+    }
+
+    private static KeyMapping tenuePar(Minecraft mc, InputConstants.Key k, KeyMapping sauf) {
+        for (KeyMapping km : mc.options.keyMappings) {
+            if (km == sauf || KeyMapping.Category.DEBUG.equals(km.getCategory())) continue;
+            if (KeyMappingHelper.getBoundKeyOf(km).equals(k)) return km;
+        }
+        return null;
+    }
+
     /** Version 1 : anciens défauts → nouvelle carte. */
     private static int anciensDefauts() {
         int changees = 0;
@@ -145,6 +232,28 @@ public final class TouchesMigration {
         return changees;
     }
 
+    /**
+     * « Réinitialiser la section » des Paramètres : chaque touche revient à son défaut, puis les touches Reborn (et le
+     * lecteur de musique) passent par la règle du clavier comme à la migration (en AZERTY, la Carte revient sur la touche
+     * qui affiche « M », pas sur la position US M ; échanges compris). Les touches de Minecraft gardent leur défaut tel
+     * quel : ce sont des positions (ZQSD en AZERTY). Enregistre {@code options.txt}.
+     */
+    public static void reinitialiser(List<KeyMapping> cles) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.options == null) return;
+        List<KeyMapping> reborn = new ArrayList<>();
+        KeyMapping ost = KeyMapping.get("key.reborn-ost.open_menu");
+        for (KeyMapping km : cles) {
+            if (km == null) continue;
+            km.setKey(km.getDefaultKey());
+            if (HudKeybinds.REBORN_KEYS.contains(km) || km == ost) reborn.add(km);
+        }
+        if (!reborn.isEmpty()) clavier(k -> GLFW.glfwGetKeyName(k, 0), reborn);
+        KeyMapping.resetMapping();
+        mc.options.save();
+        TouchesConflits.invalider();
+    }
+
     /** Version 2 : les touches Reborn restées sur leur défaut passent sur la touche qui affiche la même lettre. */
     static int clavier(Minecraft mc, IntFunction<String> nom) {
         List<KeyMapping> cles = new ArrayList<>(HudKeybinds.REBORN_KEYS);
@@ -152,27 +261,88 @@ public final class TouchesMigration {
         return clavier(nom, cles);
     }
 
-    /** Règle de la version 2 sur les touches {@code cles} (une touche personnalisée n'est jamais touchée). */
+    /**
+     * Règle de la version 2 sur les touches {@code cles} (une touche personnalisée n'est jamais touchée), planifiée en
+     * une passe ({@link #planifier}) : les échanges entre touches Reborn passent.
+     */
     private static int clavier(IntFunction<String> nom, List<KeyMapping> cles) {
         LOG.info("clavier : Q affiche « {} », « ; » affiche « {} », Y affiche « {} »",
             nom.apply(GLFW.GLFW_KEY_Q), nom.apply(GLFW.GLFW_KEY_SEMICOLON), nom.apply(GLFW.GLFW_KEY_Y));
+        Minecraft mc = Minecraft.getInstance();
+        Map<KeyMapping, Liaison> vues = new IdentityHashMap<>();
+        List<Liaison> toutes = new ArrayList<>();
+        for (KeyMapping km : mc.options.keyMappings) {
+            if (KeyMapping.Category.DEBUG.equals(km.getCategory())) continue;
+            InputConstants.Key def = km.getDefaultKey();
+            boolean mobile = cles.contains(km) && km.isDefault() && def.getType() == InputConstants.Type.KEYSYM;
+            Liaison l = new Liaison(km.getName(), code(KeyMappingHelper.getBoundKeyOf(km)), mobile ? def.getValue() : -1, mobile);
+            toutes.add(l);
+            vues.put(km, l);
+        }
+        Map<String, Integer> plan = planifier(toutes, nom);
         int changees = 0;
         for (KeyMapping km : cles) {
-            if (km == null || !km.isDefault()) continue;                 // personnalisée : jamais touchée
-            InputConstants.Key def = km.getDefaultKey();
-            if (def.getType() != InputConstants.Type.KEYSYM) continue;
-            Integer c = cible(def.getValue(), nom);
+            if (km == null || !vues.containsKey(km)) continue;
+            Integer c = plan.get(km.getName());
             if (c == null) continue;
             InputConstants.Key t = InputConstants.Type.KEYSYM.getOrCreate(c);
-            if (occupee(t, km)) {
-                LOG.info("clavier : {} reste sur {} ({} est déjà prise)", km.getName(), def.getName(), t.getName());
-                continue;
-            }
+            InputConstants.Key avant = KeyMappingHelper.getBoundKeyOf(km);
             km.setKey(t);
             changees++;
-            LOG.info("clavier : {} {} -> {} (affiche « {} »)", km.getName(), def.getName(), t.getName(), nom.apply(c));
+            LOG.info("clavier : {} {} -> {} (affiche « {} »)", km.getName(), avant.getName(), t.getName(), nom.apply(c));
         }
         return changees;
+    }
+
+    /**
+     * Une liaison vue par {@link #planifier} : nom, touche actuelle ({@link #code}), défaut (code GLFW, nom US) et
+     * {@code mobile} (touche à migrer : dans la liste et encore sur son défaut).
+     */
+    public record Liaison(String nom, int actuelle, int defaut, boolean mobile) { }
+
+    /** Code d'une touche pour {@link Liaison} : valeur GLFW au clavier, souris et scancode à part, -1 = aucune. */
+    public static int code(InputConstants.Key k) {
+        if (k == null || k.equals(InputConstants.UNKNOWN)) return -1;
+        return switch (k.getType()) {
+            case KEYSYM -> k.getValue();
+            case MOUSE -> -1000 - k.getValue();
+            case SCANCODE -> -100000 - k.getValue();
+        };
+    }
+
+    /**
+     * Plan de la règle de la version 2 (pure : le banc la teste sur des claviers simulés) : pour chaque liaison mobile,
+     * la touche qui affiche la lettre de son défaut ({@link #cible}), si elle est libre. Une cible tenue par une liaison
+     * qui part dans la même passe compte comme libre (QWERTZ neuf : Dégainer US Z → US Y et Concentration US Y → US Z
+     * s'échangent) ; deux liaisons qui visent la même touche, ou une cible tenue par une liaison qui reste, et la liaison
+     * reste sur place — retiré du plan jusqu'à ce qu'il soit stable. Renvoie nom → code GLFW de la nouvelle touche.
+     */
+    public static Map<String, Integer> planifier(List<Liaison> toutes, IntFunction<String> nom) {
+        Map<String, Integer> plan = new LinkedHashMap<>();
+        for (Liaison l : toutes) {
+            if (!l.mobile() || l.actuelle() != l.defaut()) continue;
+            Integer c = cible(l.defaut(), nom);
+            if (c != null && c != l.actuelle()) plan.put(l.nom(), c);
+        }
+        boolean retire = true;
+        while (retire) {
+            retire = false;
+            for (Map.Entry<String, Integer> e : new ArrayList<>(plan.entrySet())) {
+                int t = e.getValue();
+                String pris = null;
+                for (Liaison l : toutes) {
+                    if (l.nom().equals(e.getKey())) continue;
+                    Integer va = plan.get(l.nom());
+                    if (va != null ? va == t : l.actuelle() == t) { pris = l.nom(); break; }
+                }
+                if (pris != null) {
+                    LOG.info("clavier : {} reste en place (sa cible {} est tenue par {})", e.getKey(), t, pris);
+                    plan.remove(e.getKey());
+                    retire = true;
+                }
+            }
+        }
+        return plan;
     }
 
     /** Touches imprimables de GLFW (noms US) : espace, ponctuation, chiffres, lettres, « world 1/2 ». */
@@ -217,10 +387,6 @@ public final class TouchesMigration {
      * catégorie DEBUG : F3+G, F3+N…) ne comptent pas, ils ne se déclenchent qu'avec F3.
      */
     private static boolean occupee(InputConstants.Key k, KeyMapping sauf) {
-        for (KeyMapping km : Minecraft.getInstance().options.keyMappings) {
-            if (km == sauf || KeyMapping.Category.DEBUG.equals(km.getCategory())) continue;
-            if (KeyMappingHelper.getBoundKeyOf(km).equals(k)) return true;
-        }
-        return false;
+        return tenuePar(Minecraft.getInstance(), k, sauf) != null;
     }
 }

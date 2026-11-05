@@ -1,6 +1,7 @@
 package fr.reborn.hud.ui;
 
 import com.mojang.blaze3d.platform.Window;
+import fr.reborn.hud.menu.settings.RebornPrefs;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -16,9 +17,22 @@ import net.minecraft.client.gui.screens.options.OptionsScreen;
  */
 public final class MenuScale {
 
-    public static final int MIN_W = 600, MIN_H = 330, TARGET_H = 540;
+    /**
+     * {@code TARGET_H} : hauteur logique visée en « Automatique » ; {@code TARGET_H_PETITE} : en « Petite » (lot 3,
+     * Paramètres › Graphismes › Affichage › Taille des menus Reborn, {@code RebornPrefs.menusPetits}) — même échelle
+     * en 1080p (2), 2 au lieu de 3 en 1440p, 3 au lieu de 4 en 4K ; jamais l'échelle 1 si « Automatique » donne 2
+     * (1366 × 768 reste à 2, voir {@link #fit}).
+     */
+    public static final int MIN_W = 600, MIN_H = 330, TARGET_H = 540, TARGET_H_PETITE = 720;
 
     private MenuScale() {}
+
+    /** Hauteur logique visée par les menus Reborn selon « Taille des menus Reborn ». */
+    public static int cibleH() {
+        RebornPrefs p = RebornPrefs.INSTANCE;
+        p.ensureLoaded();
+        return p.menusPetits ? TARGET_H_PETITE : TARGET_H;
+    }
 
     /**
      * Écran Reborn qui exige un écran logique minimal (mise en page fixe, sans mode compact) : on prend alors la plus
@@ -48,12 +62,28 @@ public final class MenuScale {
             minW = Math.max(minW, p.plancherW());
             minH = Math.max(minH, p.plancherH());
         }
+        return echelle(w, minW, minH);
+    }
+
+    /**
+     * Échelle des menus Reborn pour un écran logique minimal {@code minW}×{@code minH} (aussi {@code DaKit.echelleMenu}
+     * pour les menus dessinés par-dessus le HUD).
+     */
+    public static int echelle(Window w, int minW, int minH) {
+        int best = meilleure(w, minW, minH, cibleH());
+        // « Petite » ne descend jamais à l'échelle 1 si « Automatique » donne 2 ou plus : à l'échelle 1, l'aide en
+        // Inter 7 tombe à 7 px écran (règle : jamais sous 8,6 px). 1366 × 768 garde donc l'échelle 2 (intégration lot 3).
+        if (best < 2 && cibleH() != TARGET_H) best = Math.min(2, meilleure(w, minW, minH, TARGET_H));
+        return best;
+    }
+
+    private static int meilleure(Window w, int minW, int minH, int cible) {
         int best = 1;
         double gap = Double.MAX_VALUE;
         for (int k = 1; k <= 8; k++) {
             int lw = w.getWidth() / k, lh = w.getHeight() / k;
             if (k > 1 && (lw < minW || lh < minH)) break;
-            double d = Math.abs(lh - TARGET_H);
+            double d = Math.abs(lh - cible);
             if (d < gap) { gap = d; best = k; }
         }
         return best;

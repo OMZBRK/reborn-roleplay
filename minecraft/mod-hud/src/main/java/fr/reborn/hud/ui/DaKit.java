@@ -188,16 +188,7 @@ public final class DaKit {
      * l'échelle d'interface du joueur. Entier : 1 texel = {@code echelleMenu()} pixels écran.
      */
     public static int echelleMenu() {
-        var w = Minecraft.getInstance().getWindow();
-        int best = 1;
-        double gap = Double.MAX_VALUE;
-        for (int k = 1; k <= 8; k++) {
-            int lw = w.getWidth() / k, lh = w.getHeight() / k;
-            if (k > 1 && (lw < MenuScale.MIN_W || lh < MenuScale.MIN_H)) break;
-            double d = Math.abs(lh - MenuScale.TARGET_H);
-            if (d < gap) { gap = d; best = k; }
-        }
-        return best;
+        return MenuScale.echelle(Minecraft.getInstance().getWindow(), MenuScale.MIN_W, MenuScale.MIN_H);
     }
 
     /** Cale une coordonnée GUI sur la grille des pixels écran (texte net). */

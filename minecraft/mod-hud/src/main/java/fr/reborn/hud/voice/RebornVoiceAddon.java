@@ -53,13 +53,16 @@ public final class RebornVoiceAddon implements AddonInitializer {
         }
         if (client == null || radio != null) return;
         radio = new RadioVoix(client);
+        PlasmoTouches touches = new PlasmoTouches(client);
+        fr.reborn.hud.keybind.TouchesPlasmo.poser(touches);
         client.getEventBus().register(this, radio);
         client.getEventBus().register(this, this);
         client.getEventBus().register(this, VoixNiveaux.INSTANCE);
         VoixNiveaux.INSTANCE.inscrit = true;
         appliquerReglages();
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> {
-            try { radio.tick(); } catch (RuntimeException ignored) { }
+            // touches de la voix fusionnées avec les raccourcis de Plasmo (lot 3), radio comprise
+            try { touches.tick(); } catch (RuntimeException ignored) { }
             synchroniserListe();
         });
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((h, mc) -> {
@@ -116,6 +119,7 @@ public final class RebornVoiceAddon implements AddonInitializer {
      *       la seule bulle est celle de Reborn, calée sur la tête comme le nom ;</li>
      *   <li>touche « Action » déliée (clic droit maintenu sur un joueur + molette = volume de 0 à 200 %) : doublon du
      *       volume du menu R, borné à 25-100 %, et le clic droit sert aux armes ;</li>
+     *   <li>touches « distance + / − » de la voix de proximité déliées (lot 3) : doublons de la portée (H) ;</li>
      *   <li>liste d'orateurs de Plasmo coupée ({@code [overlay] overlay_enabled = false}, lot 2) <b>tant que « Qui
      *       parle » (élément Reborn du bas-droite) est affiché</b> : elle affichait les pseudos Minecraft ; masquer « Qui
      *       parle » (éditeur de HUD, Réglages › Interface) la rétablit ({@link #synchroniserListe}).</li>
@@ -139,6 +143,17 @@ public final class RebornVoiceAddon implements AddonInitializer {
                 action.get().setKeys(java.util.Set.of());
                 change = true;
                 LOG.info("Plasmo Voice : touche « Action » (clic droit + molette, volume 0-200 %) -> aucune");
+            }
+            // distance + / − de la voix de proximité : la touche « Portée de la voix » (H) les remplace (lot 3, §10.3)
+            var proximite = client.getActivationManager().getParentActivation();
+            if (proximite.isPresent()) {
+                for (var hk : new su.plo.voice.api.client.config.hotkey.Hotkey[]{
+                        proximite.get().getDistanceIncreaseKey(), proximite.get().getDistanceDecreaseKey()}) {
+                    if (hk == null || hk.getKeys().isEmpty()) continue;
+                    hk.setKeys(java.util.Set.of());
+                    change = true;
+                    LOG.info("Plasmo Voice : {} -> aucune (la portée est sur la touche Reborn)", hk.getName());
+                }
             }
             su.plo.config.entry.BooleanConfigEntry liste = cfg.getOverlay().getOverlayEnabled();
             if (quiParleVisible() && !Boolean.FALSE.equals(liste.value())) {

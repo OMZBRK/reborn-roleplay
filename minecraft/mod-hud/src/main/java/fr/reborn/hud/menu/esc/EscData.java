@@ -27,6 +27,11 @@ import java.util.regex.Pattern;
  * render thread. En cas d'échec (API injoignable, hors-launcher), le snapshot
  * reste {@code null} et les panels retombent sur leurs placeholders.
  *
+ * <p>Échap e5 (lot 3) : champs facultatifs {@code shop.open} (Boutique ouverte, sinon « Bientôt ») et
+ * {@code rewards} ({@code rate}, {@code intervalMinutes}, {@code nextPayoutAt}, {@code active}) ; absents, l'Échap
+ * montre l'état d'aujourd'hui (Boutique fermée, +5 par heure de jeu comptée sur la session, charmes « À faire » sauf
+ * ceux que le launcher passe en {@code -Dreborn.recompenses}).
+ *
  * <p>L'URL de base vient de la sysprop {@code reborn.apiUrl} passée par le
  * launcher (fallback prod). Le mod ne connaît aucun secret — l'endpoint est
  * public et ne renvoie que des données non sensibles.
@@ -50,24 +55,100 @@ public final class EscData {
      */
     public record Stream(String name, String url, boolean live, String title, String nomTexte, String titreTexte) {}
 
-    /** Une patch note (champs nettoyés ArcadePix + URL web brute) ; {@code titreTexte} : titre d'origine (Inter). */
-    public record PatchNote(String version, String title, String date, String url, String titreTexte) {}
+    /**
+     * Une patch note (champs nettoyés ArcadePix + URL web brute) ; {@code titreTexte} : titre d'origine (Inter) ;
+     * {@code versionTexte} / {@code dateCourte} : version d'origine et date « 3 nov. » de la petite carte Dev blog (e5).
+     */
+    public record PatchNote(String version, String title, String date, String url, String titreTexte,
+                            String versionTexte, String dateCourte) {}
+
+    /**
+     * Récompenses de l'Échap (e5) : taux en RBCoins par heure de jeu, intervalle du versement, prochain versement
+     * (epoch ms, -1 = inconnu : l'Échap compte alors l'heure de jeu de la session) et identifiants des charmes actifs
+     * ({@code premium}, {@code boost}, {@code tag}, {@code bio}, {@code stream}).
+     */
+    public record Recompenses(int taux, long intervalleMs, long prochainVersement, java.util.Set<String> actifs) {
+        static final Recompenses DEFAUT = new Recompenses(5, 3_600_000L, -1L, java.util.Set.of());
+    }
 
     /**
      * Snapshot immuable exposé au render thread (volatile publish).
      * {@code discordInviteUrl} : invitation renvoyée par l'API, {@code null}
-     * si absente ou refusée (voir {@link #invitationDiscord}).
+     * si absente ou refusée (voir {@link #invitationDiscord}). {@code boutiqueOuverte} : champ {@code shop.open} de
+     * l'API (absent = fermée, « Bientôt », l'état d'aujourd'hui) ; {@code recompenses} : bloc {@code rewards}.
      */
     public record Snapshot(
         int discordMembers, int discordOnline,
         List<PatchNote> patchNotes, List<Stream> streams,
-        String discordInviteUrl
+        String discordInviteUrl, boolean boutiqueOuverte, Recompenses recompenses
     ) {
         public int liveStreamCount() {
             int n = 0;
             for (Stream s : streams) if (s.live()) n++;
             return n;
         }
+    }
+
+    // ── Échap e5 : état de la boutique et des récompenses (bancs : valeurs imposées) ──
+
+    /** Banc : état de la boutique imposé (null = celui de l'API). */
+    public static Boolean debugBoutique;
+    /** Banc : charmes actifs imposés (null = API ou launcher). */
+    public static java.util.Set<String> debugActifs;
+
+    /** La Boutique de l'Échap est ouverte (sinon « Bientôt »). */
+    public static boolean boutiqueOuverte() {
+        if (debugBoutique != null) return debugBoutique;
+        Snapshot s = snapshot;
+        return s != null && s.boutiqueOuverte();
+    }
+
+    /** Bloc Récompenses courant (jamais null). */
+    public static Recompenses recompenses() {
+        Snapshot s = snapshot;
+        return s != null && s.recompenses() != null ? s.recompenses() : Recompenses.DEFAUT;
+    }
+
+    private static java.util.Set<String> actifsLauncher;
+
+    /**
+     * Charme actif pour ce compte : imposé par un banc, sinon passé par le launcher ({@code -Dreborn.recompenses=boost,tag},
+     * comme le solde de RBCoins), sinon le bloc {@code rewards.active} de l'API.
+     */
+    public static boolean charmeActif(String id) {
+        if (debugActifs != null) return debugActifs.contains(id);
+        if (actifsLauncher == null) {
+            java.util.Set<String> s = new java.util.HashSet<>();
+            String v = System.getProperty("reborn.recompenses");
+            if (v != null) for (String t : v.split("[,; ]+")) if (!t.isBlank()) s.add(t.trim().toLowerCase(Locale.ROOT));
+            actifsLauncher = s;
+        }
+        if (!actifsLauncher.isEmpty()) return actifsLauncher.contains(id);
+        return recompenses().actifs().contains(id);
+    }
+
+    private static long debutSession = -1L;
+    private static Object connexionVue;
+
+    /**
+     * Millisecondes avant le prochain versement de RBCoins. Avec {@code rewards.nextPayoutAt} de l'API : le compte à
+     * rebours réel ; sinon l'heure de jeu de la session en cours (comptée depuis la première ouverture de l'Échap de
+     * la connexion), modulo l'intervalle.
+     */
+    public static long resteAvantVersement(long now) {
+        Recompenses r = recompenses();
+        long iv = Math.max(60_000L, r.intervalleMs());
+        if (r.prochainVersement() > 0) {
+            long reste = r.prochainVersement() - now;
+            return reste > 0 ? Math.min(reste, iv) : Math.floorMod(reste, iv);
+        }
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        Object co = mc.getConnection();
+        if (co != connexionVue || debutSession < 0) {
+            connexionVue = co;
+            debutSession = now;
+        }
+        return iv - Math.floorMod(now - debutSession, iv);
     }
 
     private static volatile Snapshot snapshot = null;
@@ -142,7 +223,9 @@ public final class EscData {
                     arcadeSafe(optStr(o, "title", null), 60),
                     formatDate(optStr(o, "publishedAt", null)),
                     optStr(o, "url", null),
-                    texte(optStr(o, "title", null), 90)));
+                    texte(optStr(o, "title", null), 90),
+                    texte(optStr(o, "version", null), 16),
+                    dateCourte(optStr(o, "publishedAt", null))));
             }
         }
 
@@ -162,7 +245,52 @@ public final class EscData {
             }
         }
 
-        return new Snapshot(members, online, notes, streams, invite);
+        boolean boutique = false;
+        JsonElement sh = root.get("shop");
+        if (sh != null && sh.isJsonObject()) {
+            JsonElement op = sh.getAsJsonObject().get("open");
+            boutique = op != null && !op.isJsonNull() && op.getAsBoolean();
+        }
+
+        Recompenses rec = Recompenses.DEFAUT;
+        JsonElement rw = root.get("rewards");
+        if (rw != null && rw.isJsonObject()) {
+            JsonObject r = rw.getAsJsonObject();
+            java.util.Set<String> actifs = new java.util.HashSet<>();
+            JsonElement ac = r.get("active");
+            if (ac != null && ac.isJsonArray()) for (JsonElement e : ac.getAsJsonArray()) {
+                try { actifs.add(e.getAsString().trim().toLowerCase(Locale.ROOT)); } catch (Exception ignored) { }
+            }
+            long prochain = -1L;
+            String iso = optStr(r, "nextPayoutAt", null);
+            if (iso != null) {
+                try { prochain = OffsetDateTime.parse(iso).toInstant().toEpochMilli(); } catch (Exception ignored) { }
+            }
+            rec = new Recompenses(Math.max(0, optInt(r, "rate", 5)), Math.max(1, optInt(r, "intervalMinutes", 60)) * 60_000L,
+                prochain, java.util.Set.copyOf(actifs));
+        }
+
+        return new Snapshot(members, online, notes, streams, invite, boutique, rec);
+    }
+
+    private static final String[] MOIS_COURTS = {"janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août",
+        "sept.", "oct.", "nov.", "déc."};
+
+    /** ISO-8601 → « 3 nov. » (petite carte Dev blog, Inter). */
+    private static String dateCourte(String iso) {
+        if (iso == null) return null;
+        try {
+            OffsetDateTime dt = OffsetDateTime.parse(iso);
+            return dt.getDayOfMonth() + " " + MOIS_COURTS[dt.getMonthValue() - 1];
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Banc : instantané imposé (aucune API). */
+    public static void debug(Snapshot s) {
+        snapshot = s;
+        lastFetch = System.currentTimeMillis();
     }
 
     /** Seuls liens acceptés pour les boutons Discord : une invitation Discord, rien d'autre. */
