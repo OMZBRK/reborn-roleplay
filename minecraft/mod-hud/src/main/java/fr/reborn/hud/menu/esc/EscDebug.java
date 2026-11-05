@@ -22,7 +22,8 @@ import java.util.function.Consumer;
  * « [EscDebug] OK … » dans le journal ; « [EscDebug] ECHEC … » sinon. {@code captures} : données fictives (solde
  * 1 250, Discord 1 234, stream en direct, deux charmes actifs), puis une capture par état dans
  * {@code run/screenshots/echap_e5_*.png} (repos, survol de chaque entrée et de chaque carte, un charme, Boutique
- * fermée et ouverte) ; {@code REBORN_ESC_STAFF=1} ajoute POSTE DE GARDE. Ferme le jeu à la fin (« [EscDebug] FIN »).
+ * fermée et ouverte) ; retours du 05/11 ({@code echap_e5_r0197_*} : défilement de la carte Stream, hors ligne, identité
+ * masquée, version du serveur) ; {@code REBORN_ESC_STAFF=1} ajoute POSTE DE GARDE. Ferme le jeu à la fin (« [EscDebug] FIN »).
  */
 public final class EscDebug {
 
@@ -112,12 +113,15 @@ public final class EscDebug {
         pas(5, mc -> {
             fr.reborn.hud.monnaie.RbCoins.debug(1250);
             EscData.debug(new EscData.Snapshot(1234, 87,
-                List.of(new EscData.PatchNote("0.4.196", "ECHAP ET TOUCHES", "5 NOV 2026", null,
-                    "Échap et touches", "0.4.196", "5 nov.")),
-                List.of(new EscData.Stream("REBORN", null, true, "PATROUILLE", "Reborn", "Patrouille de nuit")),
-                null, false, new EscData.Recompenses(5, 3_600_000L, System.currentTimeMillis() + 2_537_000L,
-                    Set.of("boost", "tag"))));
+                List.of(new EscData.PatchNote("1.2.0", "ECHAP ET TOUCHES", "5 NOV 2026", null,
+                    "Échap et touches", "1.2.0", "5 nov.")),
+                STREAMS_DIRECT, null, false, new EscData.Recompenses(5, 3_600_000L,
+                    System.currentTimeMillis() + 2_537_000L, Set.of("boost", "tag"))));
             EscData.debugBoutique = false;
+            // valeurs d'exemple : seulement ici (le jeu ne montre que les données du serveur)
+            EscTokonoma.debugIdentite = new String[]{"Aki Uchiha", "Chūnin", "konoha"};
+            EscData.debugVersionServeur = null;   // version de la dernière patch note (vraie source)
+            EscTokonoma.tickerBanc = new int[]{0, 1000};
         }, "données fictives");
         ouvrir();
         pas(25, mc -> EscTokonoma.survolBanc = -1, "repos");
@@ -134,16 +138,119 @@ public final class EscDebug {
         survol(EscTokonoma.H_BLOG, "10_survol_devblog");
         survol(EscTokonoma.H_DISCORD, "11_survol_discord");
         survol(EscTokonoma.H_RETOUR, "12_survol_retour");
+        pas(1, mc -> EscTokonoma.survolBanc = -1, "fin des survols");
+        retours0197();
         pas(1, mc -> {
             EscTokonoma.survolBanc = -1;
+            EscTokonoma.tickerBanc = null;
             EscData.debugBoutique = null;
-        }, "fin des survols");
+        }, "fin des retours");
         pas(2, mc -> clic(mc, 0), "clic CONTINUER");
         pas(3, mc -> shot(mc, "echap_e5_13_fermeture"), "capture fermeture");
         attendreFerme(20, "fermeture après captures");
         // ouverture : deux images à mi-course
         pas(10, mc -> mc.pauseGame(false), "ouvre Échap");
         pas(3, mc -> shot(mc, "echap_e5_14_ouverture"), "capture ouverture");
+    }
+
+    /** Trois streamers en direct (dont un nom trop long pour la carte) et une chaîne hors ligne. */
+    private static final List<EscData.Stream> STREAMS_DIRECT = List.of(
+        new EscData.Stream("MEHDITDONC", "https://twitch.tv/mehditdonc", true, "EPISODE 67", "mehditdonc", "Épisode 67"),
+        new EscData.Stream("KAMETO", "https://twitch.tv/kameto", false, null, "kameto", null),
+        new EscData.Stream("JLTOMY", "https://twitch.tv/jltomy", true, "BONSOIR", "jltomy", "Bonsoir"),
+        new EscData.Stream("REBORN_ROLEPLAY_OFFICIE", "https://twitch.tv/reborn", true, "PATROUILLE",
+            "Reborn_Roleplay_Officiel", "Patrouille de nuit"));
+
+    /**
+     * Retours du 05/11 (0.4.197) : carte Stream qui fait défiler les streamers en direct (1, 2, 3, sortie, entrée,
+     * survol), personne en direct, défilement réel (le streamer change seul après 4 s, pas au survol), identité
+     * masquée sans personnage, pied sans version du serveur.
+     */
+    private static void retours0197() {
+        String p = "r0197_";
+        for (int i = 0; i < 3; i++) {
+            int n = i;
+            pas(1, mc -> EscTokonoma.tickerBanc = new int[]{n, 1000}, "stream " + (n + 1));
+            capture(p + "stream_" + (n + 1));
+        }
+        pas(1, mc -> EscTokonoma.tickerBanc = new int[]{0, 3900}, "stream 1 qui sort");
+        capture(p + "stream_sortie");
+        pas(1, mc -> EscTokonoma.tickerBanc = new int[]{1, 110}, "stream 2 qui entre");
+        capture(p + "stream_entree");
+        pas(1, mc -> EscTokonoma.tickerBanc = new int[]{1, 1000}, "stream 2");
+        survol(EscTokonoma.H_STREAM, p + "stream_survol");
+        // défilement réel : avance seul, s'arrête au survol
+        pas(1, mc -> { EscTokonoma.survolBanc = -1; EscTokonoma.tickerBanc = null; avant = rangTicker(); }, "défilement réel");
+        pas(90, mc -> verifie(rangTicker() != avant, "le streamer change seul (" + avant + " → " + rangTicker() + ")"), "vérif");
+        pas(1, mc -> { EscTokonoma.survolBanc = EscTokonoma.H_STREAM; avant = rangTicker(); }, "survol Stream");
+        pas(100, mc -> verifie(rangTicker() == avant, "survolé, le streamer reste (" + avant + " → " + rangTicker() + ")"), "vérif");
+        pas(1, mc -> {
+            EscTokonoma.survolBanc = -1;
+            EscData.Snapshot s = EscData.get();
+            EscData.debug(new EscData.Snapshot(s.discordMembers(), s.discordOnline(), s.patchNotes(),
+                List.of(new EscData.Stream("KAMETO", "https://twitch.tv/kameto", false, null, "kameto", null)),
+                s.discordInviteUrl(), s.boutiqueOuverte(), s.recompenses()));
+        }, "personne en direct");
+        capture(p + "stream_hors_ligne");
+        pas(1, mc -> {
+            EscData.Snapshot s = EscData.get();
+            EscData.debug(new EscData.Snapshot(s.discordMembers(), s.discordOnline(), s.patchNotes(), STREAMS_DIRECT,
+                s.discordInviteUrl(), s.boutiqueOuverte(), s.recompenses()));
+            EscTokonoma.debugIdentite = new String[0];
+        }, "sans personnage");
+        capture(p + "sans_identite");
+        pas(1, mc -> EscData.debugVersionServeur = "", "sans version du serveur");
+        capture(p + "sans_identite_sans_version");
+        pas(1, mc -> {
+            EscTokonoma.debugIdentite = null;
+            verifie(true, "identité du jeu (solo, sans serveur) : " + (EscTokonoma.courant() != null
+                ? "« " + EscTokonoma.courant().identiteBanc() + " »" : "?"));
+        }, "identité réelle");
+        capture(p + "identite_reelle_solo");
+        pas(1, mc -> {
+            String nom = EscTokonoma.courant() != null ? EscTokonoma.courant().identiteBanc() : "?";
+            verifie(nom.isEmpty(), "aucun nom d'exemple hors banc (« " + nom + " »)");
+            // perso A quitté : sa fiche reste en mémoire, le roster ne porte plus de grade sur la ligne SOI
+            fr.reborn.hud.menu.stats.StatsData.update("{\"name\":\"Kenji\",\"clan\":\"Hyuga\",\"village\":\"konoha\","
+                + "\"rank\":\"Chūnin\"}");
+            fr.reborn.hud.menu.tablist.TablistData.update("{\"players\":[{\"r\":\"SOI\",\"n\":\""
+                + mc.player.getName().getString() + "\",\"u\":\"" + mc.player.getUUID() + "\"}]}");
+        }, "fiche d'un perso quitté + roster sans perso");
+        capture(p + "perso_quitte");
+        pas(2, mc -> {
+            String nom = EscTokonoma.courant() != null ? EscTokonoma.courant().identiteBanc() : "?";
+            verifie(nom.isEmpty(), "Échap : la fiche d'un personnage quitté n'est pas montrée (« " + nom + " »)");
+            String sac = fr.reborn.hud.menu.inventory.InventoryScreen.identiteBanc();
+            verifie(sac.equals(mc.player.getName().getString()), "sacoche sans personnage : pseudo seul (« " + sac + " »)");
+        }, "vérif perso quitté");
+        pas(1, mc -> {
+            EscData.debugVersionServeur = null;   // pied : version de la dernière patch note (vraie source)
+            fr.reborn.hud.menu.tablist.TablistData.update("{\"players\":[{\"r\":\"SOI\",\"n\":\"Aki Uchiha\","
+            + "\"g\":\"CHUNIN\",\"v\":\"konoha\",\"u\":\"" + mc.player.getUUID() + "\"}]}");
+        }, "roster avec perso actif");
+        capture(p + "identite_roster_version");
+        pas(2, mc -> {
+            String nom = EscTokonoma.courant() != null ? EscTokonoma.courant().identiteBanc() : "?";
+            verifie("Aki Uchiha".equals(nom), "Échap : identité du roster (« " + nom + " »)");
+            String sac = fr.reborn.hud.menu.inventory.InventoryScreen.identiteBanc();
+            verifie("Aki Uchiha · Chūnin · Konohagakure".equals(sac), "sacoche : identité du roster, sans fiche ouverte (« "
+                + sac + " »)");
+            verifie("1.2.0".equals(EscData.versionServeur()), "pied : version de la dernière patch note (« "
+                + EscData.versionServeur() + " »)");
+        }, "vérif roster");
+        pas(1, mc -> {
+            fr.reborn.hud.menu.tablist.TablistData.clear();
+            fr.reborn.hud.menu.stats.StatsData.clear();
+            EscTokonoma.debugIdentite = new String[]{"Aki Uchiha", "Chūnin", "konoha"};
+            EscData.debugVersionServeur = null;   // version de la dernière patch note (vraie source)
+        }, "vérif identité");
+    }
+
+    private static int avant;
+
+    private static int rangTicker() {
+        EscTokonoma e = EscTokonoma.courant();
+        return e == null ? -1 : e.rangTickerBanc();
     }
 
     private static void survol(int id, String nom) {

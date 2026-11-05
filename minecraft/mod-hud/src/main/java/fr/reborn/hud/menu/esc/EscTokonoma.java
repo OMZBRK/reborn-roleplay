@@ -88,13 +88,26 @@ public final class EscTokonoma {
     private static final String[] VILLAGE_TITRES = {"Konohagakure", "Sunagakure", "Kirigakure", "Kumogakure",
         "Iwagakure", "Amegakure"};
 
-    private static final String VERSION = "reborn-hud " + net.fabricmc.loader.api.FabricLoader.getInstance()
-        .getModContainer("reborn-hud").map(c -> c.getMetadata().getVersion().getFriendlyString()).orElse("?");
+    /** Village en clair (« konoha » → « Konohagakure ») ; inconnu : tel quel ; vide : {@code null}. Sert aussi à la sacoche. */
+    public static String villageTitre(String v) {
+        int i = village(v);
+        return i >= 0 ? VILLAGE_TITRES[i] : v != null && !v.isBlank() ? v.trim() : null;
+    }
+
+    /** Carte Stream : chaque streamer en direct reste 4 s, sort en 180 ms, le suivant entre en 240 ms. */
+    private static final int TICKER_MS = 4000, TICKER_SORTIE_MS = 180, TICKER_ENTREE_MS = 240;
+
+    /**
+     * Banc ({@code EscDebug}) : identité imposée {nom, rang, village} ; tableau vide = aucune identité ; null = les
+     * données du serveur. Les valeurs d'exemple ne vivent que dans le banc.
+     */
+    public static String[] debugIdentite;
+    /** Banc : carte Stream figée sur {rang du streamer, ms écoulées depuis son entrée} (null = défilement réel). */
+    public static int[] tickerBanc;
 
     // ── état ──
     private static boolean active;            // un menu Échap Reborn est à l'écran
     private static boolean closeSoundPlayed;  // la fermeture a déjà joué son son
-    private static boolean silentStatsRequest;
     /** L'Échap à l'écran (bancs). */
     private static EscTokonoma courant;
 
@@ -130,11 +143,28 @@ public final class EscTokonoma {
     private String minuteurTxt = "";
     private int tauxVu = -1;
     private String tauxTxt = "";
-    /** Identité de la colonne (nom, rang · village, emblème) : relue quand la fiche ({@link StatsData}) change. */
-    private StatsData.Snapshot statsVu;
-    private boolean statsLu;
+    /**
+     * Identité de la colonne (nom, rang · village, emblème) : la ligne « SOI » du roster ({@code TablistData.soi()},
+     * poussé en continu par ShinobiCore) ; la fiche reçue du serveur ({@link StatsData#serveur()}) seulement tant
+     * qu'aucun roster n'est arrivé ; relue quand la source change. Aucune donnée (hors serveur, avant la sélection) : ligne masquée, logo recentré.
+     */
+    private Object idSource;
+    private boolean idLu;
     private String nomTxt = "", sousTxt = "";
     private int villageVu = -1;
+    /** Version du serveur du pied ({@link EscData#versionServeur()}), vide = rien d'affiché. */
+    private String versionVue;
+    private String versionTxt = "";
+    // ── carte Stream : défilement des streamers en direct ──
+    private EscData.Stream[] directs = new EscData.Stream[0];
+    private String[] nomsDirects = new String[0];
+    private Lib[] lDirects = new Lib[0];
+    private final Lib lCompteur = new Lib();
+    private boolean nomsAjustes;
+    private double nomsMax = -1, nomsCap = -1;
+    private int tickerIdx, compteurIdx = -1, compteurN = -1;
+    private long tickerT0 = -1, tickerVu = -1;
+    private String compteurTxt = "";
 
     private static Lib[] libs(int n) {
         Lib[] l = new Lib[n];
@@ -153,19 +183,15 @@ public final class EscTokonoma {
         courant = this;
         closeSoundPlayed = false;
         EscData.refreshIfStale();
-        if (StatsData.get() == null
-            && net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(fr.reborn.hud.menu.stats.StatsPayload.ID)) {
-            silentStatsRequest = true; // identité (nom, village) sans ouvrir la fiche
-            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new fr.reborn.hud.menu.stats.StatsPayload("open"));
-        }
         if (!wasActive) UiAmbience.start("esc.ambience", 0.32f);
     }
 
-    /** La réponse « stats » demandée en silence ne doit pas ouvrir la fiche. */
+    /**
+     * Plus de demande « stats » silencieuse depuis la 0.4.197 : l'identité vient du roster, poussé sans demande (une
+     * demande sans personnage actif affichait « Aucun personnage actif. » en barre d'action). Toujours faux.
+     */
     public static boolean consumeSilentStatsRequest() {
-        boolean s = silentStatsRequest;
-        silentStatsRequest = false;
-        return s;
+        return false;
     }
 
     /** Tick client : détecte la sortie du menu (Échap, sous-écran) pour couper l'ambiance. */
@@ -323,13 +349,20 @@ public final class EscTokonoma {
 
     /** Textes qui dépendent des données : recalculés seulement quand la donnée change. */
     private void majTextes(long now) {
-        StatsData.Snapshot st = StatsData.get();
-        if (st != statsVu || !statsLu || nomTxt.isEmpty()) {
-            statsVu = st;
-            statsLu = true;
-            villageVu = village();
-            nomTxt = nom();
-            sousTxt = sousTitre(villageVu);
+        fr.reborn.hud.menu.tablist.TablistData.Soi soi = fr.reborn.hud.menu.tablist.TablistData.soi();
+        // repli sur la fiche reçue seulement sans aucun roster : dès qu'un roster est là, il fait foi (pas de
+        // personnage actif = pas de ligne, jamais l'ancienne fiche d'un personnage quitté)
+        Object src = debugIdentite != null ? debugIdentite : soi != null ? soi
+            : fr.reborn.hud.menu.tablist.TablistData.hasData() ? null : StatsData.serveur();
+        if (!idLu || src != idSource) {
+            idLu = true;
+            idSource = src;
+            identite(src);
+        }
+        String vs = EscData.versionServeur();
+        if (!java.util.Objects.equals(vs, versionVue)) {
+            versionVue = vs;
+            versionTxt = vs == null ? "" : Character.isDigit(vs.charAt(0)) ? "Serveur " + vs : vs;
         }
         long rb = RbCoins.solde();
         if (rb != soldeVu) { soldeVu = rb; soldeTxt = rb < 0 ? "—" : fmt(rb); }
@@ -347,7 +380,9 @@ public final class EscTokonoma {
             boolean membres = s != null && s.discordMembers() >= 0;
             discordTitre = membres ? fmt(s.discordMembers()) : "Discord";
             discordLigne = membres ? "membres" : "Rejoindre";
+            majDirects(s);
         }
+        avancerTicker(now);
         int taux = EscData.recompenses().taux();
         if (taux != tauxVu) { tauxVu = taux; tauxTxt = "+" + taux + " / heure de jeu"; }
         long sec = (EscData.resteAvantVersement(now) + 999) / 1000;
@@ -365,18 +400,23 @@ public final class EscTokonoma {
         // logo (réduit d'avance : la rangée de l'atlas la plus proche de 224·k)
         int lw = r(224 * k), row = rangLogo(lw);
         int lh = r(lw * (double) LOGO_H[row] / LOGO_W[row]);
-        blit(ctx, LOGO, X - r(4 * k), r(150 * k), lw, lh, 0, LOGO_V[row], LOGO_W[row], LOGO_H[row], LOGO_TW, LOGO_TH, a);
-        // identité : emblème du village (or clair), nom, rang · village
-        int yc = r(268 * k), vi = villageVu;
-        int lx = X;
-        if (vi >= 0) {
-            int s = Math.max(16, r(26 * k));
-            blitTeint(ctx, EMBLEMES, X, yc - s / 2, s, s, vi * 26, 0, 26, 26, 156, 26, argb(OR_CLAIR, a));
-            lx = X + s + r(12 * k);
+        boolean ident = !nomTxt.isEmpty();
+        // sans identité, le logo descend au milieu de l'espace laissé au-dessus de PAUSE (colonne équilibrée)
+        blit(ctx, LOGO, X - r(4 * k), r((ident ? 150 : LOGO_Y_SEUL) * k), lw, lh, 0, LOGO_V[row], LOGO_W[row],
+            LOGO_H[row], LOGO_TW, LOGO_TH, a);
+        if (ident) {
+            // identité : emblème du village (or clair), nom, rang · village
+            int yc = r(268 * k), vi = villageVu;
+            int lx = X;
+            if (vi >= 0) {
+                int s = Math.max(16, r(26 * k));
+                blitTeint(ctx, EMBLEMES, X, yc - s / 2, s, s, vi * 26, 0, 26, 26, 156, 26, argb(OR_CLAIR, a));
+                lx = X + s + r(12 * k);
+            }
+            lNom.ligne(ctx, nomTxt, P_CREME, 18 * k, f, 0, lx, yc - r(8 * k), a);
+            String sous = sousTxt;
+            if (!sous.isEmpty()) lSous.ligne(ctx, sous, I_DOUX, capInter(11, k), f, 0, lx, yc + r(13 * k), a);
         }
-        lNom.ligne(ctx, nomTxt, P_CREME, 18 * k, f, 0, lx, yc - r(8 * k), a);
-        String sous = sousTxt;
-        if (!sous.isEmpty()) lSous.ligne(ctx, sous, I_DOUX, capInter(11, k), f, 0, lx, yc + r(13 * k), a);
         // PAUSE et son filet d'or
         lPause.ligne(ctx, "PAUSE", P_CREME, 32 * k, f, 2 * k, X, r(342 * k), a);
         int L = r(227 * k), ep = Math.max(1, r(k));
@@ -410,36 +450,134 @@ public final class EscTokonoma {
         lTouche.ligne(ctx, "Échap", TexteCache.Style.TOUCHE, capT, f, 0, X + cw / 2.0, yp, a);
         boolean hr = hovered == H_RETOUR;
         lRetour.ligne(ctx, "RETOUR", hr ? B_CREME_G : B_DOUX, capInter(12, k), f, 0.6 * k, X + cw + r(10 * k), yp, a);
-        lVersion.ligne(ctx, VERSION, I_GRIS_D, capInter(10, k), f, 0, m.W - r(120 * k), yp, a);
+        if (!versionTxt.isEmpty()) lVersion.ligne(ctx, versionTxt, I_GRIS_D, capInter(10, k), f, 0, m.W - r(120 * k), yp, a);
     }
 
     private static final TexteCache.Style B_CREME_G = new TexteCache.Style(IB, MENU,
         fr.reborn.hud.ui.TexteRaster.cleRgb(CREME), G, true, false);
 
-    private static String nom() {
-        StatsData.Snapshot s = StatsData.get();
-        String name = s != null ? s.name() : null;
-        if (name == null || name.isBlank() || "?".equals(name)) {
-            var p = Minecraft.getInstance().player;
-            name = p != null ? p.getName().getString() : "";
+    /** Haut du logo (unités 1080p) quand la ligne d'identité est masquée. */
+    private static final int LOGO_Y_SEUL = 184;
+
+    /**
+     * Identité de la colonne depuis sa source : banc ({@code String[]} nom, rang, village), ligne « SOI » du roster,
+     * ou fiche du serveur. Nom absent ou « ? » : rien (ligne masquée) — jamais de valeur d'exemple.
+     */
+    private void identite(Object src) {
+        String nom = null, rang = null, vil = null;
+        if (src instanceof String[] d && d.length >= 3) {
+            nom = d[0];
+            rang = d[1];
+            vil = d[2];
+        } else if (src instanceof fr.reborn.hud.menu.tablist.TablistData.Soi soi) {
+            nom = soi.nom();
+            rang = soi.grade();
+            vil = soi.village();
+        } else if (src instanceof StatsData.Snapshot st) {
+            nom = st.name();
+            String clan = st.clan();
+            if (nom != null && clan != null && !clan.isBlank() && !clan.equalsIgnoreCase("None")
+                && !nom.toLowerCase(Locale.ROOT).contains(clan.toLowerCase(Locale.ROOT))) nom = nom.trim() + " " + clan.trim();
+            rang = st.rank();
+            vil = st.village();
         }
-        return name;
+        if (nom == null || nom.isBlank() || "?".equals(nom.trim())) {
+            nomTxt = "";
+            sousTxt = "";
+            villageVu = -1;
+            return;
+        }
+        nomTxt = nom.trim();
+        if (rang != null && (rang.isBlank() || rang.startsWith("?"))) rang = null;
+        villageVu = village(vil);
+        String v = villageVu >= 0 ? VILLAGE_TITRES[villageVu] : vil != null && !vil.isBlank() ? vil.trim() : null;
+        sousTxt = rang == null ? v == null ? "" : v : v == null ? rang : rang + " · " + v;
     }
 
-    private static String sousTitre(int vi) {
-        StatsData.Snapshot s = StatsData.get();
-        String rank = s != null && s.rank() != null && !s.rank().isBlank() && !"?".equals(s.rank()) ? s.rank() : null;
-        String vil = vi >= 0 ? VILLAGE_TITRES[vi] : null;
-        if (rank == null) return vil == null ? "" : vil;
-        return vil == null ? rank : rank + " · " + vil;
-    }
-
-    private static int village() {
-        StatsData.Snapshot s = StatsData.get();
-        if (s == null || s.village() == null) return -1;
-        String v = s.village().toLowerCase(Locale.ROOT);
-        for (int i = 0; i < VILLAGE_IDS.length; i++) if (v.startsWith(VILLAGE_IDS[i])) return i;
+    private static int village(String v) {
+        if (v == null) return -1;
+        String s = v.toLowerCase(Locale.ROOT);
+        for (int i = 0; i < VILLAGE_IDS.length; i++) if (s.startsWith(VILLAGE_IDS[i])) return i;
         return -1;
+    }
+
+    // ── carte Stream : défilement ──
+
+    /** Liste des streamers en direct, refaite quand l'instantané change (garde celui qui est montré s'il y est encore). */
+    private void majDirects(EscData.Snapshot s) {
+        String montre = tickerIdx < directs.length ? directs[tickerIdx].url() : null;
+        int n = 0;
+        if (s != null) for (EscData.Stream st : s.streams()) if (st.live()) n++;
+        EscData.Stream[] d = new EscData.Stream[n];
+        int i = 0;
+        if (s != null) for (EscData.Stream st : s.streams()) if (st.live()) d[i++] = st;
+        directs = d;
+        nomsDirects = new String[n];
+        if (lDirects.length < n) {
+            Lib[] l = java.util.Arrays.copyOf(lDirects, n);
+            for (int j = lDirects.length; j < n; j++) l[j] = new Lib();
+            lDirects = l;
+        }
+        nomsAjustes = false;
+        int garde = 0;
+        for (int j = 0; j < n; j++) if (montre != null && montre.equals(d[j].url())) garde = j;
+        if (garde != tickerIdx) tickerT0 = -1;
+        tickerIdx = garde;
+    }
+
+    /**
+     * Fait tourner la carte Stream : un streamer toutes les 4 s, à l'arrêt tant que la carte est survolée (le
+     * streamer montré reste entier : un survol pendant sa sortie le ramène).
+     */
+    private void avancerTicker(long now) {
+        int n = directs.length;
+        long dt = tickerVu < 0 ? 0 : now - tickerVu;
+        tickerVu = now;
+        if (tickerBanc != null && n > 0) {
+            tickerIdx = Math.floorMod(tickerBanc[0], n);
+            tickerT0 = now - tickerBanc[1];
+        } else {
+            if (tickerT0 < 0) tickerT0 = now - TICKER_ENTREE_MS;   // à l'ouverture : déjà en place
+            if (n < 2) tickerT0 += dt;
+            else if (hovered == H_STREAM) {
+                if (now - tickerT0 > TICKER_ENTREE_MS) tickerT0 = now - TICKER_ENTREE_MS;
+            } else if (now - tickerT0 >= TICKER_MS) {
+                tickerIdx = (tickerIdx + 1) % n;
+                tickerT0 = now;
+            }
+        }
+        if (tickerIdx >= n) tickerIdx = 0;
+        if (tickerIdx != compteurIdx || n != compteurN) {
+            compteurIdx = tickerIdx;
+            compteurN = n;
+            compteurTxt = n >= 2 ? (tickerIdx + 1) + " / " + n : "";
+        }
+    }
+
+    /** Noms des streamers coupés à la largeur de la carte (« … »), mesurés une fois (police chargée). */
+    private void ajusterNoms(double max, TexteCache.Style st, double cap, double inter) {
+        if (nomsAjustes && max == nomsMax && cap == nomsCap) return;
+        nomsMax = max;
+        nomsCap = cap;
+        boolean ok = true;
+        for (int i = 0; i < directs.length; i++) {
+            EscData.Stream d = directs[i];
+            String nom = d.nomTexte() != null && !d.nomTexte().isBlank() ? d.nomTexte()
+                : d.name() != null && !d.name().isBlank() ? d.name() : "Stream";
+            double w = fr.reborn.hud.ui.TexteRaster.largeur(nom, st.police(), cap, inter, st.typo());
+            if (Double.isNaN(w) || w <= 0) { ok = false; nomsDirects[i] = nom; continue; }
+            if (w > max) {
+                String c = nom;
+                while (c.length() > 1) {
+                    c = c.substring(0, c.length() - 1).trim();
+                    double wc = fr.reborn.hud.ui.TexteRaster.largeur(c + "…", st.police(), cap, inter, st.typo());
+                    if (!Double.isNaN(wc) && wc <= max) break;
+                }
+                nom = c + "…";
+            }
+            nomsDirects[i] = nom;
+        }
+        nomsAjustes = ok;
     }
 
     /** Ombre, halo (survol) et fond nuit d'une carte ; renvoie le y (monté d'un pixel d'art au survol). */
@@ -639,12 +777,13 @@ public final class EscTokonoma {
         rect(l, cx0, cy0 + 1, cx0 + 1, cy0 + cs - 1, bc, ba);
         rect(l, cx0 + cs - 1, cy0 + 1, cx0 + cs, cy0 + cs - 1, bc, ba);
         l.fermer();
-        EscData.Snapshot s = EscData.get();
-        boolean live = s != null && s.liveStreamCount() > 0;
+        boolean live = directs.length > 0;
         String titre, ligne;
         TexteCache.Style stTitre, stLigne;
         double capT = 15 * kk, interT = 1.4 * kk;
-        int point = -1;
+        int point = -1, dyT = 0;
+        float aT = a;
+        Lib libT = lTitres[i];
         switch (i) {
             case 0 -> {
                 int p = 16 * P;
@@ -652,8 +791,28 @@ public final class EscTokonoma {
                 titre = "STREAM";
                 ligne = live ? "En direct" : "Hors ligne";
                 stLigne = live ? I_CREME : I_GRIS;
-                if (live) point = DIRECT;
                 stTitre = survol ? P_BLANC : P_OR;
+                if (live) {
+                    // le streamer montré (nom d'origine), qui sort vers le haut et laisse entrer le suivant
+                    point = DIRECT;
+                    interT = 0.4 * kk;
+                    int lx0 = cx0 + cs + r(14 * kk);
+                    ajusterNoms(x + w - r(30 * kk) - lx0, P_OR, capT, interT);
+                    titre = nomsDirects[tickerIdx];
+                    libT = lDirects[tickerIdx];
+                    if (directs.length >= 2) {
+                        long e = System.currentTimeMillis() - tickerT0;
+                        if (e > TICKER_MS - TICKER_SORTIE_MS) {
+                            float u = clamp01((e - (TICKER_MS - TICKER_SORTIE_MS)) / (float) TICKER_SORTIE_MS);
+                            aT = a * (1f - u);
+                            dyT = -r(4 * kk * u);
+                        } else if (e < TICKER_ENTREE_MS) {
+                            float u = sortie(clamp01(e / (float) TICKER_ENTREE_MS));
+                            aT = a * u;
+                            dyT = r(5 * kk * (1f - u));
+                        }
+                    }
+                }
             }
             case 1 -> {
                 int p = 14 * P;
@@ -675,7 +834,9 @@ public final class EscTokonoma {
             }
         }
         int lx = cx0 + cs + r(14 * kk), yc = y + h / 2;
-        lTitres[i].ligne(ctx, titre, stTitre, capT, f, interT, lx, yc - r(9 * kk), a);
+        if (aT > 0.003f) libT.ligne(ctx, titre, stTitre, capT, f, interT, lx, yc - r(9 * kk) + dyT, aT);
+        if (i == 0 && live && !compteurTxt.isEmpty())
+            lCompteur.ligne(ctx, compteurTxt, I_GRIS_D, capInter(10, kk), f, 0, x + w - r(30 * kk), yc + r(13 * kk), a);
         int xl = lx;
         if (point >= 0) {
             int rr = Math.max(2, r(3 * kk));
@@ -738,6 +899,8 @@ public final class EscTokonoma {
             case E_QUITTER -> { select(); mc.setScreenAndShow(new DisconnectConfirmScreen(screen)); }
             case H_BOUTIQUE -> { select(); mc.setScreenAndShow(new fr.reborn.hud.boutique.BoutiqueVideScreen(screen)); }
             case H_STREAM -> {
+                // le streamer montré par la carte ; personne en direct : la première chaîne suivie, comme avant
+                if (directs.length > 0) { open(directs[Math.min(tickerIdx, directs.length - 1)].url()); return true; }
                 if (snap == null || snap.streams().isEmpty()) return true;
                 EscData.Stream choix = snap.streams().get(0);
                 for (EscData.Stream s : snap.streams()) if (s.live()) { choix = s; break; }
@@ -801,6 +964,12 @@ public final class EscTokonoma {
         } else return null;
         return new double[]{px / gs, py / gs};
     }
+
+    /** Banc : nom affiché sous le logo (vide = ligne masquée). */
+    String identiteBanc() { return nomTxt; }
+
+    /** Banc : rang du streamer montré par la carte Stream. */
+    int rangTickerBanc() { return tickerIdx; }
 
     /** L'Échap à l'écran, ou null. */
     static EscTokonoma courant() {

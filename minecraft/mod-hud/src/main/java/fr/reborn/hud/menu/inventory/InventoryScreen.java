@@ -593,8 +593,26 @@ public class InventoryScreen extends Screen {
         return DaKit.dans(mx, my, closeX - 12, 10, 24, 36);
     }
 
+    /**
+     * « Prénom Clan · grade · village » sous le titre. Même source que l'Échap : la ligne « SOI » du roster
+     * ({@code TablistData.soi()}, poussé en continu par ShinobiCore) ; la fiche reçue ({@link StatsData#serveur()},
+     * qui n'arrive qu'à l'ouverture de la fiche ou sur /stats) seulement tant qu'aucun roster n'est là. Sans
+     * personnage actif : le pseudo seul.
+     */
+    /** Banc ({@code EscDebug}) : la ligne d'identité que la sacoche montrerait maintenant. */
+    public static String identiteBanc() { return identity(); }
+
     private static String identity() {
-        StatsData.Snapshot s = StatsData.get();
+        var soi = fr.reborn.hud.menu.tablist.TablistData.soi();
+        if (soi != null && soi.nom() != null && !soi.nom().isBlank()) {
+            StringBuilder b = new StringBuilder(soi.nom().trim());
+            String g = soi.grade();
+            if (g != null && !g.isBlank() && !g.startsWith("?")) b.append(" · ").append(g.trim());
+            String v = fr.reborn.hud.menu.esc.EscTokonoma.villageTitre(soi.village());
+            if (v != null) b.append(" · ").append(v);
+            return b.toString();
+        }
+        StatsData.Snapshot s = fr.reborn.hud.menu.tablist.TablistData.hasData() ? null : StatsData.serveur();
         StringBuilder b = new StringBuilder();
         if (s != null && s.name() != null && !s.name().isBlank() && !"?".equals(s.name())) b.append(s.name());
         else {

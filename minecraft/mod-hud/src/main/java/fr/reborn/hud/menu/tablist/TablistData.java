@@ -50,6 +50,17 @@ public final class TablistData {
 
     public static boolean hasData() { return entries != null; }
 
+    /**
+     * Identité RP du joueur local d'après sa ligne « SOI » du dernier roster : nom « Prénom Clan », grade en libellé
+     * FR (macrons : « Chūnin »), village (clé « v », peut être null). {@code null} tant que rien n'est reçu, ou si le
+     * serveur n'a pas de personnage pour lui (pas de grade dans sa ligne : douane, avant la sélection).
+     */
+    public record Soi(String nom, String grade, String village) {}
+    private static volatile Soi soi = null;
+
+    /** Identité du joueur local (serveur seulement, jamais le roster de démonstration), ou {@code null}. */
+    public static Soi soi() { return soi; }
+
     /** Le joueur local est-il staff (champ « s » de sa propre ligne) ? Sert au sous-menu Staff du menu R. */
     private static volatile boolean selfStaff;
     /** Banc d'essai : statut staff imposé (null = celui du serveur). */
@@ -72,7 +83,7 @@ public final class TablistData {
         return d != null ? d : MockTablist.rpDate();
     }
 
-    public static void clear() { entries = null; rpDate = null; selfVitals = null; byUuid = Map.of(); selfStaff = false; }
+    public static void clear() { entries = null; rpDate = null; selfVitals = null; byUuid = Map.of(); selfStaff = false; soi = null; }
 
     /** Parse le JSON du canal et publie le nouveau snapshot (thread client). */
     public static void update(String json) {
@@ -84,6 +95,7 @@ public final class TablistData {
             List<TabEntry> list = new ArrayList<>();
             Map<UUID, RpName> ids = new HashMap<>();
             boolean moiStaff = false;
+            Soi moi = null;
             JsonArray players = root.getAsJsonArray("players");
             if (players != null) {
                 for (JsonElement el : players) {
@@ -107,7 +119,16 @@ public final class TablistData {
                     String uuid = opt(o, "u", null);
                     int ping = pingOf(uuid);
 
-                    if (relation == TabEntry.Relation.SOI) moiStaff = staff;
+                    if (relation == TabEntry.Relation.SOI) {
+                        moiStaff = staff;
+                        // grade présent = personnage révélé (le serveur ne l'envoie qu'avec un personnage)
+                        if (o.has("g") && !o.get("g").isJsonNull() && !"???".equals(grade) && !name.isBlank()) {
+                            Soi prec = soi;
+                            String v = opt(o, "v", null);
+                            moi = prec != null && prec.nom().equals(name) && prec.grade().equals(grade)
+                                && java.util.Objects.equals(prec.village(), v) ? prec : new Soi(name, grade, v);
+                        }
+                    }
                     list.add(new TabEntry(name, relation, staff, grade, clan, clanColor,
                         ping, level, age, affinity));
                     // Index par UUID pour les nametags (relation → « Inconnu »).
@@ -119,6 +140,7 @@ public final class TablistData {
             }
             byUuid = ids;
             selfStaff = moiStaff;
+            soi = moi;
             // Vitals RP du viewer (présent seulement si perso actif côté serveur).
             if (root.has("self") && root.get("self").isJsonObject()) {
                 JsonObject sv = root.getAsJsonObject("self");

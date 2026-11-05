@@ -67,6 +67,13 @@ public final class StatsData {
 
     public static boolean fromServer() { return snapshot != null; }
 
+    /**
+     * La fiche reçue du serveur, ou {@code null} : jamais la fiche de démonstration. À utiliser partout où un nom de
+     * personnage est montré hors de la fiche (Échap, sacoche) — {@link #get()} retombe sur {@link #mock()} (« Itachi »),
+     * qui avait fui dans l'Échap de la 0.4.196.
+     */
+    public static Snapshot serveur() { return snapshot; }
+
     public static int version() { return version; }
 
     public static void clear() { snapshot = null; }

@@ -8,6 +8,7 @@ import fr.reborn.hud.menu.settings.GraphismesTab;
 import fr.reborn.hud.menu.settings.InterfaceTab;
 import fr.reborn.hud.menu.settings.OngletPages;
 import fr.reborn.hud.menu.settings.RebornPrefs;
+import fr.reborn.hud.menu.settings.RedirectionOptions;
 import fr.reborn.hud.menu.settings.ReglagesArt;
 import fr.reborn.hud.menu.settings.SectionedTab;
 import fr.reborn.hud.menu.settings.SettingsTab;
@@ -41,7 +42,8 @@ import java.util.List;
  * Interface, Audio, Graphismes, Compte). COMMANDES instancie {@code ControlsTab(Screen)} : s'il implémente
  * {@link SousListe}, sa sous-liste s'affiche ; sinon il tient en une sous-catégorie « Touches ». Chaque catégorie ne
  * propose que des réglages <b>réellement câblés</b> ; les écrans d'options de Minecraft sont redirigés ici
- * ({@code settings/RedirectionOptions}), sauf par la porte « Compte › Avancé ». Textures :
+ * ({@code settings/RedirectionOptions}), sauf par le lien « Options de Minecraft › » du pied (toujours visible, à
+ * droite, depuis la 0.4.197) et la porte « Compte › Avancé ». Textures :
  * {@code textures/gui/reglages/*} ({@code tools/gen_reglages_textures.py}, cf. {@link ReglagesArt}), inchangées.
  */
 public class ConfigShellScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque {
@@ -260,6 +262,46 @@ public class ConfigShellScreen extends Screen implements fr.reborn.hud.ui.EcranO
         return this.font.width(DaKit.inter("Échap")) + 14;
     }
 
+    /** Lien du pied, à droite : l'écran d'options de Minecraft d'origine (retour du 05/11 : « présent », discret). */
+    private static final String MC_LIB = "Options de Minecraft";
+    /** Libellé du lien, composé une seule fois (pas d'allocation par image, règle 4 Go). */
+    private final net.minecraft.network.chat.Component mcComp = DaKit.inter(MC_LIB);
+    /** Largeur GUI du libellé, mesurée une fois dans {@link #init()} (constante : le texte ne change pas). */
+    private int mcTexteW = -1;
+    /** Banc ({@code audit/Lot3Debug}) : survol imposé du lien « Options de Minecraft ». */
+    public static boolean debugSurvolMinecraft;
+
+    /** Bord droit du lien « Options de Minecraft » (aligné sur la planche des réglages). */
+    private int mcDroite() { return mainX() + mainW() - 4; }
+
+    private int mcLargeur() { return mcTexteW() + 9; }
+
+    private int mcTexteW() {
+        if (mcTexteW < 0) mcTexteW = this.font.width(mcComp);
+        return mcTexteW;
+    }
+
+    /** Banc : centre du lien « Options de Minecraft » (GUI). */
+    public double[] centreOptionsMinecraft() {
+        return new double[]{mcDroite() - mcLargeur() / 2.0, piedY()};
+    }
+
+    private boolean overMinecraft(double mx, double my) {
+        int xr = mcDroite();
+        return mx >= xr - mcLargeur() - 4 && mx < xr + 2 && my >= piedY() - 9 && my < piedY() + 9;
+    }
+
+    /**
+     * Ouvre l'écran d'options de Minecraft tel quel (sans redirection : {@link RedirectionOptions#ouvrirVanilla}) ;
+     * son « Terminé » revient ici, sur l'onglet laissé.
+     */
+    public void ouvrirOptionsMinecraft() {
+        Minecraft mc = Minecraft.getInstance();
+        RebornPrefs.INSTANCE.save();
+        RedirectionOptions.ouvrirVanilla(new net.minecraft.client.gui.screens.options.OptionsScreen(this, mc.options,
+            mc.level != null));
+    }
+
     private boolean overPied(double mx, double my) {
         int x = subX();
         int w = piedLargeur() + 7 + this.font.width(DaKit.arcade("RETOUR"));
@@ -269,6 +311,7 @@ public class ConfigShellScreen extends Screen implements fr.reborn.hud.ui.EcranO
     // ─── Cycle de vie ────────────────────────────────────
     @Override
     protected void init() {
+        mcTexteW = this.font.width(mcComp);
         rebuildContent();
     }
 
@@ -373,6 +416,8 @@ public class ConfigShellScreen extends Screen implements fr.reborn.hud.ui.EcranO
         int hovSous = hovTab < 0 ? sousAt(mouseX, mouseY) : -1;
         boolean hovReinit = hovTab < 0 && hovSous < 0 && overReinit(mouseX, mouseY);
         boolean hovPied = hovTab < 0 && hovSous < 0 && !hovReinit && overPied(mouseX, mouseY);
+        boolean hovMc = debugSurvolMinecraft
+            || hovTab < 0 && hovSous < 0 && !hovReinit && !hovPied && overMinecraft(mouseX, mouseY);
 
         // Onglets pendus (sous l'en-tête) : plaquette à picto, libellé ArcadePix ×1 dessous.
         for (int i = 0; i < ONGLETS.length; i++) {
@@ -421,6 +466,17 @@ public class ConfigShellScreen extends Screen implements fr.reborn.hud.ui.EcranO
         ReglagesArt.segment(ctx, px + 1, py - 8, pw - 3, hovPied ? 1 : 0);
         DaKit.inter9(ctx, f, DaKit.inter("Échap"), px + pw / 2f - 1, py, hovPied ? DaKit.CREME : DaKit.OR_CLAIR, 1);
         DaKit.arcX1(ctx, f, DaKit.arcade("RETOUR"), px + pw + 7, py - 3, hovPied ? DaKit.CREME : REPOS, 0, true);
+
+        // « Options de Minecraft › » à droite du pied : discret (doux), crème au survol, chevron qui avance d'un cran
+        int xm = mcDroite(), colMc = hovMc ? DaKit.CREME : DaKit.DOUX;
+        int xc = xm - 3 + (hovMc ? 1 : 0);
+        for (int i = -2; i <= 2; i++) {
+            int dx = 2 - Math.abs(i);
+            ctx.fill(xc + dx - 2, py + i, xc + dx - 1, py + i + 1, colMc);
+        }
+        int wt = mcTexteW();
+        DaKit.texteEchelle(ctx, f, mcComp, xm - 9 - wt, py - DaKit.INTER9_MIL, colMc, 1f);
+        if (hovMc) ctx.fill(xm - 9 - wt, py + 6, xm - 9, py + 7, DaKit.OR_CLAIR);
     }
 
     @Override
@@ -497,6 +553,11 @@ public class ConfigShellScreen extends Screen implements fr.reborn.hud.ui.EcranO
             if (overPied(mouseX, mouseY)) {
                 RebornSounds.uiClick();
                 onClose();
+                return true;
+            }
+            if (overMinecraft(mouseX, mouseY)) {
+                RebornSounds.uiClick();
+                ouvrirOptionsMinecraft();
                 return true;
             }
             int t = tabAt(mouseX, mouseY);

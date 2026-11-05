@@ -88,6 +88,58 @@ public final class Lot3Debug {
         page(Onglet.COMPTE, 0, "lot3_param_09_compte");
         page(Onglet.COMPTE, 4, "lot3_param_10_compte_avance");
 
+        // retour du 05/11 : « Options de Minecraft › » au pied, l'écran d'origine sans redirection, retour aux Paramètres
+        pas(3, mc -> {
+            ConfigShellScreen.debugSurvolMinecraft = true;
+            mc.setScreenAndShow(new ConfigShellScreen(null, Onglet.GRAPHISMES, 0));
+        }, "Graphismes, lien survolé");
+        pas(14, mc -> shot(mc, "lot3_r0197_01_lien_options_minecraft_survol"), "capture");
+        pas(1, mc -> ConfigShellScreen.debugSurvolMinecraft = false, "survol rendu");
+        pas(6, mc -> shot(mc, "lot3_r0197_02_lien_options_minecraft"), "capture");
+        pas(2, mc -> {
+            if (mc.gui.screen() instanceof ConfigShellScreen c) {
+                double[] p = c.centreOptionsMinecraft();
+                c.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(p[0], p[1],
+                    new net.minecraft.client.input.MouseButtonInfo(0, 0)), false);
+            }
+        }, "clic Options de Minecraft");
+        pas(10, mc -> {
+            var s = mc.gui.screen();
+            System.out.println("[lot3] " + (s != null && s.getClass() == net.minecraft.client.gui.screens.options.OptionsScreen.class
+                ? "OK" : "ECHEC") + " écran d'options de Minecraft ouvert sans redirection : " + nom(s));
+            shot(mc, "lot3_r0197_03_options_minecraft_vanilla");
+        }, "vérif + capture");
+        pas(4, mc -> {
+            var s = mc.gui.screen();
+            if (s != null) s.keyPressed(new net.minecraft.client.input.KeyEvent(GLFW.GLFW_KEY_ESCAPE, 0, 0));
+        }, "Échap (Terminé)");
+        pas(10, mc -> {
+            var s = mc.gui.screen();
+            System.out.println("[lot3] " + (s instanceof ConfigShellScreen ? "OK" : "ECHEC")
+                + " retour aux Paramètres : " + nom(s));
+            shot(mc, "lot3_r0197_04_retour_parametres");
+        }, "vérif + capture");
+        // sous-écran Vidéo ouvert depuis l'écran d'origine : pas redirigé non plus
+        pas(2, mc -> {
+            if (mc.gui.screen() instanceof ConfigShellScreen c) c.ouvrirOptionsMinecraft();
+        }, "Options de Minecraft");
+        pas(4, mc -> mc.gui.setScreen(new net.minecraft.client.gui.screens.options.VideoSettingsScreen(mc.gui.screen(), mc, mc.options)),
+            "Vidéo depuis l'écran d'origine");
+        pas(10, mc -> {
+            var s = mc.gui.screen();
+            System.out.println("[lot3] " + (s instanceof net.minecraft.client.gui.screens.options.VideoSettingsScreen ? "OK" : "ECHEC")
+                + " Vidéo de Minecraft ouvert depuis l'écran d'origine : " + nom(s));
+            shot(mc, "lot3_r0197_05_video_minecraft");
+        }, "vérif + capture");
+        pas(2, mc -> mc.setScreenAndShow(null), "fermer");
+        pas(2, mc -> mc.gui.setScreen(new net.minecraft.client.gui.screens.options.OptionsScreen(null, mc.options, true)),
+            "écran d'options ouvert ailleurs");
+        pas(4, mc -> {
+            var s = mc.gui.screen();
+            System.out.println("[lot3] " + (s instanceof ConfigShellScreen ? "OK" : "ECHEC")
+                + " hors du lien, la redirection reste : " + nom(s));
+        }, "vérif redirection");
+
         // conflit : Concentration sur la touche de Contextuel (F)
         pas(2, mc -> {
             concentrationAvant = KeyMappingHelper.getBoundKeyOf(HudKeybinds.CONCENTRATION);
@@ -123,6 +175,10 @@ public final class Lot3Debug {
             mc.stop();
         }, "fin");
         ClientTickEvents.END_CLIENT_TICK.register(Lot3Debug::tick);
+    }
+
+    private static String nom(net.minecraft.client.gui.screens.Screen s) {
+        return s == null ? "aucun" : s.getClass().getSimpleName();
     }
 
     private static void page(Onglet o, int sous, String nom) {

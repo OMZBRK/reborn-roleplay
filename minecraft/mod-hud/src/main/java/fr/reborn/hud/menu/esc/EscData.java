@@ -151,6 +151,37 @@ public final class EscData {
         return iv - Math.floorMod(now - debutSession, iv);
     }
 
+    // ── version du serveur (pied de l'Échap, retour du 05/11 : « la version du serveur, c'est tout ») ──
+
+    /** Banc : version du serveur imposée (null = données de l'API ; vide = rien). */
+    public static String debugVersionServeur;
+    /** Champ facultatif {@code server.version} (ou {@code serverVersion}) de {@code /menu/panel} (pas encore servi). */
+    private static volatile String versionApi;
+    /**
+     * Version de la dernière patch note publiée (la plus récente par {@code publishedAt}, épinglée ou non) : la version
+     * que le serveur annonce à ses joueurs, saisie par le staff dans le panneau. Déjà servie par {@code /menu/panel}.
+     */
+    private static volatile String versionNotes;
+    private static final Pattern VERSION_SURE = Pattern.compile("[\\p{L}\\p{N} .+_-]{1,24}");
+
+    /**
+     * Version du serveur à montrer en bas à droite de l'Échap, ou {@code null} (rien n'est alors affiché — jamais la
+     * version du mod ni celle du manifeste, qui suit les mods clients). Sources, dans l'ordre : banc ; un champ
+     * explicite {@code server.version} de {@code /menu/panel} s'il est un jour servi ; sinon la version de la dernière
+     * patch note publiée (même donnée que la carte Dev blog).
+     */
+    public static String versionServeur() {
+        if (debugVersionServeur != null) return debugVersionServeur.isBlank() ? null : debugVersionServeur;
+        String api = versionApi;
+        return api != null ? api : versionNotes;
+    }
+
+    private static String versionSure(String v) {
+        if (v == null) return null;
+        String t = v.trim();
+        return VERSION_SURE.matcher(t).matches() ? t : null;
+    }
+
     private static volatile Snapshot snapshot = null;
     private static volatile long lastFetch = 0L;
     private static volatile boolean fetching = false;
@@ -213,11 +244,23 @@ public final class EscData {
         }
 
         List<PatchNote> notes = new ArrayList<>();
+        String derniere = null;
+        long derniereMs = Long.MIN_VALUE;
         JsonElement pn = root.get("patchNotes");
         if (pn != null && pn.isJsonArray()) {
             for (JsonElement e : pn.getAsJsonArray()) {
                 if (!e.isJsonObject()) continue;
                 JsonObject o = e.getAsJsonObject();
+                // version de la note la plus récente (les épinglées passent devant dans la liste, pas ici)
+                String vn = versionSure(texte(optStr(o, "version", null), 24));
+                if (vn != null) {
+                    long ms = Long.MIN_VALUE + 1;
+                    String pub = optStr(o, "publishedAt", null);
+                    if (pub != null) {
+                        try { ms = OffsetDateTime.parse(pub).toInstant().toEpochMilli(); } catch (Exception ignored) { }
+                    }
+                    if (ms > derniereMs) { derniereMs = ms; derniere = vn; }
+                }
                 notes.add(new PatchNote(
                     arcadeSafe(optStr(o, "version", null), 16),
                     arcadeSafe(optStr(o, "title", null), 60),
@@ -270,6 +313,13 @@ public final class EscData {
                 prochain, java.util.Set.copyOf(actifs));
         }
 
+        String version = null;
+        JsonElement sv = root.get("server");
+        if (sv != null && sv.isJsonObject()) version = optStr(sv.getAsJsonObject(), "version", null);
+        if (version == null) version = optStr(root, "serverVersion", null);
+        versionApi = versionSure(version);
+        versionNotes = derniere;
+
         return new Snapshot(members, online, notes, streams, invite, boutique, rec);
     }
 
@@ -290,6 +340,7 @@ public final class EscData {
     /** Banc : instantané imposé (aucune API). */
     public static void debug(Snapshot s) {
         snapshot = s;
+        versionNotes = s == null || s.patchNotes().isEmpty() ? null : versionSure(s.patchNotes().get(0).versionTexte());
         lastFetch = System.currentTimeMillis();
     }
 
