@@ -2108,7 +2108,7 @@ Minecraft, Nexo et le menu R.
 | 17 | Chat de proximité | §17 | 🟢 **validé 31/10, lot 1 publié sur le dev et validé en jeu le 01/11** (lots 2 à 5 à suivre) : portées de Plasmo (touche H), micro coloré, chuchoté à terre, couper / rétablir la voix au Poste de garde, bulle et `/me` sans fond sur la tête, nom au regard | Volume par joueur ; « qui parle » en HUD bas-droite (lot 2) |
 | 18 | Transmissions | §18 | ✅ radio en escouades livrée 15/10, **validée en jeu 17/10** | Appel de service à part, à concevoir — [`gameplay/RADIO.md`](./gameplay/RADIO.md) |
 | 19 | Monnaie | §19 | ✅ livrée 15/10 ; **bourse validée en jeu 17/10** | — [`gameplay/MONNAIE_ET_BANQUE.md`](./gameplay/MONNAIE_ET_BANQUE.md) |
-| 20 | Banque | §20 | ✍🏻 livrée 15/10, **pas encore testée en jeu** | Recette de la fiche §20 (guichet, coffre à paliers, virement, échange garanti) |
+| 20 | Banque | §20 | ✅ livrée 15/10, **validée en jeu le 05/11** | Recette de la fiche §20 (guichet, coffre à paliers, virement, échange garanti) |
 | 21 | Professions et petits boulots | §21 | proposition | Spécialisations = fonctions de section |
 | 22 | Missions de rang D | §22 | proposition | Bureau des missions (décision n° 13) |
 | 23-28 | Mineur, bûcheron, forgeron, médecin, cuisinier, cartographe | §23-§28 | proposition (médecin) / après la beta (le reste) | Verrou de combat sur les soins ; bandage du médic |

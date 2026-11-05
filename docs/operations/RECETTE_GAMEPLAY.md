@@ -24,7 +24,7 @@ Les systèmes publiés après cette liste ont leur propre recette dans leur fich
 | Marche sur l'eau | ✅ validée en jeu le 17/10 | [`../gameplay/DEPLACEMENTS.md`](../gameplay/DEPLACEMENTS.md) §10 |
 | Test de la Feuille (v3) | ✅ validé en jeu le 17/10 (§3 ci-dessous) | [`../gameplay/STATS_ET_PROGRESSION.md`](../gameplay/STATS_ET_PROGRESSION.md) |
 | Monnaie : bourse | ✅ validée en jeu le 17/10 | [`../gameplay/MONNAIE_ET_BANQUE.md`](../gameplay/MONNAIE_ET_BANQUE.md) |
-| Monnaie : **banque** | ⏳ **pas encore testée** (guichet, coffre à paliers, virement, échange garanti) | même fiche §20 |
+| Monnaie : **banque** | ✅ **validée en jeu le 05/11** (guichet, coffre à paliers, virement, échange garanti) | même fiche §20 |
 
 ---
 
