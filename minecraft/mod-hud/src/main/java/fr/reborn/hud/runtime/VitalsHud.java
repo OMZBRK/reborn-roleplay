@@ -11,7 +11,6 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 
@@ -30,6 +29,10 @@ import java.io.InputStream;
  * stamina = faim (déjà en direct) ; état <b>voix</b> (portée = couleur du micro,
  * parle/mute/assourdi) relu à chaque tick par {@link fr.reborn.hud.voice.VoiceState}
  * (PlasmoVoice).
+ *
+ * <p><b>Compact</b> (Game Plan n° 18, 05/11) : hors combat, la tête seule dans le cadre du bloc réduit de moitié, un
+ * filet de vie de 4 px au-dessus, un de chakra dessous, le micro à droite ; le bloc complet revient en combat, avec un
+ * morph (états et minuteurs dans {@link VitalsMode}). La boîte de l'élément reste celle du bloc complet.
  */
 public final class VitalsHud {
 
@@ -63,13 +66,37 @@ public final class VitalsHud {
     public static final int MIC_X = (3 + HEAD + 7) + (WIDTH - (3 + HEAD + 7) - 3) - 24 + 4;
     public static final int MIC_Y = 14 + 11 + 3 + (11 - MIC_TAILLE) / 2;
 
-    // Caches de libellés/Components : les vitals RP sont poussés par le réseau
-    // (pas modifiés par frame) → on ne reconstruit chaînes/Components que quand la
-    // valeur sous-jacente change, évitant concats + Component.literal à chaque frame.
-    private static String cNameStr; private static Component cNameComp;
+    // Caches de libellés : les vitals RP sont poussés par le réseau (pas modifiés par frame) → on ne reconstruit les
+    // chaînes que quand la valeur sous-jacente change.
+    private static String cNameStr;
     private static int cHpCur = Integer.MIN_VALUE, cHpMax; private static String cHpLabel;
     private static int cCkCur = Integer.MIN_VALUE, cCkMax; private static String cCkLabel;
     private static int cStPct = Integer.MIN_VALUE; private static String cStLabel;
+
+    // ─── Valeurs courantes ({@link #lire}) ───
+    private static int hpCur, hpMax = 1, ckCur, ckMax = 1, source;
+    private static float stVal;
+
+    // ─── Compact (Game Plan n° 18, 05/11) ───
+    /** Cadre nuit (le même que le bloc), piste vide, liseré or éteint à 55 % (greffe C), vie basse (greffe A). */
+    private static final int CADRE_NUIT = 0xFF181008;
+    private static final int RIM = 0x8C8E6A30, RIM_ST = 0xA68E6A30;
+    private static final int CORE_DANGER = 0xE0581414, RIM_DANGER = 0xD0B83434;
+    private static final int HP_VIF = 0xFFFF6B6B;
+    private static final int REFLET = 0x30FFFFFF;
+    /**
+     * Cotes de la maquette en px 1080p (échelle GUI 2, élément à 100 %), depuis l'ancre de l'élément. Le compact est
+     * recalculé en pixels écran pour l'échelle courante (tête au multiple de 8 le plus proche, traits d'au moins 1 px) ;
+     * le bloc, lui, est le bloc d'avant (unités du panneau × 2).
+     */
+    private static final float F_CADRE = 100f, F_CX = 2f, F_CY = 2f, F_R = 12f, F_BD = 2f;
+    private static final float F_VIE_X = 112f, F_VIE_Y = 28f, F_VIE_W = 302f, F_BAR_H = 22f;
+    private static final float F_CK_Y = 56f, F_CK_W = 254f, F_ST_Y = 84f;
+    private static final float F_MIC_X = 374f, F_MIC_Y = 56f, F_MIC_S = 20f;
+
+    /** Gabarit du compact en pixels écran, recalculé quand l'échelle change. */
+    private static float gabF = -1f;
+    private static int cB, cH, cS, cR, cFh, cSh, cFx, cVy, cFy, cCy, cSy, cMs, cMx, cMy;
 
     // Icônes voix (16×16) faites par l'équipe — mic/casque on/off.
     private static final Identifier MIC_ON     = Identifier.fromNamespaceAndPath("reborn", "textures/hud/mic_on.png");
@@ -86,17 +113,232 @@ public final class VitalsHud {
 
     private VitalsHud() {}
 
+    /**
+     * Lit vie, chakra et satiété (RP serveur-authoritative). Priorité : flux LIVE reborn:vitals (VitalsFeed, ~5×/s) →
+     * bloc « self » du tablist (2 s, fallback) → vanilla (hors serveur / sans perso). Appelé au rendu et au tick.
+     */
+    public static void lire(LocalPlayer p) {
+        VitalsFeed.Vitals vf = VitalsFeed.get();
+        TablistData.SelfVitals sv = vf == null ? TablistData.selfVitals() : null;
+        if (vf != null) {
+            hpCur = vf.hp(); hpMax = Math.max(1, vf.maxHp());
+            ckCur = vf.chakra(); ckMax = Math.max(1, vf.maxChakra());
+            source = 2;
+        } else if (sv != null) {
+            hpCur = sv.hp(); hpMax = Math.max(1, sv.maxHp());
+            ckCur = sv.chakra(); ckMax = Math.max(1, sv.maxChakra());
+            source = 1;
+        } else {
+            // Vie : vraie vie RP (ShinobiCore) en jeu ; vanilla seulement hors serveur.
+            hpCur = (int) Math.ceil(p.getHealth());
+            hpMax = (int) Math.max(1, p.getMaxHealth());
+            // Chakra hors serveur : les champs XP détournés (ancien affichage).
+            ckCur = p.experienceLevel;
+            float pr = Math.max(0f, Math.min(1f, p.experienceProgress));
+            ckMax = pr > 0.001f ? Math.round(ckCur / pr) : Math.max(ckCur, 1);
+            source = 0;
+        }
+        VitalsFeed.Satiete sat = VitalsFeed.satiete();
+        stVal = sat != null ? sat.valeur() : p.getFoodData().getFoodLevel() / 20f;
+    }
+
+    /** Vie en pour mille (0 à 1000). */
+    static int vieMille() { return Math.round(1000f * Mth.clamp(hpCur / (float) hpMax, 0f, 1f)); }
+
+    /** Chakra en pour mille (0 à 1000). */
+    static int chakraMille() { return Math.round(1000f * Mth.clamp(ckCur / (float) ckMax, 0f, 1f)); }
+
+    static int vieMax() { return hpMax; }
+
+    static int chakraCur() { return ckCur; }
+
+    static int chakraMax() { return ckMax; }
+
+    /** 0 = vanilla, 1 = tablist, 2 = flux live. */
+    static int source() { return source; }
+
+    static float satieteValeur() { return stVal; }
+
     public static void render(GuiGraphicsExtractor ctx, Minecraft mc, int x, int y, float scale) {
         LocalPlayer p = mc.player;
         if (p == null) return;
-        Font tr = mc.font;
+        lire(p);
+        long now = VitalsMode.maintenant();
+        VitalsMode.avancer(mc, now);
+        VitalsMode.Etat e = VitalsMode.etat();
+        if (e == VitalsMode.Etat.COMPLET) {
+            renderComplet(ctx, mc, p, x, y, scale);
+            return;
+        }
+        VitalsMode.phases(now);
+        float tb = VitalsMode.barres(), th = VitalsMode.tete(), tt = VitalsMode.textes();
+        int gs = Math.max(1, mc.getWindow().getGuiScale());
+        gabarit(scale * gs / 2f);
+        Identifier skin = p.getSkin().body().texturePath();
 
+        // Formes en pixels écran (nettes à toutes les échelles), depuis l'ancre de l'élément.
         ctx.pose().pushMatrix();
         ctx.pose().translate(x, y);
-        if (scale != 1.0f) ctx.pose().scale(scale, scale);
+        ctx.pose().scale(1f / gs, 1f / gs);
+        if (e == VitalsMode.Etat.COMPACT) compact(ctx, skin, now);
+        else morph(ctx, skin, gs * scale / 2f, gs, tb, th, tt);
+        ctx.pose().popMatrix();
 
-        // Nom RP : lu de l'entrée tablist « SOI » (posée par ShinobiCore via
-        // reborn:tablist). Fallback pseudo MC hors serveur.
+        // Nom, chiffres (et casque) : seulement une fois les barres en place, en fondu, à leur place du bloc.
+        if (tt > 0.02f) {
+            ctx.pose().pushMatrix();
+            ctx.pose().translate(x, y);
+            if (scale != 1.0f) ctx.pose().scale(scale, scale);
+            textes(ctx, mc, tt);
+            ctx.pose().popMatrix();
+        }
+    }
+
+    /** Gabarit du compact en pixels écran pour {@code f} pixels écran par px de la maquette. */
+    private static void gabarit(float f) {
+        if (f == gabF) return;
+        gabF = f;
+        cB = Math.max(1, Math.round(f));                 // or 1 px, nuit 1 px
+        cH = fr.reborn.hud.ui.DaKit.cotePx(32f * f, 8);  // tête : 4 px par pixel de skin à 1:1
+        cS = cH + 4 * cB;                                 // cadre 36
+        cR = Math.max(1, Math.round(4f * f));
+        cFh = Math.max(2, Math.round(4f * f));            // filets de 4
+        cSh = Math.max(1, Math.round(2f * f));            // satiété de 2
+        int g = Math.max(1, Math.round(2f * f));          // 2 px d'écart
+        cFx = Math.round(2f * f);
+        cVy = Math.round(2f * f);
+        cFy = cVy + cFh + g;
+        cCy = cFy + cS + g;
+        cSy = cCy + cFh + g;
+        cMs = fr.reborn.hud.ui.DaKit.cotePx(16f * f, 16); // micro : la texture à 1:1
+        cMx = cFx + cS + Math.round(6f * f);
+        cMy = cFy + (cS - cMs) / 2;
+    }
+
+    /** Compact : tête dans le cadre du bloc réduit de moitié, filet de vie au-dessus, de chakra dessous, micro. */
+    private static void compact(GuiGraphicsExtractor ctx, Identifier skin, long now) {
+        cadre(ctx, skin, cFx, cFy, cS, cR, cB);
+        float vie = Mth.clamp(hpCur / (float) hpMax, 0f, 1f);
+        if (VitalsMode.vieBasse()) {
+            // Vie ≤ 25 % : le filet bat (1,2 s, sinus), sa piste et son liseré rougissent ; pas de halo.
+            float k = VitalsMode.pouls(now);
+            filet(ctx, cFx, cVy, cS, cFh, melanger(HP_COLOR, HP_VIF, k), vie,
+                melanger(RIM, RIM_DANGER, 0.35f + 0.65f * k), melanger(BAR_BG, CORE_DANGER, k), cB);
+        } else {
+            filet(ctx, cFx, cVy, cS, cFh, HP_COLOR, vie, RIM, BAR_BG, cB);
+        }
+        filet(ctx, cFx, cCy, cS, cFh, CK_COLOR, Mth.clamp(ckCur / (float) ckMax, 0f, 1f), RIM, BAR_BG, cB);
+        if (VitalsMode.faimBasse()) filet(ctx, cFx, cSy, cS, cSh, ST_COLOR, stVal, RIM_ST, BAR_BG, cB);
+        micro(ctx, cMx, cMy, cMs);
+        if (VoiceState.selfDeafened()) {   // le casque n'apparaît que si l'on est assourdi
+            ctx.blit(RenderPipelines.GUI_TEXTURED, CASQUE_OFF, cMx + cMs + Math.max(1, cMs / 8), cMy, 0f, 0f, cMs, cMs,
+                16, 16, 16, 16, ICONE_ETEINTE);
+        }
+    }
+
+    /**
+     * Entre deux : chaque filet devient sa barre (position, largeur, épaisseur), le cadre et la tête grandissent, le
+     * micro glisse au bout du chakra. {@code f} : pixels écran par px de la maquette (cotes du bloc). Entre les deux
+     * bouts, tout tombe sur la grille GUI ({@code g} pixels écran, LISEZMOI « Timings ») : coins nets, côtés pairs.
+     */
+    private static void morph(GuiGraphicsExtractor ctx, Identifier skin, float f, int g, float tb, float th, float tt) {
+        grille = g;
+        int fs = mi(cS, F_CADRE * f, th);
+        int bd = Math.max(1, mi(cB, F_BD * f, th));
+        cadre(ctx, skin, mi(cFx, F_CX * f, th), mi(cFy, F_CY * f, th), fs, mi(cR, F_R * f, th), bd);
+        int rim = alpha(RIM, 1f - tb);
+        int bh = mi(cFh, F_BAR_H * f, tb);
+        filet(ctx, mi(cFx, F_VIE_X * f, tb), mi(cVy, F_VIE_Y * f, tb), mi(cS, F_VIE_W * f, tb), bh, HP_COLOR,
+            Mth.clamp(hpCur / (float) hpMax, 0f, 1f), rim, BAR_BG, cB);
+        filet(ctx, mi(cFx, F_VIE_X * f, tb), mi(cCy, F_CK_Y * f, tb), mi(cS, F_CK_W * f, tb), bh, CK_COLOR,
+            Mth.clamp(ckCur / (float) ckMax, 0f, 1f), rim, BAR_BG, cB);
+        // Satiété : du 3e filet (≤ 25 %) ou de rien, vers sa barre.
+        boolean faim = VitalsMode.faimBasse();
+        int sw = mi(faim ? cS : 0, F_VIE_W * f, tb);
+        if (sw > 2) {
+            float k = faim ? 1f : Math.min(1f, tb * 1.6f);
+            filet(ctx, mi(cFx, F_VIE_X * f, tb), mi(cSy, F_ST_Y * f, tb), sw, mi(cSh, F_BAR_H * f, tb),
+                alpha(ST_COLOR, k), stVal, alpha(rim, k), alpha(BAR_BG, k), cB);
+        }
+        int ms = mi(cMs, F_MIC_S * f, tb);
+        int mx = mi(cMx, F_MIC_X * f, tb), my = mi(cMy, F_MIC_Y * f, tb);
+        micro(ctx, mx, my, ms);
+        if (VoiceState.selfDeafened() && tt <= 0.02f) {
+            ctx.blit(RenderPipelines.GUI_TEXTURED, CASQUE_OFF, mx + ms + Math.max(1, ms / 8), my, 0f, 0f, ms, ms,
+                16, 16, 16, 16, ICONE_ETEINTE);
+        }
+    }
+
+    /** Nom, chiffres et casque du bloc en fondu ({@code a}), en unités du panneau. */
+    private static void textes(GuiGraphicsExtractor ctx, Minecraft mc, float a) {
+        Font tr = mc.font;
+        int blanc = alpha(WHITE, a);
+        labels();
+        String nom = nomRp(mc);
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(COL_X, 0f);
+        ctx.pose().scale(1.35f, 1.35f);
+        ctx.text(tr, nom, 0, 0, blanc, true);
+        ctx.pose().popMatrix();
+        int cw = WIDTH - COL_X - 3;
+        ctx.text(tr, cHpLabel, COL_X + (cw - tr.width(cHpLabel)) / 2, Y1 + (BAR_H - 8) / 2, blanc, true);
+        ctx.text(tr, cCkLabel, COL_X + (cw - 24 - tr.width(cCkLabel)) / 2, Y2 + (BAR_H - 8) / 2, blanc, true);
+        ctx.text(tr, cStLabel, COL_X + (cw - tr.width(cStLabel)) / 2, Y3 + (BAR_H - 8) / 2, blanc, true);
+        int s = MIC_TAILLE;
+        boolean sourd = VoiceState.selfDeafened();
+        ctx.blit(RenderPipelines.GUI_TEXTURED, sourd ? CASQUE_OFF : CASQUE_ON, MIC_X + s + 2, MIC_Y, 0f, 0f, s, s,
+            16, 16, 16, 16, alpha(sourd ? ICONE_ETEINTE : 0xFFFFFFFF, a));
+    }
+
+    /** Cadre or puis nuit (épaisseur {@code b}), tête (face + calque chapeau) dedans. */
+    private static void cadre(GuiGraphicsExtractor ctx, Identifier skin, int x, int y, int s, int r, int b) {
+        DrawHelpers.roundedRectFull(ctx, x, y, s, s, r, GOLD);
+        DrawHelpers.roundedRectFull(ctx, x + b, y + b, s - 2 * b, s - 2 * b, Math.max(0, r - b), CADRE_NUIT);
+        int h = s - 4 * b;
+        ctx.blit(RenderPipelines.GUI_TEXTURED, skin, x + 2 * b, y + 2 * b, 8f, 8f, h, h, 8, 8, 64, 64);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, skin, x + 2 * b, y + 2 * b, 40f, 8f, h, h, 8, 8, 64, 64);
+    }
+
+    /**
+     * Filet (greffe C) : piste vide avec un liseré or éteint de {@code b} px (sans liseré si son alpha est nul), la
+     * pleine par-dessus, et son reflet d'1 trait (seulement sur la pleine, à partir de 4 px de haut).
+     */
+    private static void filet(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int c, float ratio, int rim,
+                              int core, int b) {
+        if (w <= 0 || h <= 0) return;
+        boolean avecLisere = (rim >>> 24) > 4;
+        if (avecLisere && h > 2 * b) {
+            DrawHelpers.roundedRectFull(ctx, x, y, w, h, h / 2, rim);
+            DrawHelpers.roundedRectFull(ctx, x + b, y + b, w - 2 * b, h - 2 * b, (h - 2 * b) / 2, core);
+        } else {
+            DrawHelpers.roundedRectFull(ctx, x, y, w, h, h / 2, avecLisere ? rim : core);
+        }
+        int fw = Math.round(w * Mth.clamp(ratio, 0f, 1f));
+        if (fw > 0) DrawHelpers.roundedRectFull(ctx, x, y, Math.max(Math.min(h, w), fw), h, h / 2, c);
+        if (h >= 4 * b && fw > 2 * b) ctx.fill(x + b, y, x + fw - b, y + b, REFLET);
+    }
+
+    /** Pas de la grille du morph (pixels écran par unité GUI), posé par {@link #morph}. */
+    private static int grille = 1;
+
+    /** Interpolation de {@code a} (compact) à {@code b} (bloc) ; aux bouts la valeur exacte, entre les deux la grille. */
+    private static int mi(float a, float b, float t) {
+        if (t <= 0f) return Math.round(a);
+        if (t >= 1f) return Math.round(b);
+        return Math.round((a + (b - a) * t) / grille) * grille;
+    }
+
+    /** Multiplie l'alpha d'une couleur ARGB. */
+    private static int alpha(int argb, float k) {
+        int a = Math.round((argb >>> 24) * Mth.clamp(k, 0f, 1f));
+        return a << 24 | (argb & 0xFFFFFF);
+    }
+
+    // ─── Le bloc complet (l'affichage d'avant, inchangé) ───
+    private static final int COL_X = 3 + HEAD + 7, BAR_H = 11, Y1 = 14, Y2 = Y1 + BAR_H + 3, Y3 = Y2 + BAR_H + 3;
+
+    /** Nom RP : lu de l'entrée tablist « SOI » (posée par ShinobiCore via reborn:tablist). Fallback pseudo MC hors serveur. */
+    private static String nomRp(Minecraft mc) {
         String rpName = mc.getUser().getName();
         try {
             for (TabEntry e : TablistData.entries(rpName)) {
@@ -108,11 +350,32 @@ public final class VitalsHud {
         } catch (RuntimeException ignored) {
             // pas de data tablist (hors serveur) → fallback pseudo.
         }
+        if (!rpName.equals(cNameStr)) cNameStr = rpName;
+        return cNameStr;
+    }
+
+    /** Libellés « cur/max » et « % » cachés : recomposés uniquement quand la valeur change. */
+    private static void labels() {
+        if (hpCur != cHpCur || hpMax != cHpMax) { cHpLabel = hpCur + "/" + hpMax; cHpCur = hpCur; cHpMax = hpMax; }
+        if (ckCur != cCkCur || ckMax != cCkMax) { cCkLabel = ckCur + "/" + ckMax; cCkCur = ckCur; cCkMax = ckMax; }
+        int stPct = Math.round(stVal * 100);
+        if (stPct != cStPct) { cStLabel = stPct + "%"; cStPct = stPct; }
+    }
+
+    private static void renderComplet(GuiGraphicsExtractor ctx, Minecraft mc, LocalPlayer p, int x, int y, float scale) {
+        Font tr = mc.font;
+
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x, y);
+        if (scale != 1.0f) ctx.pose().scale(scale, scale);
+
+        String rpName = nomRp(mc);
+        labels();
 
         // ─── Tête + bordure dorée ───
         int hx = 3, hy = 3;
         DrawHelpers.roundedRectFull(ctx, hx - 2, hy - 2, HEAD + 4, HEAD + 4, 6, GOLD);
-        DrawHelpers.roundedRectFull(ctx, hx - 1, hy - 1, HEAD + 2, HEAD + 2, 5, 0xFF181008);
+        DrawHelpers.roundedRectFull(ctx, hx - 1, hy - 1, HEAD + 2, HEAD + 2, 5, CADRE_NUIT);
         // Tête = région 8×8 du skin (face à (8,8), calque chapeau à (40,8)),
         // agrandie à HEAD×HEAD. Blit 12-args (…, destW, destH, regionW, regionH,
         // texW, texH) : sinon le blit 10-args prend (HEAD,HEAD) comme région source
@@ -122,42 +385,21 @@ public final class VitalsHud {
         ctx.blit(RenderPipelines.GUI_TEXTURED, skin, hx, hy, 40f, 8f, HEAD, HEAD, 8, 8, 64, 64);
 
         // ─── Colonne de droite : nom + barres ───
-        int cx = hx + HEAD + 7;
+        int cx = COL_X;
         int cw = WIDTH - cx - 3;
 
         // Nom RP — plus grand que les labels de barre (cf. hudvitalsrp.png).
         float nameScale = 1.35f;
-        // Component du nom caché : ne le reconstruit que si le nom RP change.
-        if (!rpName.equals(cNameStr)) { cNameStr = rpName; cNameComp = Component.literal(rpName); }
         ctx.pose().pushMatrix();
         ctx.pose().translate(cx, 0f);
         ctx.pose().scale(nameScale, nameScale);
-        ctx.text(tr, cNameComp, 0, 0, WHITE, true);
+        ctx.text(tr, rpName, 0, 0, WHITE, true);
         ctx.pose().popMatrix();
 
-        int barH = 11;
-        int y1 = 14, y2 = y1 + barH + 3, y3 = y2 + barH + 3;
-
-        // Vitals RP serveur-authoritative. Priorité : flux LIVE reborn:vitals
-        // (VitalsFeed, ~5×/s) → bloc « self » du tablist (2 s, fallback) → vanilla
-        // (hors serveur / sans perso). Le flux live évite la latence de 2 s du tablist.
-        VitalsFeed.Vitals vf = VitalsFeed.get();
-        TablistData.SelfVitals sv = TablistData.selfVitals();
+        int barH = BAR_H;
+        int y1 = Y1, y2 = Y2, y3 = Y3;
 
         // Vie : vraie vie RP (ShinobiCore), PAS les cœurs MC vanilla.
-        int hpCur, hpMax;
-        if (vf != null) {
-            hpCur = vf.hp();
-            hpMax = Math.max(1, vf.maxHp());
-        } else if (sv != null) {
-            hpCur = sv.hp();
-            hpMax = Math.max(1, sv.maxHp());
-        } else {
-            hpCur = (int) Math.ceil(p.getHealth());
-            hpMax = (int) Math.max(1, p.getMaxHealth());
-        }
-        // Libellé « cur/max » caché : recomposé uniquement quand la vie RP change.
-        if (hpCur != cHpCur || hpMax != cHpMax) { cHpLabel = hpCur + "/" + hpMax; cHpCur = hpCur; cHpMax = hpMax; }
         bar(ctx, tr, cx, y1, cw, barH, HP_COLOR, hpCur / (float) hpMax, cHpLabel);
         // Régénération passive en cours (nourriture, 14/10) : une lueur douce qui glisse sur la barre rouge.
         VitalsFeed.Satiete sat = VitalsFeed.satiete();
@@ -165,30 +407,14 @@ public final class VitalsHud {
 
         // Chakra : valeur RP du serveur (plus les champs XP détournés qui se
         // désynchronisaient à la reco).
-        int ckCur, ckMax;
-        if (vf != null) {
-            ckCur = vf.chakra();
-            ckMax = Math.max(1, vf.maxChakra());
-        } else if (sv != null) {
-            ckCur = sv.chakra();
-            ckMax = Math.max(1, sv.maxChakra());
-        } else {
-            ckCur = p.experienceLevel;
-            float pr = Math.max(0f, Math.min(1f, p.experienceProgress));
-            ckMax = pr > 0.001f ? Math.round(ckCur / pr) : Math.max(ckCur, 1);
-        }
         float ckRatio = Math.max(0f, Math.min(1f, ckCur / (float) ckMax));
         int voiceW = 24;
-        // Libellé chakra caché : recomposé uniquement quand la valeur RP change.
-        if (ckCur != cCkCur || ckMax != cCkMax) { cCkLabel = ckCur + "/" + ckMax; cCkCur = ckCur; cCkMax = ckMax; }
         bar(ctx, tr, cx, y2, cw - voiceW, barH, CK_COLOR, ckRatio, cCkLabel);
         voiceIcons(ctx, MIC_X, MIC_Y);   // = (cx + cw - voiceW + 4, y2 + (barH - 10) / 2), partagé avec le micro à terre
 
         // Satiété (nourriture, 14/10) : poussée par ShinobiCore dans reborn:vitals ; sans elle (ancien serveur, solo),
         // la faim vanilla comme avant. Or pâle = ce qu'apporte le repas en cours ; repère de 2 px à 90 % (régénération).
-        float st = sat != null ? sat.valeur() : p.getFoodData().getFoodLevel() / 20f;
-        int stPct = Math.round(st * 100);
-        if (stPct != cStPct) { cStLabel = stPct + "%"; cStPct = stPct; }
+        float st = stVal;
         if (sat != null && sat.aVenir() > 0.004f) {
             float fan = Math.min(1f, st + sat.aVenir());
             DrawHelpers.roundedRectFull(ctx, cx, y3, cw, barH, barH / 2, BAR_BG);
@@ -205,6 +431,21 @@ public final class VitalsHud {
         ctx.pose().popMatrix();
     }
 
+    /**
+     * Position courante du micro dans le panneau (unités du panneau, avant son échelle), compact ou bloc : lue par le
+     * micro à terre ({@code ko/MicroATerreHud}). {@code i} : 0 = x, 1 = y, 2 = côté.
+     */
+    public static float micro(int i, float scale) {
+        VitalsMode.phases(VitalsMode.maintenant());
+        float tb = VitalsMode.barres();
+        float plein = i == 0 ? MIC_X : i == 1 ? MIC_Y : MIC_TAILLE;
+        if (tb >= 1f) return plein;
+        int gs = Math.max(1, Minecraft.getInstance().getWindow().getGuiScale());
+        gabarit(scale * gs / 2f);
+        float compact = (i == 0 ? cMx : i == 1 ? cMy : cMs) / (gs * scale);
+        return compact + (plein - compact) * tb;
+    }
+
     /** Remplissage seul (le fond est déjà posé, avec l'or pâle du repas). */
     private static void barSansFond(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, int h,
                                     int color, float ratio, String label) {
@@ -214,7 +455,7 @@ public final class VitalsHud {
         ctx.fill(x + h / 2, y + 1, x + w - h / 2, y + 2, 0x30FFFFFF);
         if (label != null && !label.isEmpty()) {
             int lw = tr.width(label);
-            ctx.text(tr, Component.literal(label), x + (w - lw) / 2, y + (h - 8) / 2, WHITE, true);
+            ctx.text(tr, label, x + (w - lw) / 2, y + (h - 8) / 2, WHITE, true);
         }
     }
 
@@ -242,7 +483,7 @@ public final class VitalsHud {
         ctx.fill(x + h / 2, y + 1, x + w - h / 2, y + 2, 0x30FFFFFF);
         if (label != null && !label.isEmpty()) {
             int lw = tr.width(label);
-            ctx.text(tr, Component.literal(label), x + (w - lw) / 2, y + (h - 8) / 2, WHITE, true);
+            ctx.text(tr, label, x + (w - lw) / 2, y + (h - 8) / 2, WHITE, true);
         }
     }
 

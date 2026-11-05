@@ -38,6 +38,8 @@ public final class CombatState {
     private long lastStaminaMs = 0L;
     /** La dernière dépense d'endurance venait du sprint (pas du combat). */
     private boolean depenseSprint = false;
+    /** Dernière dépense d'endurance hors sprint (coup, technique d'endurance) ; 0 = aucune. */
+    private long lastDepenseMs = 0L;
     /** Endurance juste dépensée : reste affichée en laque puis rejoint la jauge. */
     private float trail = 1f;
     private long trailHoldUntil = 0L;
@@ -78,6 +80,7 @@ public final class CombatState {
             // allumer le HUD de combat (ensō, barre). Une dépense hors sprint (coup, technique) reste du combat.
             fr.reborn.hud.allure.Allure al = fr.reborn.hud.allure.Allure.INSTANCE;
             depenseSprint = al.sprinte() || now - al.dernierSprintMs() < 600L;
+            if (!depenseSprint) lastDepenseMs = now;
         }
         this.staminaCurrent = current;
         this.staminaMax = max <= 0 ? 100f : max;
@@ -111,6 +114,7 @@ public final class CombatState {
         lastHitMs = 0L;
         staminaCurrent = staminaMax;
         lastStaminaMs = 0L;
+        lastDepenseMs = 0L;
         lastParryMs = 0L;
     }
 
@@ -155,6 +159,18 @@ public final class CombatState {
     }
 
     public double comboTotal() { return comboTotal; }
+
+    /** Horodatage du dernier coup porté (0 = aucun) : lu par les vitals compacts (entrée en combat). */
+    public long dernierCoupMs() { return lastHitMs; }
+
+    /** Horodatage de la dernière parade, donnée ou subie (0 = aucune). */
+    public long derniereParadeMs() { return lastParryMs; }
+
+    /**
+     * Horodatage de la dernière dépense d'endurance hors sprint (0 = aucune) : coup, technique payée en endurance
+     * (taïjutsu). La remontée de l'endurance ne le bouge pas.
+     */
+    public long derniereDepenseMs() { return lastDepenseMs; }
 
     public List<DamageIndicator> liveIndicators(long now) {
         for (Iterator<DamageIndicator> it = indicators.iterator(); it.hasNext(); ) {

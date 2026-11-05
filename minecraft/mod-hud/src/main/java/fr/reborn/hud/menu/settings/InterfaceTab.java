@@ -48,6 +48,10 @@ public final class InterfaceTab {
         RebornPrefs prefs = RebornPrefs.INSTANCE;
         p.action("Éditeur de HUD", "Place et redimensionne les éléments de l'écran.", "Ouvrir",
             () -> ouvrir(new HudEditScreen(ecran)));
+        // Vitals compacts (Game Plan n° 18, 05/11) : étiquette NOUVEAU le temps d'une version (0.4.198).
+        p.nouveau = true;
+        p.bascule("Vitals toujours détaillés", "Vie et chakra en bloc complet, même hors combat : pas de repli.",
+            prefs.vitalsToujoursDetailles, v -> { prefs.vitalsToujoursDetailles = v; prefs.save(); });
         p.bascule("Qui parle", "Noms de ceux qui parlent autour de toi, en bas à droite.", visible(HudElement.QUI_PARLE),
             v -> montrer(HudElement.QUI_PARLE, v));
         p.bascule("Escouade au complet", "L'escouade montre aussi ceux qui se taisent, en retrait.",
@@ -57,6 +61,7 @@ public final class InterfaceTab {
     private static void resetHud() {
         montrer(HudElement.QUI_PARLE, true);
         RebornPrefs.INSTANCE.radioToutEscouade = false;
+        RebornPrefs.INSTANCE.vitalsToujoursDetailles = false;
         RebornPrefs.INSTANCE.save();
     }
 

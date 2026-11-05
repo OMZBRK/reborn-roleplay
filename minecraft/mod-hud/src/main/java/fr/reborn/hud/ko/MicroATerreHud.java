@@ -83,15 +83,20 @@ public final class MicroATerreHud {
         ctx.pose().pushMatrix();
         ctx.pose().translate(bx, by);
         if (sc != 1f) ctx.pose().scale(sc, sc);
-        VitalsHud.micro(ctx, VitalsHud.MIC_X, VitalsHud.MIC_Y, VitalsHud.MIC_TAILLE);
+        // Position courante du micro des vitals (compact ou bloc, Game Plan n° 18), pas MIC_X / MIC_Y en dur.
+        float mx = VitalsHud.micro(0, sc), my = VitalsHud.micro(1, sc), ms = VitalsHud.micro(2, sc);
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(mx, my);
+        ctx.pose().scale(ms / 16f, ms / 16f);
+        VitalsHud.micro(ctx, 0, 0, 16);
+        ctx.pose().popMatrix();
         long now = System.currentTimeMillis();
         if (info != null && now < infoJusqua) {
             float a = Math.min(1f, (now - infoDepuis) / (float) ENTREE_MS);
             long reste = infoJusqua - now;
             if (reste < SORTIE_MS) a *= reste / (float) SORTIE_MS;
             if (a > 0.02f) {
-                DaKit.inter7o(ctx, mc.font, info, VitalsHud.MIC_X + VitalsHud.MIC_TAILLE + 3,
-                    VitalsHud.MIC_Y + VitalsHud.MIC_TAILLE / 2f, DaKit.alpha(TEXTE, 0.9f * a), 0);
+                DaKit.inter7o(ctx, mc.font, info, mx + ms + 3, my + ms / 2f, DaKit.alpha(TEXTE, 0.9f * a), 0);
             }
         }
         ctx.pose().popMatrix();

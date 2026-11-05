@@ -129,6 +129,11 @@ public final class RebornPrefs {
     /** « Portée de la voix » : la ligne « Voix : chuchotée » 2,5 s après un appui sur H (lu par RappelsTouches). */
     public boolean rappelsPortee = true;
 
+    // ────────────────── Vitals (Game Plan n° 18, 05/11) ──────
+    /** Paramètres › Interface › HUD › « Vitals toujours détaillés » : true = bloc complet en permanence (l'affichage
+     *  d'avant), false = compact hors combat (lu par {@code runtime/VitalsMode}). */
+    public boolean vitalsToujoursDetailles = false;
+
     // ────────────────── Images par seconde ──────
     /** Réglages d'images par seconde déjà migrés ({@code runtime/FpsDefauts.VERSION}) : 0 = jamais. */
     public int fpsVersion = 0;
@@ -227,5 +232,6 @@ public final class RebornPrefs {
         this.menusPetits = other.menusPetits;
         this.rappelsAvecNotifs = other.rappelsAvecNotifs;
         this.rappelsPortee = other.rappelsPortee;
+        this.vitalsToujoursDetailles = other.vitalsToujoursDetailles;
     }
 }

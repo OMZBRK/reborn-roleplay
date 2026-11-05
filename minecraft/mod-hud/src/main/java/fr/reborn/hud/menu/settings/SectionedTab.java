@@ -176,6 +176,13 @@ public abstract class SectionedTab implements SettingsTab {
     /** Aide de la prochaine ligne en vermillon (ex. touche déjà prise, planche t2-b2) ; remis à faux après la ligne. */
     protected boolean aideAlerte;
 
+    /**
+     * Étiquette « NOUVEAU » à droite du libellé de la prochaine ligne (un réglage arrivé avec la version, à retirer à la
+     * suivante) ; remis à faux après la ligne.
+     */
+    protected boolean nouveau;
+    private static DaKit.Etiq etiqNouveau;
+
     /** Voile de survol, libellé (Inter 9 crème) et aide (Inter 7), puis le filet de séparation. */
     private void libelle(String label, String hint) {
         int y = cursorY;
@@ -185,13 +192,27 @@ public abstract class SectionedTab implements SettingsTab {
         }
         int place = Math.max(40, reglageCourant() - originX - 12);
         float ym = hint != null ? y + 11 : y + 16;
-        DaKit.inter9(ctx, tr, DaKit.inter(DaKit.ellipse(tr, label, place)), originX, ym, DaKit.CREME, 0);
+        int lw = DaKit.inter9(ctx, tr, DaKit.inter(DaKit.ellipse(tr, label, place)), originX, ym, DaKit.CREME, 0);
+        if (nouveau) etiquetteNouveau(originX + lw + 6, ym);
         if (hint != null) {
             String h = DaKit.ellipse(tr, hint, Math.round(place / DaKit.S7));
             DaKit.inter7(ctx, tr, DaKit.inter(h), originX, y + 23, aideAlerte ? DaKit.ROUGE_CLAIR : AIDE, 0);
         }
         aideAlerte = false;
         ctx.fill(originX, y + ROW_H - 2, originX + width + 4, y + ROW_H - 1, DaKit.SEP);
+    }
+
+    /** « NOUVEAU » : petites capitales Inter gras 7 or, dans un cadre d'or d'1 px écran sur la laque sombre. */
+    private void etiquetteNouveau(float x, float ymil) {
+        if (etiqNouveau == null) etiqNouveau = DaKit.etiq(tr, "NOUVEAU");
+        int k = DaKit.echelleGui();
+        int x0 = Math.round(x * k), y0 = Math.round((ymil - 4.5f) * k);
+        int x1 = Math.round((x + etiqNouveau.w() + 6) * k), y1 = Math.round((ymil + 4.5f) * k);
+        DaKit.debutPx(ctx);
+        ctx.fill(x0, y0, x1, y1, DaKit.OR_MOYEN);
+        ctx.fill(x0 + 1, y0 + 1, x1 - 1, y1 - 1, 0xFF1E1410);
+        DaKit.finPx(ctx);
+        DaKit.etiq(ctx, tr, etiqNouveau, x + 3, ymil, DaKit.OR);
     }
 
     /**
@@ -208,6 +229,7 @@ public abstract class SectionedTab implements SettingsTab {
             noterReglage(w.getX());
         }
         aideAlerte = false;
+        nouveau = false;
         ligne++;
         cursorY += ROW_H;
     }

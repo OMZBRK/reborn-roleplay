@@ -93,6 +93,9 @@ public final class RebornHudClient implements ClientModInitializer {
                 fr.reborn.hud.notif.SurchargeHud.render(ctx, b.x() + 56 * sc, b.y() + (fr.reborn.hud.runtime.VitalsHud.HEIGHT + 1) * sc,
                     fr.reborn.hud.runtime.VitalsHud.WIDTH - 59, sc);
             });
+        // Vitals compacts (Game Plan n° 18, 05/11) : compact hors combat, bloc complet en combat (signaux relevés au tick).
+        fr.reborn.hud.runtime.VitalsMode.init();
+        fr.reborn.hud.runtime.VitalsDebug.init();   // banc des vitals compacts (REBORN_VITALS_DEBUG, dev uniquement)
         // Zone d'effets et boussole (GAMEPLAN §4, 19/10) : éléments EFFETS et BOUSSOLE de l'éditeur de HUD.
         fr.reborn.hud.nourriture.EffetsHud.init();
         fr.reborn.hud.boussole.BoussoleHud.init();
