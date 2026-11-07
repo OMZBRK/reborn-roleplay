@@ -41,6 +41,8 @@ public interface JournalService {
         RADIO("Radio"),
         BIBLIOTHEQUE("Bibliothèque"),
         STAFF("Staff"),
+        /** Douane (CANDIDATURE_ET_DOUANE.md §3, 07/11) : cas particuliers de l'aiguillage, compte staff candidat. */
+        DOUANE("Douane"),
         COMMANDE("Commande"),
         CHAT("Tchat"),
         /** Factions et sections (FACTION.md, 16/10) : création, membres, grades, caisse, annonces — en ajout seul. */

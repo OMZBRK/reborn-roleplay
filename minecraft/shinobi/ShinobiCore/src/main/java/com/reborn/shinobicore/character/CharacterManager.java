@@ -113,11 +113,25 @@ public class CharacterManager implements CharacterService {
      *  bypass the markClean — harmless: the record just stays dirty and
      *  re-saves on the next autosave tick.) */
     public void save(ShinobiCharacter c) {
+        // Personnage supprimé (correctif du 07/11) : rien à écrire, et surtout pas de retour dans le roster.
+        if (estSupprime(c.id())) return;
         if (c.hasPlayerId() && plugin.playerIds() != null) plugin.playerIds().rename(c.id(), c.name());
-        repo.save(c);
+        boolean ecrit = repo.enregistrer(c);
         List<ShinobiCharacter> list = byOwner.computeIfAbsent(c.ownerId(), k -> new ArrayList<>());
         if (!list.contains(c)) list.add(c);
-        c.markClean();
+        // Rien d'écrit (fichier illisible) : le personnage reste « à sauvegarder », l'autosave réessaiera.
+        if (ecrit) c.markClean();
+    }
+
+    /**
+     * Personnage supprimé : pendant cette session (pierre tombale du dépôt) ou pour de bon (index des N°, suppression
+     * par {@link #delete}). Ne doit plus être sauvegardé, rechargé ni envoyé à l'API comme vivant.
+     */
+    public boolean estSupprime(UUID characterId) {
+        if (characterId == null) return false;
+        if (repo.estSupprime(characterId)) return true;
+        PlayerIdRegistry ids = plugin.playerIds();
+        return ids != null && ids.estSupprimeDefinitif(characterId);
     }
 
     /** Full-roster save — the on-quit / on-disable safety path (always

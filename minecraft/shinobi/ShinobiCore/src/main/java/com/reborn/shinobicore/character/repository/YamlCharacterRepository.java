@@ -9,6 +9,7 @@ import com.reborn.shinobicore.character.ShinobiCharacter;
 import com.reborn.shinobicore.skill.Skill;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 
@@ -20,7 +21,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * One YAML file per owner UUID at {@code plugins/ShinobiCore/characters/<uuid>.yml}.
@@ -44,43 +47,88 @@ import java.util.logging.Level;
  */
 public class YamlCharacterRepository implements CharacterRepository {
 
-    private final ShinobiCore plugin;
+    private final Logger log;
     private final File dir;
+    /** Écritures ordonnées (générations), contenu en attente et pierres tombales (correctif du 07/11). */
+    private final FichiersPersonnages fichiers;
+    /** Personnage supprimé pour de bon (index des N°, {@code suppression: true}) : jamais rechargé, purgé du fichier. */
+    private final Predicate<UUID> supprimeDefinitif;
 
     public YamlCharacterRepository(ShinobiCore plugin) {
-        this.plugin = plugin;
-        this.dir = new File(plugin.getDataFolder(), "characters");
+        this(new File(plugin.getDataFolder(), "characters"), plugin.getLogger(),
+                new FichiersPersonnages.Planificateur() {
+                    @Override public boolean asyncDisponible() { return plugin.isEnabled(); }
+                    @Override public void async(Runnable tache) {
+                        Bukkit.getScheduler().runTaskAsynchronously(plugin, tache);
+                    }
+                },
+                id -> plugin.playerIds() != null && plugin.playerIds().estSupprimeDefinitif(id));
+    }
+
+    /** Constructeur sans serveur (tests) : planificateur et index des N° fournis par l'appelant. */
+    YamlCharacterRepository(File dir, Logger log, FichiersPersonnages.Planificateur planif,
+                            Predicate<UUID> supprimeDefinitif) {
+        this.dir = dir;
+        this.log = log;
+        this.fichiers = new FichiersPersonnages(log, planif);
+        this.supprimeDefinitif = supprimeDefinitif == null ? id -> false : supprimeDefinitif;
     }
 
     @Override
     public void init() {
         if (!dir.exists() && !dir.mkdirs()) {
-            plugin.getLogger().warning("Could not create character data folder: " + dir);
+            log.warning("Could not create character data folder: " + dir);
         }
     }
 
+    /** Arrêt : réécrit tout de suite les fichiers dont la dernière écriture a échoué (contenu gardé en mémoire). */
     @Override
-    public void close() { /* flushes happen per-save; nothing to do */ }
+    public void close() { fichiers.reessayerEchecs(); }
+
+    /**
+     * Contenu le plus récent de {@code characters/<compte>.yml} (en attente d'écriture ou disque) ; {@code null} si le
+     * fichier est absent. Sert aux sauvegardes du staff (GestionPerso) : une copie du disque pourrait être en retard.
+     */
+    public String contenuCompte(UUID owner) throws IOException {
+        return fichiers.lire(fileFor(owner));
+    }
 
     /* ---------------------------------------------------------------- load */
 
     @Override
     public List<ShinobiCharacter> loadAll(UUID owner) {
         File f = fileFor(owner);
-        if (!f.isFile()) return new ArrayList<>();
+        // Contenu le plus récent : une écriture encore en file (déconnexion puis reconnexion rapide) fait foi.
+        YamlConfiguration cfg = lireConfig(f);
+        if (cfg == null || cfg.getKeys(false).isEmpty()) return new ArrayList<>();
 
-        YamlConfiguration cfg = YamlConfiguration.loadConfiguration(f);
-        backupIfLegacyLearnedShape(f, cfg);
-        backupIfLegacyStats(f, cfg);
+        if (f.isFile()) {
+            backupIfLegacyLearnedShape(f, cfg);
+            backupIfLegacyStats(f, cfg);
+        }
         List<ShinobiCharacter> out = new ArrayList<>();
+        List<UUID> fantomes = new ArrayList<>();
         for (String key : cfg.getKeys(false)) {
             ConfigurationSection s = cfg.getConfigurationSection(key);
             if (s == null) continue;
             try {
-                out.add(fromSection(owner, UUID.fromString(key), s));
+                UUID id = UUID.fromString(key);
+                // Filet (07/11) : un personnage supprimé ne ressuscite jamais, même si une vieille écriture l'a remis.
+                if (estSupprime(id)) { fantomes.add(id); continue; }
+                out.add(fromSection(owner, id, s));
             } catch (IllegalArgumentException e) {
-                plugin.getLogger().warning("Skipping malformed character '" + key + "' for " + owner + ": " + e.getMessage());
+                log.warning("Skipping malformed character '" + key + "' for " + owner + ": " + e.getMessage());
             }
+        }
+        // Purge d'abord, journal ensuite, et sans ciblePersonnage : loadAll tourne dans byOwner.computeIfAbsent
+        // (CharacterManager.getAll) ; résoudre le personnage relancerait getAll sur le même compte pendant le calcul
+        // (« Recursive update », voire récursion sans fin tant que le fichier contient encore le fantôme).
+        for (UUID id : fantomes) {
+            delete(owner, id);
+            log.warning("Personnage supprimé " + id + " retrouvé dans " + f.getName() + " : non chargé, purgé du fichier.");
+            com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.SYSTEME,
+                    "PERSO_FANTOME_PURGE").cible(owner)
+                    .detail("personnage supprimé " + id + " retrouvé au chargement, purgé").ecrire();
         }
         return out;
     }
@@ -106,10 +154,10 @@ public class YamlCharacterRepository implements CharacterRepository {
         if (!legacy) return;
         try {
             java.nio.file.Files.copy(f.toPath(), bak.toPath());
-            plugin.getLogger().info("Learned-state migration: backed up "
+            log.info("Learned-state migration: backed up "
                     + f.getName() + " to " + bak.getName() + ".");
         } catch (java.io.IOException ex) {
-            plugin.getLogger().warning("Could not back up " + f.getName()
+            log.warning("Could not back up " + f.getName()
                     + " before learned-state migration: " + ex.getMessage());
         }
     }
@@ -133,10 +181,10 @@ public class YamlCharacterRepository implements CharacterRepository {
         if (!legacy) return;
         try {
             java.nio.file.Files.copy(f.toPath(), bak.toPath());
-            plugin.getLogger().info("Stats migration: backed up " + f.getName()
+            log.info("Stats migration: backed up " + f.getName()
                     + " to " + bak.getName() + ".");
         } catch (java.io.IOException ex) {
-            plugin.getLogger().warning("Could not back up " + f.getName()
+            log.warning("Could not back up " + f.getName()
                     + " before stats migration: " + ex.getMessage());
         }
     }
@@ -159,7 +207,7 @@ public class YamlCharacterRepository implements CharacterRepository {
             // Points de grade séparés des stats (2026-10) : un build qui dépasse les points d'XP est remboursé.
             if (!sec.getBoolean("split", false)) {
                 if (com.reborn.shinobicore.stats.StatFormulas.unspent(c.rank(), st) < 0) {
-                    plugin.getLogger().info("Stats : " + c.name() + " remboursé (points de grade devenus Mérite) "
+                    log.info("Stats : " + c.name() + " remboursé (points de grade devenus Mérite) "
                             + st.snapshot() + ".");
                     st.reset();
                 }
@@ -190,7 +238,7 @@ public class YamlCharacterRepository implements CharacterRepository {
             st.setBonusPoints(Math.max(0, points - fromLevel));
         }
         st.touch();
-        plugin.getLogger().info("Stats migration: " + c.name() + " (niveau " + level + ", "
+        log.info("Stats migration: " + c.name() + " (niveau " + level + ", "
                 + c.affinity() + ") → " + points + " point(s) " + st.snapshot() + ".");
         return true;
     }
@@ -415,8 +463,26 @@ public class YamlCharacterRepository implements CharacterRepository {
 
     @Override
     public void save(ShinobiCharacter c) {
+        enregistrer(c);
+    }
+
+    /**
+     * Sauvegarde ; faux si rien n'a pu être produit (fichier illisible, sérialisation impossible) : l'appelant garde
+     * alors le personnage « à sauvegarder » pour que l'autosave réessaie, au lieu de perdre la modification en silence.
+     */
+    @Override
+    public boolean enregistrer(ShinobiCharacter c) {
+        // Personnage supprimé (cette session ou pour de bon) : on ne le réécrit jamais (correctif du 07/11).
+        if (estSupprime(c.id())) return true;
         File f = fileFor(c.ownerId());
-        YamlConfiguration cfg = f.isFile() ? YamlConfiguration.loadConfiguration(f) : new YamlConfiguration();
+        // Base = contenu le plus récent (en attente d'écriture ou disque), jamais un fichier périmé.
+        YamlConfiguration cfg = lireConfig(f);
+        if (cfg == null) {                               // fichier illisible : ne rien écraser, mais le signaler
+            log.severe("Personnage " + c.id() + " non sauvegardé : " + f.getName()
+                    + " illisible (gardé en mémoire, nouvel essai à la prochaine sauvegarde).");
+            return false;
+        }
+        retirerSupprimes(cfg);
 
         String key = c.id().toString();
         cfg.set(key + ".name", c.name());
@@ -581,78 +647,84 @@ public class YamlCharacterRepository implements CharacterRepository {
             }
         }
 
-        // Async write — serialize on the main thread (where the
-        // character data we just touched is consistent) then push the
-        // String to disk on a background thread. YamlConfiguration is
-        // not thread-safe, so the cfg object never crosses threads;
-        // only the produced String + target File do.
+        // Écriture différée — sérialisée ici, sur le fil principal (données cohérentes) ; seule la chaîne produite
+        // part en arrière-plan. YamlConfiguration n'est pas thread-safe, l'objet cfg ne quitte jamais ce fil.
         //
-        // Ordering: per-file writes are serialised through writeAsync's
-        // synchronized lock so two saves for the same character can
-        // never race on the file handle. Different characters write in
-        // parallel which is exactly what we want.
+        // Ordre (correctif du 07/11) : FichiersPersonnages numérote chaque contenu à sa production ; une écriture plus
+        // ancienne que la dernière arrivée sur le disque est sautée, et l'écriture est atomique (.tmp puis renommage).
         String serialized;
         try {
             serialized = cfg.saveToString();
         } catch (Throwable ex) {
-            plugin.getLogger().log(Level.SEVERE,
+            log.log(Level.SEVERE,
                     "Failed to serialize character " + c.id(), ex);
-            return;
+            return false;
         }
-        writeAsync(f, serialized, c.id());
-    }
-
-    /** Per-file lock so concurrent saves of the same character serialise.
-     *  Different characters lock independently so writes parallelise. */
-    private final java.util.concurrent.ConcurrentMap<String, Object> fileLocks =
-            new java.util.concurrent.ConcurrentHashMap<>();
-
-    private void writeAsync(File f, String serialized, UUID charId) {
-        Object lock = fileLocks.computeIfAbsent(f.getAbsolutePath(), k -> new Object());
-        // Shutdown safety: BukkitScheduler silently cancels any async
-        // task scheduled after onDisable. If the plugin is disabling
-        // (or already disabled), fall back to a synchronous write so
-        // the server-stop save actually hits disk.
-        if (!plugin.isEnabled()) {
-            synchronized (lock) {
-                writeFile(f, serialized, charId);
-            }
-            return;
-        }
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            synchronized (lock) {
-                writeFile(f, serialized, charId);
-            }
-        });
-    }
-
-    private void writeFile(File f, String serialized, UUID charId) {
-        try {
-            java.nio.file.Files.writeString(f.toPath(), serialized,
-                    java.nio.charset.StandardCharsets.UTF_8);
-        } catch (IOException ex) {
-            plugin.getLogger().log(Level.SEVERE,
-                    "Save failed for character " + charId, ex);
-        }
+        fichiers.ecrire(f, serialized);
+        return true;
     }
 
     /* -------------------------------------------------------------- delete */
 
+    /**
+     * Suppression : pierre tombale d'abord (plus aucune sauvegarde ne réécrit ce personnage), puis le fichier est
+     * réécrit tout de suite à partir du contenu le plus récent, sous le verrou du fichier, avec une génération plus
+     * récente que toute écriture encore en file (qui sera donc ignorée). Fichier devenu vide : supprimé.
+     */
     @Override
     public void delete(UUID owner, UUID characterId) {
+        fichiers.enterrer(characterId);
         File f = fileFor(owner);
-        if (!f.isFile()) return;
-        YamlConfiguration cfg = YamlConfiguration.loadConfiguration(f);
+        YamlConfiguration cfg = lireConfig(f);
+        if (cfg == null) return;
         cfg.set(characterId.toString(), null);
+        retirerSupprimes(cfg);
         try {
             if (cfg.getKeys(false).isEmpty()) {
-                if (!f.delete()) plugin.getLogger().warning("Could not delete empty " + f);
+                fichiers.ecrireMaintenant(f, null);
             } else {
-                cfg.save(f);
+                fichiers.ecrireMaintenant(f, cfg.saveToString());
             }
-        } catch (IOException ex) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to delete character " + characterId, ex);
+        } catch (RuntimeException ex) {
+            log.log(Level.SEVERE, "Failed to delete character " + characterId, ex);
         }
+    }
+
+    /** Supprimé pendant la session (pierre tombale) ou pour de bon (index des N°, {@code suppression: true}). */
+    @Override
+    public boolean estSupprime(UUID characterId) {
+        return fichiers.estEnterre(characterId) || supprimeDefinitif.test(characterId);
+    }
+
+    /** Retire toute clé d'un personnage supprimé (un reste périmé ne doit pas survivre à une réécriture). */
+    private void retirerSupprimes(YamlConfiguration cfg) {
+        for (String key : new ArrayList<>(cfg.getKeys(false))) {
+            UUID id;
+            try { id = UUID.fromString(key); } catch (IllegalArgumentException e) { continue; }
+            if (estSupprime(id)) cfg.set(key, null);
+        }
+    }
+
+    /**
+     * Contenu le plus récent du fichier en YAML : vide si absent ; {@code null} si illisible (on n'écrase rien). Un
+     * YAML invalide donne une configuration vide, comme {@code YamlConfiguration.loadConfiguration} avant.
+     */
+    private YamlConfiguration lireConfig(File f) {
+        YamlConfiguration cfg = new YamlConfiguration();
+        String texte;
+        try {
+            texte = fichiers.lire(f);
+        } catch (IOException ex) {
+            log.log(Level.SEVERE, "Cannot read " + f, ex);
+            return null;
+        }
+        if (texte == null) return cfg;
+        try {
+            cfg.loadFromString(texte);
+        } catch (InvalidConfigurationException ex) {
+            log.log(Level.SEVERE, "Cannot load " + f, ex);
+        }
+        return cfg;
     }
 
     /* -------------------------------------------------------------- helpers */

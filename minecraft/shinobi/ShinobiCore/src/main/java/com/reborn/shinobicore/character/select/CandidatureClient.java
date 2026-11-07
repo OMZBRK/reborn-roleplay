@@ -142,14 +142,28 @@ public final class CandidatureClient {
      * indisponible / erreur.
      */
     public Candidature fetch(UUID mcUuid) {
+        Lecture l = lire(mcUuid);
+        return l == null ? null : l.candidature();
+    }
+
+    /**
+     * Candidature lue, et douane en attente d'après la même réponse de {@code GET /v1/game/acces} (portée
+     * {@code douane} ou oral pas encore décidé) ; {@code douaneEnAttente} null quand la route historique ne la dit pas.
+     */
+    public record Lecture(Candidature candidature, Boolean douaneEnAttente) {}
+
+    /** Comme {@link #fetch}, avec l'état de la douane. <b>Bloquant → À APPELER EN ASYNC</b>. null si indisponible. */
+    public Lecture lire(UUID mcUuid) {
         if (jeu.nonPret() == null) {
             DouaneClient.Acces a = jeu.acces(mcUuid, 4000L);
             if (a == null) return null;
             // Bloc absent : compte inconnu de l'API. Seul le grade (staff) est connu.
-            return a.candidature() != null ? a.candidature()
+            Candidature c = a.candidature() != null ? a.candidature()
                     : new Candidature(false, null, null, null, null, null, null, null, null, false, a.staff());
+            return new Lecture(c, com.reborn.shinobicore.douane.ReglesDouane.douaneEnAttente(a.portee(), a.phase()));
         }
-        return fetchHistorique(mcUuid);
+        Candidature c = fetchHistorique(mcUuid);
+        return c == null ? null : new Lecture(c, null);
     }
 
     /** {@code GET /game/candidature/<mcUuid>} (route historique, secret partagé). */

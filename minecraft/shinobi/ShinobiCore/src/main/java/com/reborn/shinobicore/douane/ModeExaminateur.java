@@ -63,6 +63,11 @@ final class ModeExaminateur {
             return false;
         }
         UUID id = p.getUniqueId();
+        // Compte staff qui passe lui-même la douane (réservation ouverte, 07/11) : pas examinateur en même temps.
+        if (douane.restreint(id)) {
+            p.sendMessage(Component.text("Tu passes toi-même la douane : mode examinateur indisponible.", NamedTextColor.RED));
+            return false;
+        }
         // Même refus que le mode staff (KO, mort, porté, tenu, prison, exécution) et le gel : sinon la téléportation au
         // hall sortirait le staff de sa scène (ETATS_JOUEUR §11 n° 6). Vérifié AVANT la sortie du mode staff.
         String refus = douane.refusEtat(p);

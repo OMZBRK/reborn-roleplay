@@ -174,14 +174,17 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
         UUID id = p.getUniqueId();
         if (!lecturesEnCours.add(id)) return;               // une lecture à la fois par joueur
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            CandidatureClient.Candidature cand;
+            CandidatureClient.Lecture lecture;
             try {
-                cand = candidatureClient.fetch(id);
+                lecture = candidatureClient.lire(id);
             } finally {
                 lecturesEnCours.remove(id);
             }
-            if (cand == null) return;
-            candidatures.put(id, cand);
+            if (lecture == null || lecture.candidature() == null) return;
+            candidatures.put(id, lecture.candidature());
+            // Douane en attente vue à cette lecture (07/11) : pose l'exigence, sans jamais la lever ici. Couvre un
+            // pré-login resté sans réponse de l'API. Elle ne tombe qu'au pré-login suivant qui répond, ou à la création.
+            if (Boolean.TRUE.equals(lecture.douaneEnAttente())) exigerCandidature(id, true);
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (p.isOnline() && isSelecting(id)) {
                     sendRoster(p, plugin.characters().getAll(id));
@@ -193,17 +196,50 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
     /** Lectures de candidature en vol (une par joueur). */
     private final java.util.Set<UUID> lecturesEnCours = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
-    /** Staff : grade du serveur ou compte staff côté API. Aucun verrou de création. */
-    private static boolean estStaff(Player p, CandidatureClient.Candidature cand) {
+    /**
+     * Comptes dont la création passe par le verrou de la candidature, staff compris (07/11) : douane en attente d'après
+     * l'API au pré-login ou à la lecture de la candidature (réservation ouverte, oral pas encore décidé), ou candidat
+     * admis au hall. Gardé après l'acceptation jusqu'au premier personnage créé. <b>Pas effacé à la déconnexion</b> :
+     * lors d'une double connexion, le pré-login de la nouvelle session passe avant le départ de l'ancienne, qui
+     * effacerait l'exigence tout juste posée ; elle tombe au prochain pré-login dont l'API dit « rien en attente ».
+     * Concurrent : écrit au pré-login (asynchrone).
+     */
+    private final java.util.Set<UUID> candidatureExigee = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /** Pose ou lève l'exigence de la candidature pour la création (douane, pré-login et admission). */
+    public void exigerCandidature(UUID id, boolean exigee) {
+        if (id == null) return;
+        if (exigee) candidatureExigee.add(id); else candidatureExigee.remove(id);
+    }
+
+    /**
+     * Douane en attente pour ce compte : exigence posée par la douane, ou ce que la douane voit maintenant (candidat,
+     * décision en attente d'envoi, marque « douane » de Guardian).
+     */
+    private boolean douaneEnAttente(Player p) {
+        return candidatureExigee.contains(p.getUniqueId())
+                || (plugin.douane() != null && plugin.douane().douaneEnCours(p));
+    }
+
+    /** Compte staff : grade du serveur ou compte staff côté API. */
+    private static boolean compteStaff(Player p, CandidatureClient.Candidature cand) {
         return p.hasPermission("shinobicore.staff") || (cand != null && cand.staff());
+    }
+
+    /**
+     * Staff pour la création : aucun verrou. Faux pendant une douane en attente (07/11) : un compte staff qui passe la
+     * douane crée son premier personnage depuis la candidature, comme un candidat.
+     */
+    private boolean estStaff(Player p, CandidatureClient.Candidature cand) {
+        return compteStaff(p, cand) && !douaneEnAttente(p);
     }
 
     /**
      * Premier personnage issu de la candidature (CANDIDATURE_ET_DOUANE.md §4.2, Q8) : candidature acceptée, compte
      * hors staff, aucun personnage sur ce serveur (morts compris), candidature pas encore liée ailleurs.
      */
-    private static boolean premierDeCandidature(Player p, CandidatureClient.Candidature cand,
-                                                List<ShinobiCharacter> roster) {
+    private boolean premierDeCandidature(Player p, CandidatureClient.Candidature cand,
+                                         List<ShinobiCharacter> roster) {
         return cand != null && cand.found() && !cand.consumed() && !estStaff(p, cand) && roster.isEmpty();
     }
 
@@ -517,6 +553,21 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
         }
         CandidatureClient.Candidature cand = candidatures.get(p.getUniqueId());
         boolean staff = estStaff(p, cand);
+        // Compte staff pendant une douane en attente (07/11) : pas de création libre. Seul le premier personnage issu de
+        // la candidature acceptée passe (verrous du candidat) ; sinon refus explicite.
+        if (!staff && compteStaff(p, cand) && !premierDeCandidature(p, cand, roster)) {
+            if (cand == null && candidatureClient.configure()) {
+                fetchCandidatureAsync(p);
+                refuserCreation(p, "general", "Lecture de ta candidature en cours : valide à nouveau dans quelques secondes.");
+                return;
+            }
+            String m = cand == null || !cand.found() ? com.reborn.shinobicore.douane.ReglesDouane.CREATION_DOUANE_EN_ATTENTE
+                    : com.reborn.shinobicore.douane.ReglesDouane.CREATION_HORS_CANDIDATURE;
+            plugin.getLogger().info("[character-select] création refusée pour " + p.getName()
+                    + " (compte staff, douane en attente) : " + m);
+            refuserCreation(p, "general", m);
+            return;
+        }
         // Candidature pas encore lue (elle arrive en asynchrone) : sans elle, le premier personnage échapperait à ses
         // verrous. On la relit et le joueur renvoie sa création. Sans aucun secret réglé (dev sans API), rien ne se lit :
         // création libre comme avant, toujours sans clan de session.
@@ -571,6 +622,8 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
             c.setApplicationId(uuidOuNull(cand.applicationId()));
         }
         plugin.characters().save(c);
+        // Premier personnage créé : l'exigence de la candidature est remplie.
+        candidatureExigee.remove(p.getUniqueId());
         // États de service (fiche v2) : « Enregistré à <village> », daté de la création.
         if (plugin.serviceRecords() != null) plugin.serviceRecords().enregistrement(c);
         if (plugin.synchroPersonnages() != null) plugin.synchroPersonnages().signaler(c, true);
@@ -609,6 +662,7 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
     public void onQuit(PlayerQuitEvent e) {
         selecting.remove(e.getPlayer().getUniqueId());
         candidatures.remove(e.getPlayer().getUniqueId());
+        // candidatureExigee gardée : voir sa déclaration (course pré-login / départ lors d'une double connexion).
         broadcastClear(e.getPlayer().getUniqueId()); // les autres retirent son override skin
         plugin.rpInventory().broadcastCosmeticsClear(e.getPlayer().getUniqueId()); // + ses cosmétiques
     }

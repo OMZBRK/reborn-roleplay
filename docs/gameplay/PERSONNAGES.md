@@ -60,6 +60,13 @@ mod `staff/GardePersonnages.java` ; protocole [`../technique/PLUGINS_REFERENCE.m
   `PERSO_PROGRESSION`, `PERSO_ACTIF_FORCE`, `PERSO_MORT_RP`, `PERSO_RESSUSCITE`, `PERSO_CREE`, `PERSO_RESET`,
   `PERSO_SUPPRIME`, `EMPLACEMENT_AJOUTE`, `EMPLACEMENT_RETIRE` ; détail « avant → après » et motif) et au journal du
   Poste de garde. Le joueur, s'il est en ligne, reçoit une ligne (« Le staff a modifié ton personnage : … »).
+- **Suppression définitive** (correctif du 07/11, personnage supprimé qui revenait) : les écritures de
+  `characters/<compte>.yml` sont numérotées (une écriture périmée ne passe plus après la suppression) et atomiques ;
+  la suppression marque la ligne de `player-ids.yml` `suppression: true`. Un personnage ainsi supprimé n'est plus
+  jamais rechargé, réécrit ni renvoyé vivant à l'API : s'il réapparaît dans un fichier, il en est purgé (log serveur,
+  journal `PERSO_FANTOME_PURGE`). Pour restaurer volontairement une sauvegarde, serveur éteint : retirer
+  `suppression` et passer `deleted: false` dans sa ligne de l'index. Les suppressions antérieures au correctif
+  (sans `suppression`) gardent l'ancien comportement.
 - **Hors ligne** : tout est enregistré tout de suite et s'applique à la reconnexion, sauf « Jouer ce personnage »
   (connecté seulement) et la base d'emplacements (qui dépend de ses permissions : seul le bonus s'affiche).
 - **Retiré le 15/10** : `/character create|edit` et leurs écrans-coffres (éditeur, sélecteur de clan), `/persoreset`,

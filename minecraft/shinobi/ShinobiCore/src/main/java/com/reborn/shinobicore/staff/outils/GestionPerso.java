@@ -122,7 +122,14 @@ public final class GestionPerso {
             File dest = new File(plugin.getDataFolder(), "sauvegardes/perso/" + nom);
             if (!dest.mkdirs() && !dest.isDirectory()) return null;
             File compte = new File(plugin.getDataFolder(), "characters/" + owner + ".yml");
-            if (compte.isFile()) Files.copy(compte.toPath(), new File(dest, compte.getName()).toPath(), StandardCopyOption.REPLACE_EXISTING);
+            // Le saveAll ci-dessus part en écriture différée : copier le disque donnerait l'état d'avant. On écrit donc le
+            // contenu le plus récent connu du dépôt (en attente d'écriture ou disque), correctif du 07/11.
+            if (plugin.characters().repository() instanceof com.reborn.shinobicore.character.repository.YamlCharacterRepository yaml) {
+                String contenu = yaml.contenuCompte(owner);
+                if (contenu != null) Files.writeString(new File(dest, compte.getName()).toPath(), contenu, java.nio.charset.StandardCharsets.UTF_8);
+            } else if (compte.isFile()) {
+                Files.copy(compte.toPath(), new File(dest, compte.getName()).toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
             File sacs = plugin.rpInventory() != null ? plugin.rpInventory().staffDossierSacs() : null;
             File sac = sacs != null ? new File(sacs, c.id() + ".yml") : null;
             if (sac != null && sac.isFile()) Files.copy(sac.toPath(), new File(dest, "rpbag-" + sac.getName()).toPath(), StandardCopyOption.REPLACE_EXISTING);

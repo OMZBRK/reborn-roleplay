@@ -112,6 +112,26 @@ public final class ReglesDouane {
         return placeRefusee.equals(placeActuelle);
     }
 
+    /** Phases de l'API où la candidature attend encore la douane (oral pas encore décidé, §1.2). */
+    private static final java.util.Set<String> PHASES_DOUANE = java.util.Set.of(
+            "DOUANE_A_RESERVER", "DOUANE_RESERVEE", "DOUANE_A_REVOIR");
+
+    /**
+     * Douane en attente pour ce compte, d'après la réponse de {@code GET /v1/game/acces} : portée {@code douane}
+     * (réservation ouverte) ou phase d'une candidature dont l'oral n'est pas encore décidé. Sert à verrouiller la
+     * création de personnage, staff compris (07/11).
+     */
+    public static boolean douaneEnAttente(Aiguillage.Portee portee, String phase) {
+        return portee == Aiguillage.Portee.DOUANE || (phase != null && PHASES_DOUANE.contains(phase.strip()));
+    }
+
+    /** Refus de création pendant une douane en attente (candidature pas encore acceptée). */
+    public static final String CREATION_DOUANE_EN_ATTENTE =
+            "Ta candidature passe encore par la douane : la création de personnage ouvrira après ton oral.";
+    /** Refus de création après la douane quand le personnage issu de la candidature n'est pas possible. */
+    public static final String CREATION_HORS_CANDIDATURE =
+            "Après la douane, seul le personnage issu de ta candidature peut être créé, sur un compte sans personnage.";
+
     /** Reconnexion après une coupure : la place est gardée pendant {@code repriseMs}. */
     public static boolean reprisePossible(long departAt, long maintenant, long repriseMs) {
         return departAt > 0 && maintenant - departAt <= repriseMs;

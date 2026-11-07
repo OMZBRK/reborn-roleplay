@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * <b>Player ID</b> — le N° court de chaque personnage (GAMEPLAN §1.4, décision du 13/10 : « on commence par
@@ -34,7 +35,13 @@ import java.util.logging.Level;
  * index:
  *   '00000': {character: &lt;uuid perso&gt;, owner: &lt;uuid MC&gt;, name: Kaito Uzumaki, deleted: false}
  * </pre>
- * Écriture atomique (fichier temporaire puis renommage). Le compteur est écrit <b>avant</b> que le numéro soit rendu :
+ * {@code suppression: true} (correctif du 07/11) distingue une vraie suppression ({@link #markDeleted}, Poste de garde)
+ * d'un personnage simplement absent du disque au démarrage (marqué supprimé par la migration, réactivable si son fichier
+ * revient). Un personnage supprimé pour de bon n'est jamais réactivé : s'il réapparaît dans un fichier, il en est purgé.
+ * Pour restaurer volontairement une sauvegarde, serveur éteint : retirer {@code suppression} et passer
+ * {@code deleted: false} dans la ligne de l'index.
+ *
+ * <p>Écriture atomique (fichier temporaire puis renommage). Le compteur est écrit <b>avant</b> que le numéro soit rendu :
  * si l'écriture échoue, rien n'est attribué ({@code -1}) et l'appelant réessaiera. Toutes les mutations sont
  * synchronisées.
  *
@@ -48,15 +55,22 @@ public final class PlayerIdRegistry {
         public String formatted() { return format(number); }
     }
 
-    private final Plugin plugin;
+    private final Logger log;
     private final File file;
     private int next = 0;
     private final TreeMap<Integer, Entry> byNumber = new TreeMap<>();
     private final Map<UUID, Integer> byCharacter = new HashMap<>();
+    /** N° supprimés par {@link #markDeleted} (vraie suppression) — jamais réactivés par la migration. */
+    private final Set<Integer> suppressions = new HashSet<>();
 
     public PlayerIdRegistry(Plugin plugin) {
-        this.plugin = plugin;
-        this.file = new File(plugin.getDataFolder(), "player-ids.yml");
+        this(new File(plugin.getDataFolder(), "player-ids.yml"), plugin.getLogger());
+    }
+
+    /** Constructeur sans serveur (tests). */
+    PlayerIdRegistry(File file, Logger log) {
+        this.file = file;
+        this.log = log;
     }
 
     /* ================================================================ format */
@@ -89,6 +103,17 @@ public final class PlayerIdRegistry {
     }
 
     public synchronized int next() { return next; }
+
+    /**
+     * Vrai si le personnage a été supprimé pour de bon ({@link #markDeleted}) : il ne doit jamais être rechargé ni
+     * réactivé (un personnage seulement absent du disque au démarrage ne compte pas).
+     */
+    public synchronized boolean estSupprimeDefinitif(UUID characterId) {
+        Integer n = characterId == null ? null : byCharacter.get(characterId);
+        if (n == null || !suppressions.contains(n)) return false;
+        Entry e = byNumber.get(n);
+        return e != null && e.deleted();
+    }
 
     public synchronized int size() { return byNumber.size(); }
 
@@ -125,9 +150,17 @@ public final class PlayerIdRegistry {
         Integer n = byCharacter.get(characterId);
         if (n == null) return;
         Entry e = byNumber.get(n);
-        if (e == null || e.deleted()) return;
+        if (e == null || (e.deleted() && suppressions.contains(n))) return;
         byNumber.put(n, new Entry(n, e.characterId(), e.ownerId(), e.name(), true));
-        write();
+        suppressions.add(n);
+        // La session garde la suppression en mémoire (aucun retour possible d'ici l'arrêt) ; chaque écriture suivante de
+        // l'index la persistera. Mais tant qu'elle n'est pas sur le disque, le filet du redémarrage (migrate) ne la voit
+        // pas : on le dit clairement plutôt qu'un simple « écriture impossible ».
+        if (!write()) {
+            log.severe("[player-id] suppression du N° " + format(n) + " (personnage " + characterId + ") NON enregistrée "
+                    + "dans player-ids.yml : elle sera réécrite à la prochaine écriture de l'index. Si le serveur s'arrête "
+                    + "avant, vérifier au redémarrage que ce personnage n'est pas revenu (et le resupprimer).");
+        }
     }
 
     /** Met à jour le nom RP de l'index (renommage staff) ; n'écrit que si le nom a changé. */
@@ -146,6 +179,7 @@ public final class PlayerIdRegistry {
     public synchronized void load() {
         byNumber.clear();
         byCharacter.clear();
+        suppressions.clear();
         next = 0;
         if (!file.isFile()) return;
         YamlConfiguration y = YamlConfiguration.loadConfiguration(file);
@@ -163,14 +197,15 @@ public final class PlayerIdRegistry {
                     Entry e = new Entry(n, ch, ow.isBlank() ? null : UUID.fromString(ow),
                             s.getString("name", ""), s.getBoolean("deleted", false));
                     if (byNumber.containsKey(n) || byCharacter.containsKey(ch)) {
-                        plugin.getLogger().warning("[player-id] doublon ignoré dans player-ids.yml : " + key);
+                        log.warning("[player-id] doublon ignoré dans player-ids.yml : " + key);
                         continue;
                     }
                     byNumber.put(n, e);
                     byCharacter.put(ch, n);
+                    if (e.deleted() && s.getBoolean("suppression", false)) suppressions.add(n);
                     max = Math.max(max, n);
                 } catch (IllegalArgumentException ex) {
-                    plugin.getLogger().warning("[player-id] ligne illisible dans player-ids.yml : " + key);
+                    log.warning("[player-id] ligne illisible dans player-ids.yml : " + key);
                 }
             }
         }
@@ -192,6 +227,7 @@ public final class PlayerIdRegistry {
             y.set(k + ".owner", e.ownerId() == null ? "" : e.ownerId().toString());
             y.set(k + ".name", e.name());
             y.set(k + ".deleted", e.deleted());
+            if (e.deleted() && suppressions.contains(e.number())) y.set(k + ".suppression", true);
         }
         try {
             File dir = file.getParentFile();
@@ -199,7 +235,7 @@ public final class PlayerIdRegistry {
             atomicWrite(file.toPath(), y.saveToString());
             return true;
         } catch (IOException | RuntimeException ex) {
-            plugin.getLogger().log(Level.SEVERE, "[player-id] écriture de player-ids.yml impossible", ex);
+            log.log(Level.SEVERE, "[player-id] écriture de player-ids.yml impossible", ex);
             return false;
         }
     }
@@ -222,6 +258,9 @@ public final class PlayerIdRegistry {
      * fichier personnage est réinscrit dans l'index s'il y manque. Les entrées de l'index dont le personnage n'existe
      * plus sur le disque sont marquées supprimées. À appeler avant tout chargement de roster.
      *
+     * <p>Filet du 07/11 : un personnage supprimé pour de bon ({@code suppression: true}) retrouvé dans un fichier n'est
+     * <b>pas</b> réactivé ; il est purgé du fichier (fichier supprimé s'il devient vide) et signalé une fois au log.
+     *
      * @return nombre de N° attribués pendant ce passage
      */
     public synchronized int migrate(File charactersDir) {
@@ -229,7 +268,7 @@ public final class PlayerIdRegistry {
         if (files == null) return 0;
         Arrays.sort(files, (a, b) -> a.getName().compareTo(b.getName()));
         Set<UUID> seen = new HashSet<>();
-        int assigned = 0, relinked = 0;
+        int assigned = 0, relinked = 0, purged = 0;
         boolean indexDirty = false;
         for (File f : files) {
             UUID owner;
@@ -243,10 +282,19 @@ public final class PlayerIdRegistry {
                 if (!cfg.isConfigurationSection(key)) continue;
                 UUID charId;
                 try { charId = UUID.fromString(key); } catch (IllegalArgumentException ex) { continue; }
-                seen.add(charId);
                 String name = cfg.getString(key + ".name", "");
                 Integer known = byCharacter.get(charId);
                 Entry ke = known == null ? null : byNumber.get(known);
+                if (ke != null && ke.deleted() && suppressions.contains(known)) {
+                    // Supprimé pour de bon puis remis par une écriture périmée : purgé, jamais ressuscité.
+                    log.warning("[player-id] personnage supprimé " + format(known) + " " + ke.name() + " (" + charId
+                            + ") retrouvé dans " + f.getName() + " : purgé du fichier, N° gardé supprimé.");
+                    cfg.set(key, null);
+                    fileDirty = true;
+                    purged++;
+                    continue;
+                }
+                seen.add(charId);
                 if (ke != null && ke.deleted()) {                     // présent sur le disque = pas supprimé
                     byNumber.put(known, new Entry(known, charId, ke.ownerId(), ke.name(), false));
                     indexDirty = true;
@@ -263,7 +311,7 @@ public final class PlayerIdRegistry {
                         relinked++;
                         continue;
                     }
-                    plugin.getLogger().warning("[player-id] N° " + format(n) + " de " + name + " (" + charId
+                    log.warning("[player-id] N° " + format(n) + " de " + name + " (" + charId
                             + ") en conflit avec l'index — l'index fait foi.");
                 }
                 int n = known != null ? known : -1;
@@ -282,14 +330,15 @@ public final class PlayerIdRegistry {
             if (fileDirty) {
                 // L'index d'abord : un N° écrit dans un personnage doit toujours être connu de l'index.
                 if (indexDirty && !write()) {
-                    plugin.getLogger().severe("[player-id] migration interrompue (index non écrit).");
+                    log.severe("[player-id] migration interrompue (index non écrit).");
                     return assigned;
                 }
                 indexDirty = false;
                 try {
-                    atomicWrite(f.toPath(), cfg.saveToString());
+                    if (cfg.getKeys(false).isEmpty()) Files.deleteIfExists(f.toPath());   // ne contenait qu'un fantôme
+                    else atomicWrite(f.toPath(), cfg.saveToString());
                 } catch (IOException | RuntimeException ex) {
-                    plugin.getLogger().log(Level.SEVERE, "[player-id] écriture de " + f.getName() + " impossible", ex);
+                    log.log(Level.SEVERE, "[player-id] écriture de " + f.getName() + " impossible", ex);
                 }
             }
         }
@@ -302,9 +351,10 @@ public final class PlayerIdRegistry {
             }
         }
         if (indexDirty) write();
-        if (assigned + relinked + orphans > 0) {
-            plugin.getLogger().info("[player-id] migration : " + assigned + " N° attribué(s), " + relinked
-                    + " réinscrit(s), " + orphans + " marqué(s) supprimé(s) ; prochain N° " + format(next) + ".");
+        if (assigned + relinked + orphans + purged > 0) {
+            log.info("[player-id] migration : " + assigned + " N° attribué(s), " + relinked
+                    + " réinscrit(s), " + orphans + " marqué(s) supprimé(s), " + purged
+                    + " personnage(s) supprimé(s) purgé(s) ; prochain N° " + format(next) + ".");
         }
         return assigned;
     }

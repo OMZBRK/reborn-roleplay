@@ -232,11 +232,13 @@ public final class DouaneManager {
             }
             // Décisions restées sur disque : renvoyées même douane fermée (le candidat absent est géré).
             envois.charger();
-            // Joueurs déjà en jeu (rechargement à chaud) : refus par défaut (§3.12). Seuls le staff et les porteurs de
+            // Joueurs déjà en jeu (rechargement à chaud) : refus par défaut (§3.12). Seuls le staff (sans marque
+            // « douane » : un compte staff candidat repasse par l'aiguillage comme les autres, 07/11) et les porteurs de
             // la marque « play » de Guardian restent ; les autres (candidats, joueurs en attente : la file est perdue)
             // se reconnectent et repassent par l'aiguillage.
             for (Player p : List.copyOf(Bukkit.getOnlinePlayers())) {
-                if (staffEnJeu(p) || marqueGuardian(p) == Aiguillage.Portee.PLAY) admisJeu.add(p.getUniqueId());
+                Aiguillage.Portee m = marqueGuardian(p);
+                if ((staffEnJeu(p) && m != Aiguillage.Portee.DOUANE) || m == Aiguillage.Portee.PLAY) admisJeu.add(p.getUniqueId());
                 else expulser(p, ReglesDouane.EXPULSION_REVERIFIER, "rechargement à chaud sans preuve play");
             }
             String routes = client.nonPret();
@@ -492,7 +494,19 @@ public final class DouaneManager {
         return p != null && StaffGrades.of(p) >= StaffGrades.HELPER && p.hasPermission(PERMISSION);
     }
 
-    /** Membre du staff en jeu : jamais envoyé au hall. */
+    /**
+     * Examinateur maintenant : {@link #peutExaminer} et ni candidat ni figé. Un compte staff qui passe la douane comme
+     * candidat (réservation ouverte, 07/11) ne peut ni entrer en mode examinateur ni piloter le Poste de garde tant
+     * qu'il est au hall ou au bureau.
+     */
+    boolean examinateurDisponible(Player p) {
+        return peutExaminer(p) && !restreint(p.getUniqueId());
+    }
+
+    /**
+     * Membre du staff en jeu : passe-droit vers la sélection, sauf réservation de douane ouverte (il passe alors la
+     * douane comme un candidat, {@link Aiguillage}).
+     */
     static boolean staffEnJeu(Player p) {
         return StaffGrades.of(p) > StaffGrades.NONE || p.hasPermission("shinobicore.staff");
     }
@@ -522,6 +536,30 @@ public final class DouaneManager {
             }
         }
         return null;
+    }
+
+    /** Canal d'attestation de RebornGuardian : enregistré seulement quand l'attestation est active. */
+    private static final String CANAL_GUARDIAN = "reborn:auth";
+
+    /**
+     * RebornGuardian chargé et en attestation active : sa marque {@code reborn.scope} peut encore arriver. En mode
+     * fermé (secret absent ou config illisible), Guardian est actif mais n'enregistre pas son canal et ne pose aucune
+     * marque : l'attendre figerait le staff pour rien pendant tout le délai de preuve.
+     */
+    static boolean guardianActif() {
+        Plugin g = Bukkit.getPluginManager().getPlugin(GUARDIAN);
+        return g != null && g.isEnabled() && Bukkit.getMessenger().isIncomingChannelRegistered(g, CANAL_GUARDIAN);
+    }
+
+    /**
+     * Douane en cours pour ce joueur, d'après ce que le serveur voit maintenant : candidat au hall ou au bureau, décision
+     * en attente d'envoi, ou marque « douane » de Guardian (effacée à l'acceptation). La sélection de personnage s'en
+     * sert pour refuser la création libre, staff compris (07/11). Fil principal.
+     */
+    public boolean douaneEnCours(Player p) {
+        if (p == null) return false;
+        UUID id = p.getUniqueId();
+        return candidats.containsKey(id) || envoiEnCours(id) || marqueGuardian(p) == Aiguillage.Portee.DOUANE;
     }
 
     /** Efface la marque « douane » de Guardian après l'acceptation : un nouveau contrôle ne renverrait plus au hall. */
@@ -566,13 +604,20 @@ public final class DouaneManager {
             refuser.accept(Component.text(msg));
             return;
         }
-        if (a.portee() == Aiguillage.Portee.DOUANE && !Bukkit.getOfflinePlayer(id).isOp()) {
+        // Réservation ouverte : candidat comme un autre, op compris (07/11) — le refus local vaut pour lui aussi.
+        if (a.portee() == Aiguillage.Portee.DOUANE) {
             String refus = refusLocal(id, a);
             if (refus != null) {
                 preuves.remove(id);
                 plugin.getLogger().info("[douane] " + nom + " refusé au pré-login (retiré ou reporté de cette séance).");
                 refuser.accept(Component.text(refus));
+                return;
             }
+        }
+        // Douane en attente (réservation ouverte, ou oral pas encore décidé) : la création de personnage passera par
+        // le verrou de la candidature, staff compris (07/11). Réponse « joueur » : le verrou tombe.
+        if (plugin.characterSelect() != null) {
+            plugin.characterSelect().exigerCandidature(id, ReglesDouane.douaneEnAttente(a.portee(), a.phase()));
         }
     }
 
@@ -621,7 +666,7 @@ public final class DouaneManager {
         PreuveApi pa = preuves.remove(id);
         DouaneClient.Acces acces = pa != null && t - pa.at() <= 60_000L ? pa.acces() : null;
         Aiguillage.Decision d = Aiguillage.decider(staffEnJeu(p), acces == null ? null : acces.portee(),
-                marqueGuardian(p), 0L, conf.preuveMs);
+                marqueGuardian(p), guardianActif(), 0L, conf.preuveMs);
         if (d.issue() == Aiguillage.Issue.ATTENDRE) {
             entrerAttente(p, t);
             return true;
@@ -667,6 +712,19 @@ public final class DouaneManager {
                 if (envoiEnCours(id)) {
                     expulser(p, ReglesDouane.TEXTE_RESULTAT_DIFFERE, "décision de la douane en attente d'envoi");
                     return;
+                }
+                if (d.staffAvecReservation()) {
+                    // Une entrée par arrivée : le passe-droit du staff ne vaut pas avec une réservation ouverte (07/11).
+                    String place = a != null && a.douane() != null ? a.douane().reservationId() : null;
+                    Journal.entree(Categorie.DOUANE, "DOUANE_STAFF_CANDIDAT").acteur(p)
+                            .detail("compte staff (" + (StaffGrades.of(p) > StaffGrades.NONE ? StaffGrades.name(StaffGrades.of(p))
+                                    : "permission shinobicore.staff") + (p.isOp() ? ", op" : "") + ") envoyé au hall comme"
+                                    + " candidat : réservation de douane ouverte (preuve "
+                                    + d.source().substring(Aiguillage.PREFIXE_STAFF_DOUANE.length()) + ") · "
+                                    + (place == null ? "place inconnue" : "place " + place))
+                            .ecrire();
+                    plugin.getLogger().info("[douane] " + p.getName() + " (staff) : réservation de douane ouverte, envoyé"
+                            + " au hall comme candidat.");
                 }
                 admettre(p, a);
             }
@@ -788,7 +846,8 @@ public final class DouaneManager {
         for (Map.Entry<UUID, Long> e : List.copyOf(attentes.entrySet())) {
             Player p = Bukkit.getPlayer(e.getKey());
             if (p == null) { attentes.remove(e.getKey()); enAttente.remove(e.getKey()); continue; }
-            Aiguillage.Decision d = Aiguillage.decider(staffEnJeu(p), null, marqueGuardian(p), t - e.getValue(), conf.preuveMs);
+            Aiguillage.Decision d = Aiguillage.decider(staffEnJeu(p), null, marqueGuardian(p), guardianActif(),
+                    t - e.getValue(), conf.preuveMs);
             if (d.issue() != Aiguillage.Issue.ATTENDRE) appliquer(p, d, null, e.getValue());
         }
         // Contrôle tardif : une marque « douane » après un aiguillage vers le jeu normal. Le choix d'un personnage est
@@ -1034,6 +1093,8 @@ public final class DouaneManager {
         // Reprise : les questions déjà tirées ne retombent pas (§3.7).
         if (reprise) c.questions.addAll(dep.questions());
         candidats.put(id, c);
+        // Candidat (staff compris) : son premier personnage viendra de la candidature, jamais d'une création libre.
+        if (plugin.characterSelect() != null) plugin.characterSelect().exigerCandidature(id, true);
 
         // Sans personnage : aventure, aucun dégât (porte des dégâts + écouteur), faim figée, inventaire vanilla vide,
         // skin Minecraft et pseudo sur le nametag.
@@ -1301,6 +1362,7 @@ public final class DouaneManager {
             dire(ex, "Réservé aux examinateurs (grade Helper au minimum et permission " + PERMISSION + ").", true);
             return false;
         }
+        if (restreint(ex.getUniqueId())) { dire(ex, "Tu passes toi-même la douane : aucune action d'examinateur.", true); return false; }
         if (enMode && !mode.actif(ex.getUniqueId())) { dire(ex, "Passe d'abord en mode examinateur (/modeexaminateur).", true); return false; }
         return true;
     }

@@ -303,7 +303,7 @@ public final class DouaneCanal implements PluginMessageListener {
         o.addProperty("actif", douane.actif() && douane.monde() != null);
         o.addProperty("ouvert", douane.ouvert());
         o.addProperty("mode", douane.mode().actif(viewer.getUniqueId()));
-        o.addProperty("peut", DouaneManager.peutExaminer(viewer));
+        o.addProperty("peut", douane.examinateurDisponible(viewer));
         long t = System.currentTimeMillis();
         JsonArray file = new JsonArray();
         int rang = 1;
@@ -360,7 +360,8 @@ public final class DouaneCanal implements PluginMessageListener {
     /** À tous les examinateurs en ligne qui écoutent le canal (compteur de l'onglet, même fermé). */
     void etatPourTous() {
         for (Player p : Bukkit.getOnlinePlayers()) {
-            if (ecoute(p) && DouaneManager.peutExaminer(p)) envoyer(p, etat(p));
+            // Un compte staff candidat (07/11) ne reçoit ni la file ni les bureaux.
+            if (ecoute(p) && douane.examinateurDisponible(p)) envoyer(p, etat(p));
         }
     }
 
@@ -375,7 +376,8 @@ public final class DouaneCanal implements PluginMessageListener {
     }
 
     private void traiter(Player p, String brut) {
-        if (!p.isOnline() || !DouaneManager.peutExaminer(p)) return;
+        // Candidat ou figé : aucun paquet d'examinateur, même avec le grade et la permission (compte staff candidat, 07/11).
+        if (!p.isOnline() || !douane.examinateurDisponible(p)) return;
         JsonObject in;
         try { in = JsonParser.parseString(brut).getAsJsonObject(); }
         catch (RuntimeException e) { return; }

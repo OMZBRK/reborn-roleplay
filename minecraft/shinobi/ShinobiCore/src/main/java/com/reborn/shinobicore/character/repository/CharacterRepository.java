@@ -31,6 +31,18 @@ public interface CharacterRepository {
     /** Create-or-update the given character. */
     void save(ShinobiCharacter character);
 
+    /**
+     * Comme {@link #save}, mais faux si la sauvegarde n'a rien pu produire (fichier illisible…) : l'appelant ne doit
+     * alors pas marquer le personnage « propre », pour que l'autosave réessaie.
+     */
+    default boolean enregistrer(ShinobiCharacter character) { save(character); return true; }
+
     /** Remove a character by id. */
     void delete(UUID owner, UUID characterId);
+
+    /**
+     * Vrai si le personnage a été supprimé (cette session ou pour de bon) : il ne doit plus être réécrit ni rechargé
+     * (correctif du 07/11, personnage supprimé qui revenait).
+     */
+    default boolean estSupprime(UUID characterId) { return false; }
 }

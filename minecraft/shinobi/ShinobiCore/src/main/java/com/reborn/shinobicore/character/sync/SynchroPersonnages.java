@@ -211,11 +211,21 @@ public final class SynchroPersonnages implements Listener {
 
     /** La photo la plus récente remplace l'ancienne ; une suppression n'est jamais remplacée par une photo plus vieille. */
     private void ajouter(Photo p) {
+        // Correctif du 07/11 : un personnage supprimé (cette session ou pour de bon) ne repart jamais vivant vers l'API
+        // (une photo deleted=false y effacerait deletedAt) — rattrapage d'un fichier périmé, file de reprise, etc.
+        if (!p.deleted() && supprime(p.id())) return;
         Photo avant = enAttente.get(p.id());
         if (avant != null && avant.snapshotAt() > p.snapshotAt()) return;
         if (avant != null && avant.deleted() && !p.deleted()) return;
         enAttente.remove(p.id());
         enAttente.put(p.id(), p);
+    }
+
+    private boolean supprime(UUID characterId) {
+        var cm = plugin.characters();
+        if (cm != null) return cm.estSupprime(characterId);
+        var ids = plugin.playerIds();
+        return ids != null && ids.estSupprimeDefinitif(characterId);
     }
 
     private void planifierEnvoi(long ticks) {

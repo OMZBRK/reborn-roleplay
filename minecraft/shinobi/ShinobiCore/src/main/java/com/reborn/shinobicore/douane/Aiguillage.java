@@ -13,7 +13,11 @@ package com.reborn.shinobicore.douane;
  *
  * <p>Règles :
  * <ol>
- *   <li>un membre du staff en jeu (op, grade {@code reborn.staff.*}) n'est jamais envoyé au hall : sélection ;</li>
+ *   <li>un membre du staff en jeu (op, grade {@code reborn.staff.*}) qui a une <b>réservation de douane ouverte</b>
+ *       (preuve {@code douane}, de l'API ou de Guardian) est un candidat comme un autre : hall (07/11) ;</li>
+ *   <li>sans réservation, le staff garde son passe-droit : sélection, même sur un refus de l'API ou sans preuve. Quand
+ *       l'API est muette et que Guardian peut encore attester, il attend sa marque (au plus le délai) pour ne pas
+ *       manquer une réservation ; au bout du délai, sélection ;</li>
  *   <li>un refus explicite de l'API ({@code aucune}) expulse ;</li>
  *   <li><b>refus par défaut</b> : sans aucune preuve, on attend ; au bout du délai, expulsion ;</li>
  *   <li>une preuve {@code douane} ne mène qu'au hall ; si les deux sources divergent, la plus restrictive gagne ;</li>
@@ -41,27 +45,58 @@ public final class Aiguillage {
     /** Ce qu'on fait du joueur. */
     public enum Issue { SELECTION, DOUANE, EXPULSER, ATTENDRE }
 
+    /** Source d'un passage du staff sans réservation (passe-droit). */
+    public static final String SOURCE_STAFF = "staff";
+    /** Préfixe de la source quand un compte staff part au hall à cause d'une réservation ({@code staff+api}…). */
+    public static final String PREFIXE_STAFF_DOUANE = "staff+";
+
     /** Décision et sa source (pour le journal). */
-    public record Decision(Issue issue, String source) {}
+    public record Decision(Issue issue, String source) {
+        /** Compte staff envoyé au hall comme candidat, à cause d'une réservation de douane ouverte. */
+        public boolean staffAvecReservation() {
+            return issue == Issue.DOUANE && source != null && source.startsWith(PREFIXE_STAFF_DOUANE);
+        }
+    }
 
     private Aiguillage() {}
 
-    /**
-     * @param staff     grade staff en jeu (op ou {@code reborn.staff.*})
-     * @param api       portée renvoyée par l'API au pré-login, null sans réponse
-     * @param guardian  marque {@code reborn.scope} de RebornGuardian, null si absente ; {@link Portee#AUCUNE} est
-     *                  ignorée (Guardian ne la pose jamais)
-     * @param ecouleMs  temps écoulé depuis l'arrivée
-     * @param delaiMs   délai maximal sans preuve
-     */
+    /** Comme {@link #decider(boolean, Portee, Portee, boolean, long, long)}, Guardian supposé présent. */
     public static Decision decider(boolean staff, Portee api, Portee guardian, long ecouleMs, long delaiMs) {
-        if (staff) return new Decision(Issue.SELECTION, "staff");
-        if (api == Portee.AUCUNE) return new Decision(Issue.EXPULSER, "api");
+        return decider(staff, api, guardian, true, ecouleMs, delaiMs);
+    }
+
+    /**
+     * @param staff            grade staff en jeu (op ou {@code reborn.staff.*})
+     * @param api              portée renvoyée par l'API au pré-login, null sans réponse
+     * @param guardian         marque {@code reborn.scope} de RebornGuardian, null si absente ; {@link Portee#AUCUNE}
+     *                         est ignorée (Guardian ne la pose jamais)
+     * @param guardianAttendu  RebornGuardian chargé et actif : sa marque peut encore arriver. Ne sert qu'au staff sans
+     *                         réponse de l'API (un joueur attend toujours une preuve)
+     * @param ecouleMs         temps écoulé depuis l'arrivée
+     * @param delaiMs          délai maximal sans preuve
+     */
+    public static Decision decider(boolean staff, Portee api, Portee guardian, boolean guardianAttendu,
+                                   long ecouleMs, long delaiMs) {
         Portee g = guardian == Portee.AUCUNE ? null : guardian;
+        String source = api != null && g != null ? "api+guardian" : api != null ? "api" : g != null ? "guardian" : "";
+        if (staff) {
+            // Réservation de douane ouverte : le compte staff passe la douane comme un candidat (07/11).
+            if (api == Portee.DOUANE || g == Portee.DOUANE) {
+                String preuve = api == Portee.DOUANE && g == Portee.DOUANE ? "api+guardian"
+                        : api == Portee.DOUANE ? "api" : "guardian";
+                return new Decision(Issue.DOUANE, PREFIXE_STAFF_DOUANE + preuve);
+            }
+            // API muette, Guardian encore attendu : on attend sa marque (elle peut porter une réservation).
+            if (api == null && g == null && guardianAttendu && ecouleMs < delaiMs) {
+                return new Decision(Issue.ATTENDRE, "");
+            }
+            // Pas de réservation : passe-droit (les examinateurs entrent au hall par /douane aller).
+            return new Decision(Issue.SELECTION, SOURCE_STAFF);
+        }
+        if (api == Portee.AUCUNE) return new Decision(Issue.EXPULSER, "api");
         if (api == null && g == null) {
             return ecouleMs >= delaiMs ? new Decision(Issue.EXPULSER, "aucune preuve") : new Decision(Issue.ATTENDRE, "");
         }
-        String source = api != null && g != null ? "api+guardian" : api != null ? "api" : "guardian";
         if (api == Portee.DOUANE || g == Portee.DOUANE) return new Decision(Issue.DOUANE, source);
         return new Decision(Issue.SELECTION, source);
     }

@@ -596,6 +596,7 @@ Le jeton porte aussi 🆕 `aud`, l'identifiant du serveur visé. Guardian refuse
 - **Refus par défaut** : la sélection n'ouvre que sur une **preuve positive** de `play` (réponse `joueur` de l'API, ou
   métadonnée `play`). Une preuve « douane » ne mène qu'au hall. Si les deux sources divergent, la plus restrictive
   gagne.
+- **Staff avec réservation (07/11)** : un staff en jeu (op, grade, `shinobicore.staff`) dont la portée est « douane » (API ou Guardian) est un candidat comme un autre (hall, refus et expulsions compris, ni examinateur ni Poste de garde tant qu'il y est ; journal `DOUANE` › `DOUANE_STAFF_CANDIDAT`) et, douane en attente, crée son premier personnage par le verrou de la candidature ; sans réservation, passe-droit inchangé (sélection, `/douane aller`). ⚠️ Ne vaut que pour un compte **PLAYER** côté API : un rôle API staff reçoit toujours `play` (game-acces.regles.ts, play.service.ts) ; le panel staff (G_CREER) n'est pas verrouillé.
 - Le serveur n'envoie pas de liste de personnages au mod. Aucun écran de sélection ne s'ouvre donc
   (`RebornHudClient.java:215-223`).
 
