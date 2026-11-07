@@ -24,7 +24,12 @@ public abstract class KeyboardInteractionMixin {
         if (InteractionMode.INSTANCE.isCapturing()
                 && event.key() == GLFW.GLFW_KEY_ESCAPE
                 && action == GLFW.GLFW_PRESS) {
-            InteractionMode.INSTANCE.deactivate();
+            // Concentration : sortie propre (effet, contour, rappels) ; sinon le menu seul se ferme
+            if (fr.reborn.hud.concentration.ModeConcentration.actif()) {
+                fr.reborn.hud.concentration.ModeConcentration.sortir(fr.reborn.hud.concentration.ModeConcentration.Raison.ECHAP);
+            } else {
+                InteractionMode.INSTANCE.deactivate();
+            }
             ci.cancel();
         }
     }

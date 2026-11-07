@@ -30,6 +30,14 @@ public final class CursorRaycast {
 
     /** @return un BlockHitResult / EntityHitResult, ou null si rien à portée. */
     public static HitResult raycast(Minecraft mc, double cursorX, double cursorY) {
+        return raycast(mc, cursorX, cursorY, REACH);
+    }
+
+    /**
+     * Même rayon avec une portée choisie : le survol de la concentration (à chaque tick) passe une portée courte, pour
+     * que la recherche d'entités ne parcoure pas une boîte de 64 blocs de côté 20 fois par seconde.
+     */
+    public static HitResult raycast(Minecraft mc, double cursorX, double cursorY, double portee) {
         if (mc == null || mc.player == null || mc.level == null) return null;
 
         Camera camera = mc.gameRenderer.mainCamera();
@@ -58,13 +66,13 @@ public final class CursorRaycast {
         float rayPitch = camPitch - (float) Math.toDegrees(Math.atan(vy));
 
         Vec3 dir = Vec3.directionFromRotation(rayPitch, rayYaw);
-        Vec3 end = eye.add(dir.scale(REACH));
+        Vec3 end = eye.add(dir.scale(portee));
 
         // Blocs.
         HitResult block = mc.level.clip(new ClipContext(eye, end,
             ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, mc.player));
         double blockDistSq = block.getType() == HitResult.Type.MISS
-            ? REACH * REACH : block.getLocation().distanceToSqr(eye);
+            ? portee * portee : block.getLocation().distanceToSqr(eye);
 
         // Entités (plus proches que le bloc) — box couvrant tout le segment.
         AABB box = new AABB(eye, end).inflate(1.0);

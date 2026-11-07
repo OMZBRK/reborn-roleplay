@@ -65,10 +65,8 @@ public final class RebornHudClient implements ClientModInitializer {
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "duel"),
             (ctx, tickCounter) -> fr.reborn.hud.duel.DuelHud.render(ctx));
 
-        // Overlay du menu d'interaction live (rendu HUD, pas un écran).
-        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
-            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "interaction"),
-            (ctx, tickCounter) -> fr.reborn.hud.interaction.InteractionMode.INSTANCE.extractRenderState(ctx));
+        // Overlay du menu d'interaction live (curseur de la Concentration et menu) : couche posée plus bas, juste après
+        // le texte au centre (RecitHud.init), pour passer au-dessus du texte d'une plaque (lot 4, CADRAGE §2.3 piège 4).
 
         // Panneau RP vitals (tête + vie + chakra + faim) — repositionnable/scalable
         // via l'élément HudElement.VITALS (comme les autres, dans l'éditeur).
@@ -765,10 +763,20 @@ public final class RebornHudClient implements ClientModInitializer {
         // Poste de garde (panel staff, canal reborn:staff, touche F7 ou /garde) : alertes, fiche joueur, casier,
         // sanctions au sceau, chat staff, journal, commandes. Le serveur (ShinobiCore StaffPanel) décide de tout.
         fr.reborn.hud.staff.StaffClient.init();
+        fr.reborn.hud.staff.MondePlaques.init();   // outil « Plaques » : repères dans le monde (lot 4, étape B)
         // Texte au centre (lot 2, étape 2c : narration du staff à l'étape 2d, lecture des plaques au lot 4) : couche posée
         // juste après staff-effets (au-dessus de l'écran noir), donc après StaffClient.init ; viseur et titre vanilla masqués
         // pendant l'affichage.
         fr.reborn.hud.recit.RecitHud.init();
+        // Curseur et menu d'interaction (moteur de la Concentration) : au-dessus du texte au centre et du duel.
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.attachElementAfter(
+            fr.reborn.hud.recit.RecitHud.ID,
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "interaction"),
+            (ctx, tickCounter) -> fr.reborn.hud.interaction.InteractionMode.INSTANCE.extractRenderState(ctx));
+        // Mode Concentration (lot 4, étape A) : touche Y, effet d'écran, contour au survol, rappels ; banc REBORN_LOT4_DEBUG.
+        fr.reborn.hud.concentration.ModeConcentration.init();
+        fr.reborn.hud.audit.Lot4Debug.init();
+        fr.reborn.hud.audit.Lot4bDebug.init();   // banc de l'étape B (REBORN_LOT4_DEBUG=b, dev)
         // Narration du staff (lot 2, étape 2d, canal reborn:narration, ShinobiCore Narrations) : type S2C enregistré (le
         // serveur sait que le joueur a le mod, sinon repli tchat), message passé au texte au centre ; oubli à la connexion.
         fr.reborn.hud.recit.NarrationClient.init();

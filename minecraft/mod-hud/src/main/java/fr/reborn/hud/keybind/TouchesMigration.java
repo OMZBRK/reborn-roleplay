@@ -67,6 +67,12 @@ import java.util.function.IntFunction;
  *   <li>Le « couper le micro » de Plasmo resté sur US M en AZERTY (il affichait « , ») est remplacé par la touche
  *       Reborn, à la première synchronisation ({@code voice/PlasmoTouches}).</li>
  * </ul>
+ * <p><b>Version 5 — prévue, pas encore branchée</b> (lot 4 « Concentration », 07/11) : la Concentration remplace le menu
+ * d'interaction R. D'ici la validation en jeu (CADRAGE §6.1), R reste liée et ouvre la Concentration (alias de
+ * transition, {@link HudKeybinds#INTERACTION}) ; la carte reste donc en version 4. Après validation, la version 5
+ * appellera {@link #retirerInteraction} : R déliée seulement si elle est encore sur son défaut <b>et</b> si Concentration
+ * a une touche (un joueur dont Y était déjà prise garde R). Une touche R personnalisée n'est jamais touchée.
+ *
  * Idempotente : chaque partie ne s'applique qu'aux versions antérieures, puis le drapeau passe à {@link #VERSION}.
  */
 public final class TouchesMigration {
@@ -124,13 +130,19 @@ public final class TouchesMigration {
             // déjà faite : seulement les touches arrivées depuis (version 3 : portée ; version 4 : concentration, micro)
             List<KeyMapping> nouvelles = new ArrayList<>();
             if (v < 3) nouvelles.add(HudKeybinds.VOIX_PORTEE);
-            nouvelles.add(HudKeybinds.CONCENTRATION);
-            nouvelles.add(HudKeybinds.MICRO);
-            changees += clavier(nom, nouvelles);
+            if (v < 4) {
+                nouvelles.add(HudKeybinds.CONCENTRATION);
+                nouvelles.add(HudKeybinds.MICRO);
+            }
+            if (!nouvelles.isEmpty()) changees += clavier(nom, nouvelles);
         }
         if (v < 3) changees += verifierPortee(mc);
-        changees += cacher(mc);
-        changees += jamaisPrises(mc);
+        // parties de la version 4 : jamais rejouées chez un joueur déjà en version 4 (ses choix restent)
+        if (v < 4) {
+            changees += cacher(mc);
+            changees += jamaisPrises(mc);
+        }
+        // version 5 (après la validation en jeu du lot 4) : if (v < 5) changees += retirerInteraction();
         if (changees > 0) {
             KeyMapping.resetMapping();
             mc.options.save();
@@ -201,6 +213,25 @@ public final class TouchesMigration {
                 km.getName(), k.getName(), tenue.getName());
         }
         return changees;
+    }
+
+    /**
+     * Version 5 (pas encore appelée, voir l'en-tête) : l'ancienne touche « Interaction » (R) est déliée si elle est encore sur son défaut et si Concentration a
+     * une touche ; sinon elle reste (alias de la Concentration). Renvoie 1 si elle a été déliée.
+     */
+    static int retirerInteraction() {
+        KeyMapping r = HudKeybinds.INTERACTION, c = HudKeybinds.CONCENTRATION;
+        if (r == null || c == null || r.isUnbound() || !r.isDefault()) return 0;
+        if (c.isUnbound()) {
+            LOG.info("touche {} : gardée sur {} (Concentration n'a pas de touche : elle l'ouvre à sa place)",
+                r.getName(), KeyMappingHelper.getBoundKeyOf(r).getName());
+            return 0;
+        }
+        InputConstants.Key avant = KeyMappingHelper.getBoundKeyOf(r);
+        r.setKey(InputConstants.UNKNOWN);
+        LOG.info("touche {} : {} -> aucune (la Concentration, sur {}, ouvre le menu d'interaction)", r.getName(),
+            avant.getName(), KeyMappingHelper.getBoundKeyOf(c).getName());
+        return 1;
     }
 
     private static KeyMapping tenuePar(Minecraft mc, InputConstants.Key k, KeyMapping sauf) {

@@ -125,7 +125,7 @@ public class CrosshairScreen extends Screen {
             () -> p.crosshairHitMarker, b -> p.crosshairHitMarker = b));
         y += ROW;
         var cfg = RebornHudClient.config();
-        lignes.add(new Choix("Curseur d'interaction", "Curseur du menu d'interaction (R)", xb, y + 7, CURSEURS_LIB,
+        lignes.add(new Choix("Curseur d'interaction", "Curseur de la Concentration", xb, y + 7, CURSEURS_LIB,
             () -> Math.max(0, Math.min(2, cfg.getInteractionCursor())), v -> { cfg.setInteractionCursor(v); cfg.save(); }));
 
         gridX = px + (PW - (CrosshairManager.PRESET_COUNT * CELL_PAS - 4)) / 2;

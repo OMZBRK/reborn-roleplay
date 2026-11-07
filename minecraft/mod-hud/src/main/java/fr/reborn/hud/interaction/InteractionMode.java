@@ -16,16 +16,18 @@ import net.minecraft.resources.Identifier;
 import java.util.List;
 
 /**
- * Mode d'interaction <b>live</b> (style GTA). Deux temps :
+ * Mode d'interaction <b>live</b> (style GTA), moteur du mode <b>Concentration</b> (lot 4 :
+ * {@link fr.reborn.hud.concentration.ModeConcentration} l'ouvre et le ferme ; la touche R n'en est plus qu'un alias de
+ * transition). Deux temps :
  * <ol>
- *   <li>Touche bind (R) → un <b>curseur</b> apparaît, la caméra est figée, le
+ *   <li>Concentration (Y) → un <b>curseur</b> apparaît, la caméra est figée (clic droit maintenu : elle tourne), le
  *       déplacement reste libre. Pas encore de menu.</li>
  *   <li><b>Clic gauche</b> sur un bloc / une entité / un joueur (raycast depuis
  *       le curseur, cf {@link CursorRaycast}) → ouvre le menu contextuel
  *       correspondant, à l'emplacement du clic.</li>
  * </ol>
  * Dans le menu : survol + clic gauche pour choisir. Clic en dehors → referme le
- * menu (retour au curseur). Échap ou re-press R → sort complètement.
+ * menu (retour au curseur). Échap ou la touche Concentration → sort complètement.
  */
 public final class InteractionMode {
 
@@ -33,6 +35,10 @@ public final class InteractionMode {
 
     /* Géométrie en unités menu (DaKit.echelleMenu : 1 unité = la taille d'un GUI à l'échelle 2 en 1080p). */
     private static final int ROW_H = 14;
+    /** Étiquette « Clic interagir » du mode curseur : composée au premier usage (aucune allocation par image). */
+    private static Component etiquetteClic, etiquetteLib;
+    private static Font etiquetteFont;
+    private static int etiquetteTw, etiquetteW;
     private static final int HEADER_H = 24;
     private static final int SUB_PAD = 5;
     private static final int PAD_X = 12;
@@ -75,6 +81,25 @@ public final class InteractionMode {
         return active;
     }
 
+    /** Un menu est ouvert (sinon le curseur seul). */
+    public boolean menuOuvert() {
+        return active && menuOpen;
+    }
+
+    /**
+     * Concentration (lot 4) : le curseur seul, posé au centre (viser puis appuyer sur la touche agit tout de suite sur ce
+     * qu'on vise). Sans les refus de {@link #toggle} : c'est {@code ModeConcentration} qui décide (porté ou entravé, le
+     * mode reste permis, seul le menu est refusé).
+     */
+    public void ouvrirCurseur() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.player == null || mc.gui.screen() != null) return;
+        active = true;
+        menuOpen = false;
+        cursorX = mc.getWindow().getGuiScaledWidth() / 2.0;
+        cursorY = mc.getWindow().getGuiScaledHeight() / 2.0;
+    }
+
     /** Position du curseur (coordonnées GUI) — pour les plaques du duel cliquables en mode interaction. */
     public double cursorGuiX() { return cursorX; }
 
@@ -94,9 +119,21 @@ public final class InteractionMode {
      */
     public boolean isCapturing() {
         if (!active) return false;
-        if (Minecraft.getInstance().gui.screen() != null) { deactivate(); return false; }
+        boolean conc = fr.reborn.hud.concentration.ModeConcentration.actif();
+        var ecran = Minecraft.getInstance().gui.screen();
+        if (ecran != null) {
+            // le tchat ne ferme pas la concentration : la souris lui revient le temps qu'il est ouvert
+            if (conc && ecran instanceof net.minecraft.client.gui.screens.ChatScreen) return false;
+            deactivate();
+            return false;
+        }
         // État du serveur : INTERAGIR refusé (à terre, inconscient, étourdi…) — le menu se referme (souris libérée).
-        if (fr.reborn.hud.etat.EtatClient.enJeu() && fr.reborn.hud.etat.EtatClient.refuse("int")) { deactivate(); return false; }
+        // En concentration (porté, entravé…), le mode reste : seul le menu est refusé.
+        if (fr.reborn.hud.etat.EtatClient.enJeu() && fr.reborn.hud.etat.EtatClient.refuse("int")) {
+            if (conc) { menuOpen = false; return true; }
+            deactivate();
+            return false;
+        }
         return true;
     }
 
@@ -139,6 +176,21 @@ public final class InteractionMode {
         if (!menuOpen) {
             // Plaques du duel (invitation, abandon) : cliquables en mode curseur.
             if (fr.reborn.hud.duel.DuelHud.click(cursorX, cursorY)) { deactivate(); return; }
+            // Concentration : plaque lue de plusieurs pages, curseur hors d'une cible interactive ou sur l'objet même de la
+            // plaque (cadre, meuble Nexo à entité Interaction) = page suivante, pas le menu (lot 4, CADRAGE §5.2).
+            if (fr.reborn.hud.concentration.ModeConcentration.actif() && fr.reborn.hud.concentration.Plaques.lue() != null) {
+                HitResult sous = fr.reborn.hud.concentration.ModeConcentration.cibleInteractive()
+                    ? CursorRaycast.raycast(mc, cursorX, cursorY) : null;
+                boolean surPlaque = sous == null || sous.getType() == HitResult.Type.MISS
+                    || fr.reborn.hud.concentration.Plaques.surPlaqueLue(sous.getLocation().x, sous.getLocation().y, sous.getLocation().z);
+                if (surPlaque && fr.reborn.hud.concentration.Plaques.clicPage()) return;
+            }
+            // Concentration, porté ou entravé : le menu est refusé (le mode reste pour voir et lire).
+            if (fr.reborn.hud.concentration.ModeConcentration.actif() && fr.reborn.hud.etat.EtatClient.enJeu()
+                && fr.reborn.hud.etat.EtatClient.refuse("int")) {
+                fr.reborn.hud.menu.RebornSounds.playReborn("esc.hover", 0.6f, 0.2f);
+                return;
+            }
             // Mode curseur → raycast la cible ; rien sous le curseur = menu « sur soi ».
             HitResult hit = CursorRaycast.raycast(mc, cursorX, cursorY);
             if (hit != null) openMenuFor(mc, hit);
@@ -369,11 +421,21 @@ public final class InteractionMode {
                 if (hovered >= 0) fr.reborn.hud.menu.RebornSounds.playReborn("esc.hover", 1.25f, 0.12f);
                 lastHot = hot;
             }
-        } else {
-            // Mode curseur (pas encore de menu) : étiquette laquée près du curseur, touche en cabochon.
-            Component clic = DaKit.arcade("Clic"), lib = DaKit.inter("interagir");
-            int tw = (int) Math.ceil(tr.width(clic) * 0.5f) + 6;
-            int w = 5 + tw + 4 + Math.round(DaKit.largeur8(tr, lib)) + 7;
+        } else if (!fr.reborn.hud.concentration.ModeConcentration.actif()
+            || fr.reborn.hud.concentration.ModeConcentration.cibleInteractive()
+                && !fr.reborn.hud.concentration.ModeConcentration.rotation()) {
+            // Mode curseur (pas encore de menu) : étiquette laquée près du curseur, touche en cabochon. En concentration,
+            // seulement sur une cible interactive (rien dans le vide).
+            // mots et largeurs composés une fois (l'étiquette reste affichée en continu en concentration)
+            if (etiquetteClic == null || etiquetteFont != tr) {
+                etiquetteClic = DaKit.arcade("Clic");
+                etiquetteLib = DaKit.inter("interagir");
+                etiquetteTw = (int) Math.ceil(tr.width(etiquetteClic) * 0.5f) + 6;
+                etiquetteW = 5 + etiquetteTw + 4 + Math.round(DaKit.largeur8(tr, etiquetteLib)) + 7;
+                etiquetteFont = tr;
+            }
+            Component clic = etiquetteClic, lib = etiquetteLib;
+            int tw = etiquetteTw, w = etiquetteW;
             int x = (int) Math.round(mx()) + 14, y = (int) Math.round(my()) + 4;
             DaKit.coupeH(ctx, ETIQUETTE, x, y, w + 2, 0, 0, 132, 16, 8, 132, 16);
             float ym = y + 7;
@@ -386,7 +448,8 @@ public final class InteractionMode {
         }
         DaKit.finUnites(ctx);
 
-        drawCursor(ctx, (int) cursorX, (int) cursorY);
+        // clic droit maintenu en concentration : la caméra tourne, le curseur se cache
+        if (!fr.reborn.hud.concentration.ModeConcentration.rotation()) drawCursor(ctx, (int) cursorX, (int) cursorY);
     }
 
     /** Planche laquée à la taille voulue (coupe de la texture : région (w+8)×(h+8) posée en (x−2, y−2)). */

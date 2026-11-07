@@ -96,6 +96,36 @@ public final class RecitHud {
     /** Banc : la couche n'est pas posée (fond nu de la même image : viseur, noms à 25 %, tout le reste identique). */
     public static boolean debugMasque;
 
+    /* ---------------------------------------------------------------- plaque ancrée devant l'objet (lot 4, étape B) */
+    /** Point du monde où poser le texte d'une plaque ({@code "plaque:<id>"}) ; faux = texte au centre de l'écran. */
+    @FunctionalInterface
+    public interface AncreTexte {
+        boolean point(String recitId, double[] out);
+    }
+
+    /**
+     * Fourni par {@code concentration.Plaques} : la plaque lue est <b>ancrée devant son objet</b> (planche c4) — point
+     * projeté à chaque image ({@link fr.reborn.hud.anchor.ProjectionMonde}), capitales = 84 / profondeur (12 px à 7 blocs
+     * de la caméra), bornées de 10 à 16 px, par paliers de 1 px (le texte n'est re-rastérisé qu'au changement de palier),
+     * toute la mise en page à l'échelle (largeur, interligne, contour, ombre) ; halo derrière ({@code HaloPlaque}), repère
+     * « 1 / 2 › » sous le bloc. Hors champ (derrière la caméra) : fondu de sortie, jamais collé au bord.
+     */
+    public static volatile AncreTexte ancres;
+    /** Capitales d'une plaque ancrée : 84 / profondeur, de 10 à 16 px (1080p). */
+    public static final double ANCRE_K = 84.0;
+    public static final int PALIER_MIN = 10, PALIER_MAX = 16;
+    private static final double[] PT = new double[3], PT2 = new double[3];
+    private static final org.joml.Vector3f PX = new org.joml.Vector3f();
+    /** Palier de capitales (px 1080p) de la plaque ancrée, à la dernière image. */
+    private static int palier = 12;
+    /** Plaque ancrée dans le champ (1) ou hors champ (0), fondu de 150 ms entre les deux. */
+    private static float champ = 1f;
+    /** Repère de page « 1 / 2 › » gardé (aucune allocation tant qu'il ne change pas). */
+    private static int repereP = -1, repereN = -1;
+    private static net.minecraft.network.chat.Component repere;
+    /** Banc : la dernière image a posé une plaque ancrée. */
+    private static boolean ancreeD;
+
     /* ---------------------------------------------------------------- poignées : page affichée, page suivante */
     private static TexteCache.Texte texte = new TexteCache.Texte(), suivant = new TexteCache.Texte();
     /** Contenu visé par chaque poignée (la chaîne de la page, comparée par référence). */
@@ -155,8 +185,10 @@ public final class RecitHud {
         // vignette et bords de la concentration : sous tout le HUD (juste après les surcouches vanilla), sur le monde seul
         HudElementRegistry.attachElementAfter(VanillaHudElements.MISC_OVERLAYS, VIGNETTE_COUCHE, (g, dt) -> coucheVignette(g));
         HudElementRegistry.attachElementAfter(STAFF_EFFETS, ID, (g, dt) -> render(g));
-        HudElementRegistry.replaceElement(VanillaHudElements.CROSSHAIR,
-            orig -> (g, dt) -> { if (!masqueViseur()) orig.extractRenderState(g, dt); });
+        // viseur masqué : texte au centre, ou concentration (lot 4 : le curseur le remplace)
+        HudElementRegistry.replaceElement(VanillaHudElements.CROSSHAIR, orig -> (g, dt) -> {
+            if (!masqueViseur() && !fr.reborn.hud.concentration.ModeConcentration.actif()) orig.extractRenderState(g, dt);
+        });
         HudElementRegistry.replaceElement(VanillaHudElements.TITLE_AND_SUBTITLE,
             orig -> (g, dt) -> { if (!masqueVanilla()) orig.extractRenderState(g, dt); });
         ClientTickEvents.END_CLIENT_TICK.register(RecitHud::tick);
@@ -337,8 +369,10 @@ public final class RecitHud {
         }
         if (masqueA > vuA) retourA = reel;   // de retour après un masquage : fondu d'entrée
         vuA = reel;
-        // concentration (lot 4) : bords assombris, avec ou sans texte
-        float bords = Recit.bords(now) * Gabarit.BORDS_CONCENTRATION;
+        // concentration (lot 4) : bords assombris, avec ou sans texte ; quand le filtre de la concentration est à l'écran
+        // (il assombrit déjà les bords, plus fort), la vignette ne s'y ajoute pas : elle ne sert que de repli (Byakugan)
+        float bords = fr.reborn.hud.concentration.ModeConcentration.filtreAffiche() ? 0f
+            : Recit.bords(now) * Gabarit.BORDS_CONCENTRATION;
         bordsD = bords;
 
         Recit.Entree v = Recit.voulue();
@@ -382,13 +416,24 @@ public final class RecitHud {
         poseA = reel;
 
         Gabarit g = aff.gabarit;
-        double f = g.facteur(W, H), cap = g.cap(f), L = aff.figee ? TexteRaster.SANS_LIMITE : g.largeur(f, W);
+        // plaque lue en concentration : ancrée devant son objet (palier de capitales selon la profondeur)
+        int ancre = aff.plaque ? ancrer(aff.id) : 0;   // 0 : au centre ; 1 : dans le champ ; -1 : hors champ
+        if (ancre != 0) champ = ancre > 0 ? Math.min(1f, champ + d / 150f) : Math.max(0f, champ - d / 150f);
+        else champ = 1f;
+        double f = g.facteur(W, H) * (ancre != 0 ? palier / g.capitales() : 1.0), cap = g.cap(f);
+        double L = aff.figee ? TexteRaster.SANS_LIMITE : g.largeur(f, W);
         double r = g.contour(f);
         int P = g.pas(f);
         String page = aff.pages[pAff];
         Mise m = texte.pret() ? texte.mise() : null;
         double cx0 = W / 2.0, cy0 = centreY(aff, pAff, W, H);
-        cible(aff, m, W, H, f, P, cx0, cy0);
+        if (ancre != 0) {
+            // décalages entiers depuis (W/2 ; centre du gabarit) : la partie fractionnaire ne change pas, aucun re-rendu
+            dxC = (int) Math.round(PX.x - cx0);
+            dyC = (int) Math.round(PX.y - cy0);
+            placeFaite = false;
+        } else cible(aff, m, W, H, f, P, cx0, cy0);
+        ancreeD = ancre != 0;
         if (!placeFaite || blocA <= 0f) {
             dxL = dxC;
             dyL = dyC;
@@ -407,7 +452,7 @@ public final class RecitHud {
         majVignette(now, v);
         vignette(ctx, now, bords, reel);
 
-        float a = alpha(now);
+        float a = alpha(now) * champ;
         if (reel - retourA < RETOUR_MS) a *= easeOut((reel - retourA) / (float) RETOUR_MS);
         gD = g;
         figeeD = aff.figee;
@@ -427,7 +472,14 @@ public final class RecitHud {
         if (a > 0.002f && texte.pret()) {
             if (!debugMasque) {
                 voile(ctx, g, a);
+                if (ancre != 0) {
+                    // halo lumineux derrière le texte (naît et meurt avec lui), puis le texte
+                    DaKit.debutPx(ctx);
+                    fr.reborn.hud.concentration.HaloPlaque.dessiner(ctx, cx, cy, f, a, now);
+                    DaKit.finPx(ctx);
+                }
                 texte.dessiner(ctx, a);
+                if (aff.plaque && aff.pages.length > 1) repere(ctx, mc, cx, texte.y() + texte.h(), f, a);
             }
             bx0 = texte.x();
             by0 = texte.y();
@@ -565,6 +617,8 @@ public final class RecitHud {
         }
         Gabarit g = e.gabarit;
         double f = g.facteur(W, H);
+        AncreTexte an = ancres;
+        if (e.plaque && an != null && an.point(e.id, PT2)) f *= palier / g.capitales();
         suivant.bloc(page, g.police(), g.preset(), g.cap(f), e.figee ? TexteRaster.SANS_LIMITE : g.largeur(f, W), g.pas(f),
             g.contour(f), W / 2.0, centreY(e, p, W, H), g.approche(f), e.figee ? Equilibrage.JAMAIS : Equilibrage.AUTO,
             ombre(g, f));
@@ -600,6 +654,84 @@ public final class RecitHud {
         texteDe = suivantDe = null;
         libere = true;
     }
+
+    /* ================================================================ plaque ancrée */
+
+    /**
+     * Point d'ancre de la plaque {@code id} projeté sur l'écran ({@link #PX} en px physiques, {@code z} = profondeur) et
+     * palier de capitales : 0 si la plaque n'a pas d'ancre (banc, aperçu : texte au centre), 1 dans le champ, -1 hors
+     * champ (derrière la caméra, loin hors du bord : le texte s'efface à sa dernière place). Aucune allocation.
+     */
+    private static int ancrer(String id) {
+        AncreTexte an = ancres;
+        if (an == null || !an.point(id, PT)) return 0;
+        float x = PX.x, y = PX.y, z = PX.z;
+        if (!fr.reborn.hud.anchor.ProjectionMonde.versPx(PT[0], PT[1], PT[2], PX)) {
+            PX.set(x, y, z);
+            return -1;
+        }
+        palier = palier(PX.z, palier);
+        return 1;
+    }
+
+    /** Capitales (px 1080p) d'une plaque à {@code profondeur} blocs de la caméra : 84 / profondeur, de 10 à 16. */
+    public static int palier(double profondeur) {
+        int p = (int) Math.round(ANCRE_K / Math.max(0.5, profondeur));
+        return Math.max(PALIER_MIN, Math.min(PALIER_MAX, p));
+    }
+
+    /** Marge d'hystérésis d'un palier (px) : au-delà de l'arrondi, 0,3 px de plus avant de changer. */
+    public static final double PALIER_MARGE = 0.3;
+
+    /**
+     * Palier avec hystérésis : {@code actuel} est gardé tant que 84 / profondeur reste à moins de 0,5 + {@value
+     * #PALIER_MARGE} px de lui — un joueur qui s'accroupit ou marche à la limite d'un palier (vers 6,7 blocs entre 12 et
+     * 13 px) ne fait plus rastériser deux pages à chaque passage.
+     */
+    public static int palier(double profondeur, int actuel) {
+        double v = ANCRE_K / Math.max(0.5, profondeur);
+        if (actuel >= PALIER_MIN && actuel <= PALIER_MAX && Math.abs(v - actuel) < 0.5 + PALIER_MARGE
+            && !(actuel == PALIER_MIN && v < PALIER_MIN) && !(actuel == PALIER_MAX && v > PALIER_MAX)) return actuel;
+        return palier(profondeur);
+    }
+
+    /**
+     * Repère « 1 / 2 › » sous le bloc d'une plaque de plusieurs pages (planche c4-g) : Inter 9 à l'échelle du texte,
+     * beige à 85 % avec une ombre d'un pixel, centré, 4 px (× f) sous le bloc, à l'opacité du texte. Le clic gauche tourne
+     * la page (sans viser).
+     */
+    private static void repere(GuiGraphicsExtractor ctx, Minecraft mc, double cx, int basPx, double f, float a) {
+        // reconstruit au seul changement de page (ou de nombre de pages) : rien n'est alloué d'une image à l'autre
+        if (aff.pageLue != repereP || aff.pages.length != repereN) {
+            repereP = aff.pageLue;
+            repereN = aff.pages.length;
+            repere = DaKit.inter((repereP + 1) + " / " + repereN + "  ›");
+        }
+        dessinerRepere(ctx, mc, repere, cx, basPx, f, a, echelleGui);
+    }
+
+    /** Le repère {@code c} centré en {@code cx}, 4 px (× f) sous {@code basPx} (px écran), échelle GUI {@code gs}. */
+    static void dessinerRepere(GuiGraphicsExtractor ctx, Minecraft mc, net.minecraft.network.chat.Component repere, double cx,
+                               int basPx, double f, float a, float gs) {
+        float s = (float) (1.3 * f / gs);   // capitales d'environ 7 px à f = 1 (le repère reste discret)
+        float w = mc.font.width(repere) * s;
+        float x = (float) (cx / gs) - w / 2f, y = (float) ((basPx + 4 * f) / gs);
+        DaKit.texteEchelle(ctx, mc.font, repere, x + 1f / gs, y + 1f / gs, DaKit.argb(0x000000, 0.45f * a), s);
+        DaKit.texteEchelle(ctx, mc.font, repere, x, y, DaKit.argb(0xE8DCC0, 0.85f * a), s);
+    }
+
+    /** Banc : la dernière image a posé une plaque ancrée devant son objet (opacité non nulle). */
+    public static boolean ancree() { return ancreeD && aD > 0.002f; }
+
+    /** Banc : palier de capitales de la plaque ancrée (px 1080p). */
+    public static int palier() { return palier; }
+
+    /** Banc : centre du texte posé à la dernière image (px écran) et son opacité. */
+    public static double centreX() { return cxD; }
+
+    public static double centreYPose() { return cyD; }
+
+    public static float opacite() { return aD; }
 
     /* ================================================================ opacité */
 
@@ -810,6 +942,59 @@ public final class RecitHud {
             effetsEcran(ctx, g, alpha, 0f);
             t.dessiner(ctx, alpha);
         }
+
+        private final org.joml.Vector3f px = new org.joml.Vector3f();
+        private int palierA = 12;
+
+        /**
+         * <b>Aperçu ancré</b> (outil « Plaques », lot 4) : la page montrée posée <b>devant l'objet</b> au point du monde
+         * ({@code x, y, z}), au palier de capitales de la profondeur (84 / profondeur, 10 à 16 px), avec le halo derrière
+         * si {@code halo} — exactement comme un joueur concentré la lira. Faux si le point est derrière la caméra (rien de
+         * dessiné). Le texte n'est re-rastérisé qu'au changement de palier ; aucune allocation par image.
+         */
+        public boolean dessinerAncre(GuiGraphicsExtractor ctx, double x, double y, double z, float alpha, boolean halo) {
+            if (e == null) return false;
+            if (!fr.reborn.hud.anchor.ProjectionMonde.versPx(x, y, z, px)) return false;
+            palierA = palier(px.z, palierA);
+            var win = Minecraft.getInstance().getWindow();
+            int W = Math.max(1, win.getWidth()), H = Math.max(1, win.getHeight());
+            Gabarit g = e.gabarit;
+            double f = g.facteur(W, H) * palierA / g.capitales();
+            int P = g.pas(f);
+            double cx0 = W / 2.0, cy0 = g.centre() * H;
+            double cx = cx0 + Math.round(px.x - cx0), cy = cy0 + Math.round(px.y - cy0);
+            if (g.ombre() != null && (g != gOmbre || f != fOmbre)) {
+                gOmbre = g;
+                fOmbre = f;
+                ombre = g.ombrePx(f);
+            }
+            t.bloc(e.pages[page], g.police(), g.preset(), g.cap(f), g.largeur(f, W), P, g.contour(f), cx, cy, g.approche(f),
+                Equilibrage.AUTO, g.ombre() == null ? null : ombre);
+            reductionTex = 1.0;
+            if (!t.pret() || alpha <= 0.002f) return true;
+            if (halo) {
+                DaKit.debutPx(ctx);
+                fr.reborn.hud.concentration.HaloPlaque.dessiner(ctx, cx, cy, f, alpha, Util.getMillis());
+                DaKit.finPx(ctx);
+            }
+            t.dessiner(ctx, alpha);
+            // repère « 1 / 2 › » sous le bloc, comme chez le joueur (le staff voit le découpage des pages avant de poser)
+            if (e.pages.length > 1) {
+                if (page != repereP || e.pages.length != repereN) {
+                    repereP = page;
+                    repereN = e.pages.length;
+                    repere = DaKit.inter((page + 1) + " / " + repereN + "  ›");
+                }
+                dessinerRepere(ctx, Minecraft.getInstance(), repere, cx, t.y() + t.h(), f, alpha, Math.max(1, win.getGuiScale()));
+            }
+            return true;
+        }
+
+        private int repereP = -1, repereN = -1;
+        private net.minecraft.network.chat.Component repere;
+
+        /** Palier de capitales du dernier aperçu ancré (px 1080p). */
+        public int palierAncre() { return palierA; }
 
         /** Texture libérée, texte oublié. */
         public void liberer() {

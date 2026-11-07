@@ -163,6 +163,36 @@ texte façon Ketto est réservé aux stèles et plaques lues en concentration (p
   - « En cours » liste les narrations actives : temps restant, portée, nombre de joueurs, auteur. « Arrêter » sur la
     tienne (Modérateur : sur toutes), « Tout arrêter » (Modérateur) ou « Arrêter les miennes ».
 
+### Plaques lues en concentration (lot 4, 07/11, pas encore publiées : ShinobiCore + reborn-hud 0.4.199)
+Un texte posé sur un objet du monde (stèle, pancarte, meuble Nexo, objet), que seul un joueur **concentré (Y) face à
+l'objet** lit : le texte apparaît tout seul devant l'objet, avec une petite lueur ivoire-or, et s'efface quand il se
+détourne. Rien n'apparaît à travers un mur ni au-delà de la portée. Hors concentration, personne ne voit rien.
+- **Qui peut quoi** : Helper voit la liste, la fiche, l'aperçu et peut aller devant ; **Modérateur** pose, modifie,
+  déplace, supprime ; **Admin** restaure depuis la corbeille ; **animateur en mode animation** (sans grade) : seulement
+  des plaques **temporaires** (24 h au plus) et seulement les siennes, par `/plaque`.
+- **Au Poste de garde** (F7 › Outils › **Plaques**) : la liste des plaques proches (32 blocs, puis plus loin) ; dans le
+  monde, chaque plaque est marquée de coins dorés et de son id, pour toi seul. Filtres Proches · Miennes · Temporaires ·
+  Corbeille, recherche sur le titre, le texte ou l'id.
+  - **Nouvelle plaque** : « Choisir » ouvre le **sélecteur** — le volet se replie, la souris vise dans le monde : un
+    clic choisit un bloc (ou un meuble, un cadre), **Maj + clic** sur un autre bloc fait une **boîte** (stèle de
+    plusieurs blocs, 32 par côté au plus), clic droit maintenu tourne la caméra, ZQSD te déplacent ; **Entrée** valide,
+    **Échap** revient sans rien changer. 8 blocs au plus (gris au-delà, « Trop loin » près du curseur). Maj enfoncée,
+    la boîte s'esquisse jusqu'au bloc survolé avant le clic. Ou « Objet en main » : l'objet que tu tiens portera la plaque.
+  - **Bloc seul** : la plaque ne se lit que **du côté cliqué** (« Lisible : côté nord seulement ») — une inscription sur
+    la face intérieure d'un mur ne se lit pas de dehors. « tous côtés » pour une stèle au milieu d'une place. Une boîte
+    ou un meuble se lisent de tous côtés.
+  - Titre (staff seulement), texte en couleurs comme la narration (700 caractères ; au-delà de 450, le joueur tourne
+    les pages au clic gauche), portée de lecture 2 à 16 blocs (6 par défaut), expiration (Jamais, 1 h, 24 h, 7 jours).
+  - **L'aperçu** s'affiche en direct devant l'objet, à la vraie taille, lueur comprise, comme un joueur concentré le
+    verra ; texte long : « Page 1 / 2 › » montre les pages suivantes. « Poser la plaque » (ou Ctrl + Entrée).
+  - **Fiche** (clic sur une ligne) : aperçu devant l'objet sans te concentrer, modifier, déplacer (sélecteur), aller
+    devant (journalisé), désactiver, copier l'id, supprimer (motif obligatoire : corbeille 30 jours).
+- **Au tchat** : `/plaque poser [p:6] [+24h] <texte>` sur le bloc ou le meuble que tu vises (`p:6` = portée ; un nombre
+  seul reste du texte : `/plaque poser 3 guerriers reposent ici`) ; `/plaque objet <texte>` sur l'objet en main ;
+  `/plaque texte|portee|deplacer|retirer|restaurer|info|voir|tp <id>`, `/plaque liste [rayon]`, `/plaque corbeille`.
+- Une **narration** passe devant le texte d'une plaque ; la plaque revient ensuite. Tout est au journal Staff
+  (`PLAQUE_CREEE`, `PLAQUE_TEXTE`, `PLAQUE_SUPPRIMEE`, `PLAQUE_TP`…) ; « lue N fois » sur la fiche.
+
 ### Outils staff (14/10, pas encore publiés)
 Cible : pseudo, nom RP ou `#N°`. **Tout est journalisé** : la commande tapée et son effet (`/journal`).
 - **Joueurs** : `/aller <cible>` puis `/retour` ; `/ramener <cible>` puis `/retour <cible>` (Modo) ;

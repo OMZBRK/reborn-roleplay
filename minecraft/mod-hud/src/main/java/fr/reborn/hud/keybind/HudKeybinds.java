@@ -1,6 +1,5 @@
 package fr.reborn.hud.keybind;
 
-import fr.reborn.hud.interaction.InteractionMode;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.Minecraft;
@@ -80,7 +79,10 @@ public final class HudKeybinds {
      */
     public static KeyMapping VOIX_PORTEE;
 
-    /** Mode interaction (R) : lu par les invites (« [R] Tendre … », nourriture). */
+    /**
+     * Ancienne touche du menu d'interaction (R) : alias de transition de la Concentration (lot 4), gardée jusqu'à la
+     * validation en jeu (CADRAGE §6.1), puis déliée par une migration suivante ({@code TouchesMigration#retirerInteraction}).
+     */
     public static KeyMapping INTERACTION;
 
     /** Menu des animations (« . ») : démarches et émotes ; la même touche le referme. */
@@ -141,6 +143,16 @@ public final class HudKeybinds {
      * majuscules pour les aides en ArcadePix ; {@code def} si la liaison est absente ou vide. À utiliser dans toutes les
      * invites au lieu d'une lettre écrite en dur.
      */
+    /**
+     * Touche qui ouvre réellement la Concentration : {@link #CONCENTRATION}, ou l'ancienne touche R ({@link #INTERACTION},
+     * alias de transition) quand Concentration n'a pas de touche (Y déjà prise). Lue par les invites et les rappels.
+     */
+    public static KeyMapping concentrationEffective() {
+        if (CONCENTRATION != null && !CONCENTRATION.isUnbound()) return CONCENTRATION;
+        if (INTERACTION != null && !INTERACTION.isUnbound()) return INTERACTION;
+        return CONCENTRATION;
+    }
+
     public static String nom(KeyMapping km, String def) {
         if (km == null || km.isUnbound()) return def;
         return km.getTranslatedKeyMessage().getString().toUpperCase(java.util.Locale.ROOT);
@@ -359,8 +371,10 @@ public final class HudKeybinds {
             fr.reborn.hud.voice.VoiceState.tick(client);
             // wasPressed() drain le queue d'events — false sur les frames
             // sans transition pressed.
+            // Ancienne touche du menu d'interaction (R) : alias de la Concentration le temps de la transition (lot 4 ;
+            // déliée après la validation en jeu). Plus jamais InteractionMode.toggle() en direct.
             while (INTERACTION.consumeClick()) {
-                InteractionMode.INSTANCE.toggle();
+                fr.reborn.hud.concentration.ModeConcentration.basculer();
             }
             while (CINEMA.consumeClick()) {
                 fr.reborn.hud.immersion.CinemaBars.INSTANCE.toggle();
@@ -399,9 +413,9 @@ public final class HudKeybinds {
                 }
             }
             while (FACTION.consumeClick()) fr.reborn.hud.faction.FactionClient.appuiJ();
-            // Concentration : le lot 4 branche la bascule ici (d'ici là, sans effet) ; voix : Plasmo agit sur la même
-            // touche (voice/PlasmoTouches), on ne fait que vider la file.
-            while (CONCENTRATION.consumeClick()) { }
+            // Concentration (lot 4) : un appui entre, un autre sort ; voix : Plasmo agit sur la même touche
+            // (voice/PlasmoTouches), on ne fait que vider la file.
+            while (CONCENTRATION.consumeClick()) fr.reborn.hud.concentration.ModeConcentration.basculer();
             while (MICRO.consumeClick()) { }
             while (SON.consumeClick()) { }
             while (PARLER.consumeClick()) { }

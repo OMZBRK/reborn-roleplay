@@ -259,7 +259,7 @@ final class FactionPages {
             }
             y += 4;
         }
-        if (filtre && vus == 0) y = s.vide(y, "Personne de ce nom parmi ceux que tu connais.", "Les autres membres ne sont jamais nommés : présente-toi d'abord (menu R).");
+        if (filtre && vus == 0) y = s.vide(y, "Personne de ce nom parmi ceux que tu connais.", "Les autres membres ne sont jamais nommés : présente-toi d'abord (en concentration).");
         // dernière annonce
         JsonArray an = arr(v, "annonces");
         if (!an.isEmpty() && !filtre) {
@@ -511,7 +511,7 @@ final class FactionPages {
         filet(y);
         y += 6;
         s.pz.texte("Un inconnu n'est pas dans la liste :", ix(), y + 4, 12, GRIS_2, false);
-        s.pz.texte("présente-toi d'abord (menu R), ou invite face à face.", ix(), y + 13, 12, GRIS_2, false);
+        s.pz.texte("présente-toi d'abord (en concentration), ou invite face à face.", ix(), y + 13, 12, GRIS_2, false);
         y += 23;
         if (envoye != null && System.currentTimeMillis() - envoyeA < 30_000) {
             s.pz.pastille(ix() + 2, y + 4, 2, OK);

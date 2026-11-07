@@ -39,6 +39,9 @@ public final class StaffClient {
     /** Dernier état {@code narrations} (outil « Narration », lot 2) et son heure d'arrivée (le « reste » en part). */
     private static volatile JsonObject narrations;
     private static volatile long narrationsA;
+    /** Dernière liste {@code plaques} (outil « Plaques », lot 4 : PLUGINS_REFERENCE §4 undecies.3) et son heure d'arrivée. */
+    private static volatile JsonObject plaques;
+    private static volatile long plaquesA;
     /** Son des nouvelles alertes quand le Poste de garde est ouvert (cloche de l'onglet Alertes). */
     static boolean cloche = true;
     /** Modes du joueur local (message {@code mode} du serveur) : indicateur discret en jeu. */
@@ -126,6 +129,7 @@ public final class StaffClient {
             }
             case "persos" -> persos = o;
             case "narrations" -> { narrations = o; narrationsA = System.currentTimeMillis(); }
+            case "plaques" -> { plaques = o; plaquesA = System.currentTimeMillis(); }
             case "journal" -> journal = o;
             case "notes" -> {
                 String pid = o.has("pid") ? o.get("pid").getAsString() : "";
@@ -210,6 +214,12 @@ public final class StaffClient {
 
     /** Heure d'arrivée (ms, horloge murale) du dernier état {@code narrations}. */
     static long narrationsA() { return narrationsA; }
+
+    /** Dernière liste {@code plaques} (outil « Plaques »), null tant qu'elle n'est pas arrivée. */
+    static JsonObject plaques() { return plaques; }
+
+    /** Heure d'arrivée (ms) de la dernière liste {@code plaques}. */
+    static long plaquesA() { return plaquesA; }
 
     /** Dernière réponse {@code journal} reçue (null si le serveur ne la gère pas encore). */
     public static JsonObject journal() { return journal; }
@@ -297,7 +307,12 @@ public final class StaffClient {
         send(o);
     }
 
+    /** Banc de l'étape B du lot 4 : les actions {@code plaque*} partent vers ce serveur simulé (null = réseau). */
+    static java.util.function.Consumer<JsonObject> debugPlaques;
+
     public static void send(JsonObject o) {
+        var d = debugPlaques;
+        if (d != null && o.has("a") && o.get("a").getAsString().startsWith("plaque")) { d.accept(o); return; }
         if (demo) { StaffDemo.handle(o); return; }
         if (ClientPlayNetworking.canSend(StaffPayload.ID)) ClientPlayNetworking.send(new StaffPayload(o.toString()));
     }

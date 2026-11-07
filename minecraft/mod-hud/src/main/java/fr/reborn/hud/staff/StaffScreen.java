@@ -150,6 +150,7 @@ public class StaffScreen extends Screen {
     public void removed() {
         StaffClient.clearProfile();
         outilsVue.narrationVue.liberer();
+        outilsVue.plaquesVue.liberer();
         douaneVue.fermer();
         super.removed();
     }
@@ -167,6 +168,7 @@ public class StaffScreen extends Screen {
         journalVue.tick();
         recherche.tick();
         if ("outils".equals(tab) && "narration".equals(outil)) outilsVue.narrationVue.tick();
+        if ("outils".equals(tab) && "plaques".equals(outil)) outilsVue.plaquesVue.tick();
         douaneVue.tick();
     }
 
@@ -281,6 +283,9 @@ public class StaffScreen extends Screen {
             outilsVue.narrationVue.apercuJeu(ctx);
             if (outilsVue.narrationVue.pleinEcran) { pz.vider(ctx); return; }   // l'aperçu seul, volet caché
         } else outilsVue.narrationVue.liberer();
+        // outil Plaques : repères dans le monde, aperçu ancré devant l'objet (sous le volet)
+        if ("outils".equals(tab) && "plaques".equals(outil)) outilsVue.plaquesVue.monde(ctx);
+        else outilsVue.plaquesVue.liberer();
         // ombre en paliers (pas de flou), fond nuit, filet, filet d'or d'1 px en haut
         pz.fond(x1, y0 + 2, x1 + 2, y1 + 2, 0x6E000000);
         pz.fond(x0 + 2, y1, x1, y1 + 2, 0x6E000000);
@@ -1248,6 +1253,7 @@ public class StaffScreen extends Screen {
         double x = e.x(), y = e.y();
         if (outilsVue.narrationVue.pleinEcran) { outilsVue.narrationVue.pleinEcran = false; return true; }
         if (e.button() == 0) outilsVue.narrationVue.clic(x, y, e.hasShiftDown());
+        if (e.button() == 0) outilsVue.plaquesVue.clic(x, y, e.hasShiftDown());
         if (e.button() == 0 || e.button() == 1) {
             boolean dansMenu = false;
             if (menu != null) {
@@ -1276,6 +1282,8 @@ public class StaffScreen extends Screen {
             }
             if (menu != null) { menu = null; return true; }
         }
+        // sélecteur de l'outil Plaques : un clic dans le monde choisit le bloc ou l'entité survolé
+        if (e.button() == 0 && outilsVue.plaquesVue.clicMonde(x, y, e.hasShiftDown())) return true;
         boolean r = super.mouseClicked(e, dbl);
         return r || x >= px0();
     }
@@ -1291,7 +1299,8 @@ public class StaffScreen extends Screen {
     public boolean keyPressed(net.minecraft.client.input.KeyEvent e) {
         int k = e.key();
         if (outilsVue.narrationVue.pleinEcran) { outilsVue.narrationVue.pleinEcran = false; return true; }
-        boolean saisie = getFocused() instanceof EditBox b && b.isFocused() && b.isVisible() || outilsVue.narrationVue.saisie();
+        boolean saisie = getFocused() instanceof EditBox b && b.isFocused() && b.isVisible() || outilsVue.narrationVue.saisie()
+                || outilsVue.plaquesVue.saisie();
         if (k == GLFW.GLFW_KEY_ESCAPE) {
             if (menu != null) { menu = null; return true; }
             if (formulaire.actif()) { formulaire.fermer(); return true; }
@@ -1299,6 +1308,7 @@ public class StaffScreen extends Screen {
             if ("players".equals(tab) && profileUuid != null && fiche.echap()) return true;
             if ("players".equals(tab) && profileUuid != null) { retourListe(); return true; }
             if ("journal".equals(tab) && journalVue.echap()) return true;
+            if ("outils".equals(tab) && outilsVue.plaquesVue.echap()) return true;
             if ("outils".equals(tab) && outil != null) { outil = null; scroll = 0; return true; }
             if ("douane".equals(tab) && douaneVue.echap()) return true;
             onClose();
@@ -1306,8 +1316,11 @@ public class StaffScreen extends Screen {
         }
         if (k == GLFW.GLFW_KEY_F7 && !saisie) { onClose(); return true; }
         if (outilsVue.narrationVue.touche(k, e.hasShiftDown(), e.hasControlDown())) return true;
+        if (outilsVue.plaquesVue.touche(k, e.hasShiftDown(), e.hasControlDown())) return true;
+        if (!saisie && outilsVue.plaquesVue.deplacement(e, true)) return true;
         if (k == GLFW.GLFW_KEY_ENTER || k == GLFW.GLFW_KEY_KP_ENTER) {
             if (formulaire.actif() && formulaire.entree()) return true;
+            if (!formulaire.actif() && !saisie && outilsVue.plaquesVue.entree(e.hasControlDown())) return true;
             if ("douane".equals(tab) && !formulaire.actif() && douaneVue.entree(e.hasControlDown())) return true;
             if ("players".equals(tab) && profileUuid == null && recherche.active() && recherche.entree()) return true;
             if (outilsVue.entree()) return true;
@@ -1331,19 +1344,32 @@ public class StaffScreen extends Screen {
             if (ev.isAllowedChatCharacter()) outilsVue.narrationVue.caractere(ev.codepointAsString());
             return true;
         }
+        if (outilsVue.plaquesVue.saisie()) {
+            if (ev.isAllowedChatCharacter()) outilsVue.plaquesVue.caractere(ev.codepointAsString());
+            return true;
+        }
         return super.charTyped(ev);
     }
 
     @Override
     public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent e, double dx, double dy) {
         if (outilsVue.narrationVue.glisser(e.x(), e.y())) return true;
+        if (outilsVue.plaquesVue.glisser(e.x(), e.y())) return true;
+        if (e.button() == 1 && outilsVue.plaquesVue.tourner(dx, dy)) return true;
         return super.mouseDragged(e, dx, dy);
     }
 
     @Override
     public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent e) {
         outilsVue.narrationVue.relacher();
+        outilsVue.plaquesVue.relacher();
         return super.mouseReleased(e);
+    }
+
+    @Override
+    public boolean keyReleased(net.minecraft.client.input.KeyEvent e) {
+        if (outilsVue.plaquesVue.deplacement(e, false)) return true;
+        return super.keyReleased(e);
     }
 
     /* =================================================================== JSON + grades */

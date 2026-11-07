@@ -1696,7 +1696,8 @@ public final class FeaturePreview {
         pasQuand(RecitHud::pret, 2, () -> hb = t0 + 5400);
         paireNarration(mc, 3, "narration_12_stele_retour");
         pas(2, () -> verifierAllure("plaque:serment", Gabarit.STELE));
-        // fin de la concentration : texte et bords s'en vont en 350 ms (0,50 à 175 ms)
+        // fin de la concentration : le texte s'en va en 350 ms (0,50 à 175 ms), les bords en 150 ms (lot 4, CADRAGE §6.2 :
+        // les couleurs reviennent avant que le texte ne s'efface), donc déjà revenus à 175 ms
         pas(2, () -> {
             hb = t0 + 6000;
             Recit.cacher("plaque:serment");
@@ -1707,8 +1708,8 @@ public final class FeaturePreview {
             shot(mc, "narration_12_stele_fin175");
             journalNarration("narration_12_stele_fin175", "narration_12_stele_retour_sans");
             JsonObject e = RecitHud.etatBanc();
-            verifier("stèle : sortie de 350 ms (0,50 à 175 ms), bords 0,09", Math.abs(e.get("a").getAsDouble() - 0.5) < 0.01
-                && Math.abs(e.get("bords").getAsDouble() - 0.09) < 0.002);
+            verifier("stèle : sortie de 350 ms (0,50 à 175 ms), bords revenus (sortie de 150 ms)",
+                Math.abs(e.get("a").getAsDouble() - 0.5) < 0.01 && e.get("bords").getAsDouble() < 0.002);
         });
         pas(2, () -> hb = t0 + 6400);
         pas(3, () -> {

@@ -140,6 +140,9 @@ public final class CombatInput {
     /** Reset du cooldown client de dash (commande staff /resetcd). */
     public void clearDashCd() { lastDashMs = 0L; }
 
+    /** Horodatage du dernier dash lancé (0 = aucun) : un dash ferme la concentration. */
+    public long dernierDashMs() { return lastDashMs; }
+
     /** Reset à la déconnexion (pas d'envoi). */
     public void reset() {
         blocking = false; wasSwinging = false; comboIndex = 0; lastSwingMs = 0L; lastDashMs = 0L;

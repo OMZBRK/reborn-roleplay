@@ -109,7 +109,7 @@ public class RadioScreen extends Screen {
             l2 = "mais tu n'en fais pas partie.";
         } else {
             l1 = "Aucune escouade. Face à quelqu'un :";
-            l2 = "menu R, Radio, Créer une escouade.";
+            l2 = "Concentration, Radio, Créer une escouade.";
         }
         txt(ctx, f, DaKit.inter(l1), cx, y + 58, 7, DOUX, 1);
         if (!l2.isEmpty()) txt(ctx, f, DaKit.inter(l2), cx, y + 70, 7, DOUX, 1);

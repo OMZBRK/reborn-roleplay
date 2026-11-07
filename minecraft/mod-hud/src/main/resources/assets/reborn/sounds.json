@@ -390,5 +390,19 @@
         "name": "reborn:voix/creation_recap"
       }
     ]
+  },
+  "concentration.entree": {
+    "sounds": [
+      {
+        "name": "reborn:concentration/entree"
+      }
+    ]
+  },
+  "concentration.sortie": {
+    "sounds": [
+      {
+        "name": "reborn:concentration/sortie"
+      }
+    ]
   }
 }

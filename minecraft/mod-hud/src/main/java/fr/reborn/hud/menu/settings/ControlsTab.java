@@ -217,9 +217,13 @@ public class ControlsTab extends SectionedTab implements SousListe {
                 add(l, o.keySwapOffhand, "Main secondaire", "Partagée avec Contextuel, qui ne la prend que s'il y a quelque chose à faire.");
             }
             case MONDE -> {
-                add(l, HudKeybinds.CONCENTRATION, "Concentration", "Bientôt : un appui pour te concentrer, un autre pour revenir.");
+                add(l, HudKeybinds.CONCENTRATION, "Concentration", "Un appui pour te concentrer : un curseur, et un clic sur ce que tu vises pour agir. Un autre appui pour revenir.");
                 add(l, HudKeybinds.PICKUP, "Contextuel", "Ramasser, prendre ce qu'on te tend : seulement s'il y a quelque chose à faire.");
-                add(l, HudKeybinds.INTERACTION, "Interaction", "Les actions sur le joueur que tu regardes.");
+                // Ancienne touche du menu d'interaction : montrée seulement si elle a encore une touche (alias de la
+                // Concentration, déliée par la migration v5 dès que Concentration a la sienne).
+                if (HudKeybinds.INTERACTION != null && !HudKeybinds.INTERACTION.isUnbound()) {
+                    add(l, HudKeybinds.INTERACTION, "Interaction", "Ancienne touche : ouvre la Concentration, comme elle.");
+                }
                 add(l, o.keyDrop, "Jeter", "Jeter l'objet en main ; avec Ctrl, toute la pile.");
                 add(l, HudKeybinds.DUEL_ACCEPT, "Accepter", "Une invitation, un duel, une demande.");
                 add(l, HudKeybinds.DUEL_REFUSE, "Refuser", null);

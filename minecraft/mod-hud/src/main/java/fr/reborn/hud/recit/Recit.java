@@ -81,7 +81,7 @@ import java.util.regex.Pattern;
  * Recit.lire(id, segments);    // la visée commence (concentration active)
  * Recit.lireSuite(id);         // le joueur demande la page suivante (plaque de plus d'une page)
  * Recit.cacher(id);            // la visée ou la concentration finit
- * Recit.concentration(false);  // fin de la concentration : les bords reviennent en 350 ms
+ * Recit.concentration(false);  // fin de la concentration : les bords reviennent en 150 ms
  * }</pre>
  */
 public final class Recit {
@@ -346,9 +346,15 @@ public final class Recit {
      * 250 ms, sortie en 350 ms ({@link Gabarit#STELE}, vidéos de Ketto), aucune minuterie : le texte reste tant que la
      * concentration dure ; masqué sous une narration. Faux si le texte est vide.
      */
-    public static boolean lire(String id, List<Segment> segments) {
+    public static boolean lire(String id, List<Segment> segments) { return lire(id, segments, false); }
+
+    /**
+     * Comme {@link #lire(String, List)} ; {@code remplacer} : même {@code id} déjà lu, le texte est quand même remplacé
+     * (une révision neuve de la plaque, corrigée par le staff pendant qu'on la lit : fondu de coupe, retour en page 1).
+     */
+    public static boolean lire(String id, List<Segment> segments, boolean remplacer) {
         if (id == null) id = "";
-        if (lecture != null && lecture.id.equals(id)) return true;
+        if (lecture != null && lecture.id.equals(id) && !remplacer) return true;
         long now = horloge.getAsLong();
         avancer(now);
         Entree e = creer(id, segments, Gabarit.STELE, -1, POS_DEFAUT, true, 0, now, -1);
@@ -363,10 +369,13 @@ public final class Recit {
     /**
      * Plaque lue {@code id} (lot 4) : page suivante, puis retour à la première après la dernière (fondu de page du
      * gabarit). Aucune minuterie ne tourne les pages d'une plaque : c'est le joueur qui lit. Faux si cette plaque n'est
-     * pas lue ou n'a qu'une page.
+     * pas lue, n'a qu'une page ou est masquée sous une narration.
      */
     public static boolean lireSuite(String id) {
         if (lecture == null || id == null || !lecture.id.equals(id) || lecture.pages.length < 2) return false;
+        // masquée sous une narration du staff : le clic ne tourne rien d'invisible (la plaque revient à sa page)
+        avancer(horloge.getAsLong());
+        if (!lectureMontree) return false;
         lecture.pageLue = (lecture.pageLue + 1) % lecture.pages.length;
         lecture.pageLueA = horloge.getAsLong();
         return true;
@@ -375,7 +384,7 @@ public final class Recit {
     /**
      * Concentration (lot 4, pas encore branchée) : {@code true} au début, {@code false} à la fin. Tant qu'elle dure, les
      * bords de l'écran s'assombrissent légèrement ({@link Gabarit#BORDS_CONCENTRATION}, fondus de 250 ms à l'entrée et
-     * de 350 ms à la sortie, repartant de l'opacité du moment) ; indépendant du texte lu ({@link #lire}), qui suit la
+     * de 150 ms à la sortie, repartant de l'opacité du moment) ; indépendant du texte lu ({@link #lire}), qui suit la
      * visée. Sans effet si l'état ne change pas.
      */
     public static void concentration(boolean active) {

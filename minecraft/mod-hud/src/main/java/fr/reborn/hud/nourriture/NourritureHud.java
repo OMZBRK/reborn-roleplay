@@ -42,7 +42,7 @@ public final class NourritureHud {
     /** Mots fixes, composés au premier usage. */
     private static Component cTendre, cPrendre, cRefuser, cSep;
     /** Touches affichées : « [R] » de l'invite (ArcadePix), « F » et « Retour » de l'offre. */
-    private static final Touche TOUCHE_R = new Touche("R", true), TOUCHE_F = new Touche("F", false),
+    private static final Touche TOUCHE_R = new Touche("Y", true), TOUCHE_F = new Touche("F", false),
         TOUCHE_RETOUR = new Touche("Retour", false);
     /** Invite : objet en main et son nom (identités) → nom affiché. */
     private static ItemStack objetCle;
@@ -108,7 +108,8 @@ public final class NourritureHud {
 
     /**
      * Plat (ou ration, panier, bol) en main et quelqu'un tout près dans le viseur : « [R] Tendre Ramen shōyu » au-dessus
-     * de lui (maquette 02), comme « [F] Ramasser ». Le geste lui-même passe par le menu d'interaction (R).
+     * de lui (maquette 02), comme « [F] Ramasser ». Le geste lui-même passe par la Concentration (touche réelle, Y par
+     * défaut) puis le menu d'interaction.
      */
     private static void invite(GuiGraphicsExtractor g, Minecraft mc, long now) {
         if (fr.reborn.hud.interaction.InteractionMode.INSTANCE.isActive()) return;
@@ -139,7 +140,7 @@ public final class NourritureHud {
         DaKit.unites(g, km);
         DaKit.etire(g, VOILE_C, Math.round(x0) - 12, Math.round(ym) - 9, Math.round(w) + 24, 18, 64, 16, DaKit.blanc(1f));
         DaKit.blit(g, TOUCHE, Math.round(x0), Math.round(ym) - 6, 0, 0, 11, 11, 11, 11, DaKit.blanc(1f));
-        DaKit.arcFin(g, f, TOUCHE_R.de(HudKeybinds.INTERACTION), x0 + 5.5f, ym - 2.5f, DaKit.CREME, 1, false);
+        DaKit.arcFin(g, f, TOUCHE_R.de(HudKeybinds.concentrationEffective()), x0 + 5.5f, ym - 2.5f, DaKit.CREME, 1, false);
         float x = x0 + 15;
         x += DaKit.inter8(g, f, cT, x, ym, DaKit.CREME, 0) + 3;
         x += DaKit.inter8(g, f, cN, x, ym, CREME_DOUX, 0);

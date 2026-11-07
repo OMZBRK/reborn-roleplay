@@ -12,6 +12,8 @@ import net.minecraft.resources.Identifier;
 
 /**
  * Concentration du chakra (ShinobiAbilities, message {@code {"t":"conc"}} du canal parchemin) — piste « ensō A ».
+ * À l'écran : « <b>Malaxage du chakra</b> » (décision du 07/11), pour ne pas la confondre avec le mode Concentration
+ * (touche Y, {@code concentration/ModeConcentration}) ; « concentration du chakra » reste le nom technique.
  *
  * <p>Discret, au-dessus de la barre d'action : un ensō (cercle de pinceau) tracé au pixel réel de l'écran, traversé
  * d'un trait d'encre horizontal. Sur le trait, la zone d'or et la perle de chakra (bleue dans l'or, laque hors de
@@ -67,6 +69,14 @@ public final class ConcentrationHud {
     }
 
     public static void clear() { active = false; }
+
+    /**
+     * L'épreuve tourne (« Malaxage du chakra », message {@code conc} {@code run} reçu il y a moins de 1,5 s) : le mode
+     * Concentration (curseur, caméra figée) lui cède la place, l'épreuve se jouant à la rotation de la tête.
+     */
+    public static boolean actif() {
+        return active && "run".equals(state) && System.currentTimeMillis() - lastUpdate <= 1500;
+    }
 
     private static double num(JsonObject o, String k, double d) { return o.has(k) ? o.get(k).getAsDouble() : d; }
 
@@ -140,13 +150,13 @@ public final class ConcentrationHud {
         long since = now - startedAt;
         if (running && since < HINT) {
             float a = alpha * (since > HINT - 700 ? (HINT - since) / 700f : 1f);
-            Component hint = DaKit.inter("Reste immobile · tourne la tête pour garder le chakra dans l'or");
+            Component hint = DaKit.inter("Malaxage du chakra · reste immobile, tourne la tête pour garder le chakra dans l'or");
             DaKit.inter7o(g, font, hint, ucx, ty, DaKit.argb(0xE8DCC0, 0.95f * a), 1);
         } else if (running && stab <= 0.3) {
             float pulse = (float) (0.55 + 0.45 * Math.sin(now / 120.0));
             DaKit.inter7o(g, font, DaKit.inter("Ton chakra se disperse"), ucx, ty, DaKit.argb(0xE26474, alpha * pulse), 1);
         } else if (!running) {
-            Component t = DaKit.inter(ok ? "Chakra concentré" : "Chakra dispersé — la séance ne compte pas");
+            Component t = DaKit.inter(ok ? "Chakra malaxé" : "Chakra dispersé — la séance ne compte pas");
             DaKit.inter7o(g, font, t, ucx, ty, DaKit.argb(ok ? 0xF2D08A : 0xE26474, alpha), 1);
         }
         DaKit.finUnites(g);

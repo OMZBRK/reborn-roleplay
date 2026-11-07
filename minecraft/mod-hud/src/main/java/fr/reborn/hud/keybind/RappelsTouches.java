@@ -65,7 +65,7 @@ import java.util.function.BooleanSupplier;
  *   <li>Apparition et disparition <b>instantanées</b>, comme chez Ketto (plus de fondu de 150 ms).</li>
  * </ul>
  * Toute la liste se masque quand une invitation ou une demande est affichée (radio, duel, faction, corps, offre de
- * nourriture), en mode interaction, au KO ({@code KoMasqueHud}), en douane côté candidat, pendant la carte d'aperçu de
+ * nourriture), au menu d'interaction hors concentration (en concentration elle reste, menu ouvert compris), au KO ({@code KoMasqueHud}), en douane côté candidat, pendant la carte d'aperçu de
  * capture et quand les sous-titres vanilla sont activés ({@link BasDroite}), écran ouvert, F1 ; et bien sûr quand
  * l'élément est masqué (éditeur, Paramètres › Interface › Rappels de touches).
  *
@@ -286,7 +286,9 @@ public final class RappelsTouches {
             case SE_LEVER -> MeditationClient.jeMedite();
             case GARDE -> StaffClient.modeActif();
             case RADIO -> RadioClient.serveur() && RadioClient.escouade() != null && RadioClient.etat().refus() == null;
-            case CONCENTRATION -> concentrationBranchee || m == Mode.CONCENTRATION || debugMode != null;
+            // pendant le Malaxage du chakra, la touche ne fait rien (lot 4) : pas de rappel trompeur
+            case CONCENTRATION -> (concentrationBranchee || m == Mode.CONCENTRATION || debugMode != null)
+                && !fr.reborn.hud.parchemin.ConcentrationHud.actif();
             case PORTEE -> porteeUtile() && (now < voixJusqua && voixTexte != null || m == Mode.CONCENTRATION);
             case DEGAINER, DASH, PARER -> m == Mode.COMBAT;
             case VUE, PHOTO, MENU_ANIMATIONS, SACOCHE -> m == Mode.CONCENTRATION;
@@ -302,7 +304,7 @@ public final class RappelsTouches {
             case SE_LEVER -> mc.options.keyShift;
             case GARDE -> StaffClient.touche();
             case RADIO -> HudKeybinds.RADIO_PARLER;
-            case CONCENTRATION -> HudKeybinds.CONCENTRATION;
+            case CONCENTRATION -> HudKeybinds.concentrationEffective();
             case PORTEE -> HudKeybinds.VOIX_PORTEE;
             case DEGAINER -> HudKeybinds.DEGAINER;
             case DASH -> HudKeybinds.DASH;
@@ -313,10 +315,14 @@ public final class RappelsTouches {
         };
     }
 
-    /** Toute la liste masquée : invitation ou demande, mode interaction, KO, douane, carte de capture, sous-titres. */
+    /**
+     * Toute la liste masquée : invitation ou demande, menu d'interaction hors concentration, KO, douane, carte de
+     * capture, sous-titres. En concentration (lot 4), la liste reste affichée, menu ouvert compris (comme chez Ketto).
+     */
     private static boolean masquee(Minecraft mc) {
         return RadioClient.invit() != null || DuelClient.hasInvite() || FactionClient.invit() != null
-            || CorpsClient.demande() != null || NourritureClient.aOffre() || InteractionMode.INSTANCE.isActive()
+            || CorpsClient.demande() != null || NourritureClient.aOffre()
+            || InteractionMode.INSTANCE.isActive() && !fr.reborn.hud.concentration.ModeConcentration.actif()
             || KoMasqueHud.masque() || DouaneClient.masqueHud() || BasDroite.carteCapture() || BasDroite.sousTitres(mc);
     }
 

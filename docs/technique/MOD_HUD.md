@@ -47,6 +47,74 @@
 
 Hors combat, `runtime/VitalsHud` dessine un **compact** (tête 32 px dans le cadre réduit, filet de vie au-dessus, filet de chakra en dessous, sans chiffres ; micro à droite ; satiété en filet de 2 px seulement sous 25 %). `runtime/VitalsMode` (états COMPACT / OUVERTURE / COMPLET / REPLI) ouvre le **bloc complet** en combat : coup donné ou parade, coup reçu d'une entité, technique (chakra −3 % ou −300 u en 1 s, ou endurance dépensée hors sprint), arme dégainée, duel, KO ; repli 300 ms après 8 s de calme. Soin, chute, feu, chakra de déplacement : ouverture 2,5 s. Un changement de maximum n'ouvre rien. Vie ≤ 25 % en compact : le filet bat (1,2 s), hystérésis à 30 %. Morph sur la grille GUI (180 ms). L'éditeur de HUD montre toujours le bloc complet. Préférence `RebornPrefs.vitalsToujoursDetailles` (Paramètres › Interface › HUD, étiquette NOUVEAU à retirer à la version suivante). Banc : `REBORN_VITALS_DEBUG=1` → `run/screenshots/vitals_*.png`. Maquettes : `Maquettes/gameplan/18_vitals_compact/`.
 
+## 1 ter. Concentration (lot 4, étape A, 0.4.199, 07/11)
+
+Client seul ; plaques et traces de pas viendront avec ShinobiCore (étapes B et C du cadrage
+`Maquettes/gameplan/17_lot4_concentration/CADRAGE.md`).
+
+- **Une seule classe** tient le mode : `concentration/ModeConcentration` (`basculer`, `entrer`, `sortir(Raison)`,
+  `actif`, `depuis`, `reinitialiser`). Touche **Concentration (Y)** à bascule ; l'ancienne touche « Interaction » (R)
+  appelle la même bascule tant qu'elle est liée (plus jamais `InteractionMode.toggle()` en direct) ; **Échap** sort sans
+  ouvrir la pause (`KeyboardInteractionMixin`). Anti-rebond 250 ms.
+- **Moteur = l'ancien menu R** (`InteractionMode.ouvrirCurseur()`, `menuOuvert()`) : curseur au centre, caméra figée,
+  **clic droit maintenu = la caméra tourne** (curseur caché, `MouseInteractionMixin`), clic gauche sur une cible = menu
+  d'interaction (notre kit). Porté ou entravé (`int` refusé) : le mode reste, le clic sur une cible ne fait rien.
+  L'étiquette « Clic interagir » ne suit le curseur que sur une cible interactive (entité, cloche, volière).
+- **Effet d'écran le plus fort** (décision du 07/11, « comme chez Ketto ») : post-effet
+  `post_effect/concentration_ecran.json` + `shaders/post/concentration_ecran.fsh`, une passe : désaturation 42 %, nuance
+  froide surtout dans les ombres, assombrissement elliptique (centre −10 %, bords −32 %, coins −50 %). Il prend l'unique
+  emplacement de `effets/FiltresEcran` : **KO > Byakugan > concentration > météo** (filtre de la météo suspendu le temps
+  du mode). Entrée 250 ms (courbe douce), sortie 150 ms ; l'avancement passe au shader par une texture 4×1
+  (`concentration_params`), réécrite seulement quand l'octet change (`GameRendererKoMixin`). Sous le Byakugan, repli sur
+  la vignette de `RecitHud` (`Gabarit.BORDS_CONCENTRATION`, sortie passée à 150 ms).
+- **Contour au survol** : un rayon `CursorRaycast` par tick (pas par image) ; l'entité vivante sous le curseur à 16 blocs
+  prend le **contour lumineux vanilla** (« glowing », blanc) par `state.outlineColor` dans
+  `LivingEntityRendererByakuganMixin`, chez soi seulement, aucun effet serveur ; jamais sous le Byakugan (il garde la
+  priorité), coupé menu ouvert.
+- **Rappels** : `RappelsTouches.concentrationBranchee = true` ; temps normal « Concentration [Y] » seule ; en
+  concentration la liste de six lignes, Concentration en bas (actions en cours dessous) ; `masquee()` ne cache plus la
+  liste en concentration, menu ouvert compris. Le réticule est masqué (le curseur le remplace) ; la couche
+  `reborn-hud:interaction` (curseur, menu) est posée juste après `reborn-hud:recit`, au-dessus du texte d'une plaque.
+- **Blocages relus à chaque tick** (`refusEntree`, `blocage`) : à terre / mort / voile, duel, **Malaxage du chakra**
+  (`ConcentrationHud.actif()`, l'épreuve s'affiche sous ce nom), mode photo, écran noir du staff, cinématique /
+  sélection / chargement, douane, garde, sprint, course de chakra, demande d'un autre joueur (porter, fouiller) : refus ou
+  sortie ; combat : entrée refusée 5 s après un coup donné ou reçu, sortie au coup, à la garde, au dash ; écran ouvert =
+  sortie, **sauf le tchat** ; narration, méditation, cécité : le mode reste ; déconnexion / changement de joueur : remise
+  à zéro sans fondu.
+- **Touches, migration v5** (`TouchesMigration.VERSION = 5`) : R (Interaction) déliée **seulement** si elle est encore sur
+  son défaut et si Concentration a une touche ; sinon R reste l'alias. Paramètres › Commandes › Monde : aide de
+  Concentration réécrite, ligne « Interaction » montrée seulement si elle a encore une touche. Textes « menu R » à
+  l'écran remplacés (lettre, faction, radio, viseur ; invite de la nourriture sur la touche réelle de Concentration).
+- Coût hors mode : rien (aucun rayon, aucun filtre, texture jamais réécrite). En mode : un rayon par tick, une passe
+  plein écran, la passe de contour vanilla seulement pendant un survol.
+
+### Étape B : plaques (0.4.199 aussi, 07/11 ; serveur ShinobiCore `concentration/`, PLUGINS_REFERENCE §4 undecies)
+
+- **Canal** `concentration/ConcentrationCanal` (`reborn:concentration`, enregistré par `Plaques.init` depuis
+  `ModeConcentration.init`) : `on` à l'entrée, `off` à toute sortie ; `etat on:false` du serveur (refus, fin imposée)
+  ferme le mode (`ModeConcentration.refusServeur`).
+- **`concentration/Plaques`** : ancres reçues sans le texte ; **choix automatique** à chaque tick de la plaque en face —
+  à sa portée (yeux → boîte), en vue (rayon `ClipContext.COLLIDER`, barrières d'un meuble traversées, même règle que le
+  serveur), à 25° au plus de la direction de la caméra ; la plus centrée, la plus proche à 3° près, hystérésis 5°, grâce
+  150 ms ; cache du texte par `(id, rev)`, refus = pas de nouvelle demande pendant 1,5 s ; cécité = rien.
+  `Plaques.clicPage()` (clic gauche hors cible, `InteractionMode`) tourne la page.
+- **Rendu ancré** (`RecitHud.ancres` ← `Plaques.pointTexte`) : point = centre de la face verticale tournée vers la
+  caméra (bloc, boîte) ou centre de la boîte (entité), avancé de 0,12 bloc ; projeté chaque image
+  (`ProjectionMonde`) ; capitales = 84 / profondeur, de 10 à 16 px, **par paliers de 1 px** (re-rastérisé seulement au
+  changement de palier ; décalages entiers, aucune autre re-rastérisation) ; hors champ : fondu 150 ms. Repère
+  « 1 / 3 › » sous le bloc. Une narration passe devant, la plaque revient (`Recit`).
+- **Halo** `concentration/HaloPlaque` (planche c4b, décision H1) : un quad tourné vers la caméra (texture radiale 64×64
+  prémultipliée, calculée une fois, filtrée en linéaire, **ARGB** de `NativeImage#setPixel`) + 6 étincelles (texture 16×16),
+  mélange additif `GUI_TEXTURED_PREMULTIPLIED_ALPHA`, dessiné dans le HUD (donc après l'effet d'écran) juste avant le
+  texte, à son opacité : il naît et meurt avec lui. Ivoire-or (cœur 255/249/232, lueur 255/204/122) ; violet
+  160/108/210 en constante de rechange (`HaloPlaque.VIOLET`). Aucune allocation par image.
+- **Outil staff** `staff/GardePlaques` (F7 › Outils › Plaques) : liste, fiche, éditeur (texte `GardeEditeur` 700,
+  portée, expiration, aperçu ancré en direct `RecitHud.Apercu.dessinerAncre`), sélecteur façon Axiom
+  `staff/SelecteurPlaque` (volet replié en bandeau, survol par `CursorRaycast` à chaque tick, clic, Maj + clic = boîte,
+  clic droit = caméra, ZQSD passés au personnage, Entrée / Échap) ; repères dans le monde `staff/MondePlaques`
+  (`RenderTypes.lines()`, un lot : coins dorés, fil de fer crème, or épais, gris hors de portée), seulement outil ouvert.
+- **Banc** `REBORN_LOT4_DEBUG=b` (`audit/Lot4bDebug`, serveur simulé côté client) : §5.
+
 ## 2. Touches
 
 **Lot 3 (05/11, 0.4.196)** : **Concentration = Y** (`HudKeybinds.CONCENTRATION`, sans effet avant le lot 4 ; `RappelsTouches.concentrationBranchee` à passer à vrai au lot 4), **Couper le micro = I**. Les touches de la voix sont **fusionnées avec Plasmo Voice** : `keybind/TouchesPlasmo` (sans classe Plasmo, chargé partout) et `voice/PlasmoTouches` (chargé par l'addon Plasmo) recopient Couper le micro, Couper le son, Appuyer pour parler et Parler à la radio dans les raccourcis de Plasmo et inversement — une seule liaison par action. **Migration 4** (`TouchesMigration`) : touches vanilla inutiles déliées et masquées (Progrès, Amis, spectateur, barres du créatif), micro Plasmo resté sur US-M en AZERTY corrigé, Y / I posées seulement si libres, échange Dégainer ↔ Concentration en QWERTZ. L'écran des touches (Paramètres › Commandes, `ControlsTab`) est rangé par catégories avec les conflits en vermillon (`TouchesConflits`). Rappels : seule la Concentration en temps normal, le reste en concentration, combat ou action ; en bas à droite, déplaçables (élément RAPPELS de l'éditeur).
@@ -204,6 +272,8 @@ JAVA_HOME=/c/Users/omarb/dev-cache/jdk-25.0.4.1+1 REBORN_FEATURE_PREVIEW=1 \
 | `REBORN_TOUCHES_DEBUG=1` | Carte des touches (15/10, `keybind/TouchesDebug`) : les touches passent par le **vrai** chemin du clavier (`KeyboardHandler.keyPress` par réflexion : écrans, toutes les liaisons de la touche, mods à l'écoute) ; piste dans le ciel au-dessus du point d'apparition (rendue à la fin) — B bref (écran de l'escouade) puis B dans l'écran (fermé), B maintenu (pas d'écran), F5 (1ʳᵉ personne, épaule), 2 appuis sur le sprint (sprint) puis 3 (course de chakra, arrêt au relâchement ; vue de côté par le regard libre, vraie touche Alt), P puis G (galerie, retour au mode photo), Échap → INTERFACE (éditeur → clic « Personnaliser le viseur ») et carte Personnage (sélection), N (menu OST si `mod-ost` est dans `run/mods`), « . » (émotes, démarches, fermé par « . »), Réglages → Contrôles et Caméra. table de la disposition du clavier sur des claviers simulés (QWERTY : rien ne bouge ; AZERTY : M → US « ; », Z → US W gardée, . → US « , » ; QWERTZ : Z → US Y) et lettre réellement affichée sur le poste. « [touches] OK / ECHEC » dans le log et `run/touches_banc.txt` (carte réelle des touches après migration avec la lettre affichée, raccourcis Plasmo Voice, conflits restants hors F3) ; captures `run/screenshots/touches_*.png`, copies dans `Maquettes/gameplan/touches/`. Pour éprouver la migration : `options.txt` avec les anciens défauts, sans `touchesVersion` dans `reborn_prefs.json`. Validé avec et sans le pack Sodium copié le temps de l'essai |
 | `REBORN_ESC_DEBUG=captures` (+ `REBORN_ESC_STAFF=1` ; autres modes `reprendre`, `echap`, `boutons`, `tout`) | Échap e5 du lot 3 (05/11, `menu/esc/EscDebug`) : données fictives (solde 1 250, Discord 1 234, stream en direct, deux charmes actifs), repos et survol de chaque entrée et de chaque carte, Boutique fermée puis ouverte, fermeture et ouverture animées → `run/screenshots/echap_e5_*.png` ; retours du 05/11 (`echap_e5_r0197_*`) : carte Stream sur les streamers 1, 2, 3, sortie, entrée, survol, hors ligne, défilement réel vérifié (change seul, pas au survol), identité masquée, sans version, identité réelle en solo (vide) ; perso quitté avec sa fiche encore en mémoire (Échap vide, sacoche = pseudo seul), roster avec personnage (Échap et sacoche « Aki Uchiha · Chūnin · Konohagakure » sans fiche ouverte, pied « Serveur 1.2.0 » tiré de la patch note fictive) ; identité « Aki Uchiha » imposée par le banc seulement ; « [EscDebug] OK / ECHEC » dans le log |
 | `REBORN_LOT3_DEBUG=1` | Lot 3 « Échap et touches » (05/11, `audit/Lot3Debug`, intégrateur) : rappels en jeu (normal — `RappelsTouches.concentrationBranchee` forcé le temps du banc : avant le lot 4, aucune ligne permanente —, concentration, combat via `RappelsTouches.debugMode`, plafond de 3 lignes où Concentration reste), éditeur de HUD ouvert sur les rappels (panneau replié à gauche), Paramètres (Commandes › Monde et › Voix et escouade, conflit Concentration sur F, Interface › Rappels et HUD, Audio › Voix et Général, Graphismes › Affichage et Rendu, Compte, Compte › Avancé, Graphismes en « Petite »), puis (05/11, `lot3_r0197_*`) le lien « Options de Minecraft › » au repos et survolé, le clic qui ouvre l'écran d'origine sans redirection, « Terminé » qui revient aux Paramètres, Vidéo ouvert depuis l'écran d'origine, redirection maintenue hors du lien → `run/screenshots/lot3_*.png`. Rien n'est sauvegardé. À lancer en 1920 × 1080 puis 1366 × 768, client en `lang:fr_fr` pour les noms de touches |
+| `REBORN_LOT4_DEBUG=b` | Lot 4, **étape B** (07/11, `audit/Lot4bDebug`) : scène bâtie sur un sol à nous (six stèles, lanterne, mur), serveur simulé côté client (`ConcentrationCanal.debugServeur`, `GardePlaquesDebug.serveur`), horloges figées ; lecture automatique à 2, 4 et 6 blocs de jour et de nuit, halo à 0, 120, 250 ms, sortie à 175 ms et fin, deux stèles (la plus centrée puis l'autre après un pas), hors de portée, mur entre les deux, narration qui passe devant puis retour, texte long (pages 1 et 2) ; outil « Plaques » : liste et repères, fiche et aperçu, sélecteur (survol, bloc, boîte), éditeur et aperçu ; en 1920×1080 puis 1366×768 → `run/screenshots/lot4b_*.png`, `[lot4b] OK / ECHEC`, puis ferme le jeu |
+| `REBORN_LOT4_DEBUG=1` | Lot 4 « Concentration », étape A (07/11, `audit/Lot4Debug`) : mannequin « autre joueur » décalé à droite, horloge du fondu figée (`ModeConcentration.horloge`) ; de jour en 1920×1080 puis 1366×768 : avant, entrée à 0 et 125 ms, concentré (six rappels), curseur sur le mannequin (contour), clic (menu de l'entité), menu d'un joueur, sortie à 75 ms, après ; de nuit : avant, concentré, survol ; blocages vérifiés au journal (`[lot4] OK / ECHEC`) : Malaxage du chakra (refus, capture, puis sortie), coup donné (sortie, refus 5 s), tchat (le mode reste), écran (sortie), Échap et touche Concentration par le vrai chemin du clavier → `run/screenshots/lot4_*.png`, puis ferme le jeu |
 | `REBORN_MOCKUPS` | Maquettes de scènes |
 
 - Un banc injecte de faux messages serveur (via des méthodes `debugReceive`) et prend des captures à des ticks

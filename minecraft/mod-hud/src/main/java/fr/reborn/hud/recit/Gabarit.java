@@ -171,8 +171,12 @@ public record Gabarit(String nom, Police police, Preset preset, double capitales
      * Avec une narration, la plus forte des deux vignettes (jamais leur somme).
      */
     public static final float BORDS_CONCENTRATION = 0.18f;
-    /** Fondus de l'assombrissement des bords : ceux du texte des stèles (entrée 250 ms, sortie 350 ms). */
-    public static final long BORDS_ENTREE_MS = 250, BORDS_SORTIE_MS = 350;
+    /**
+     * Fondus de l'assombrissement des bords : entrée 250 ms, sortie <b>150 ms</b> (lot 4, CADRAGE §6.2 : les couleurs
+     * reviennent avant que le texte d'une plaque ne s'efface, en 350 ms). Repli du filtre de la concentration
+     * ({@code ModeConcentration}), qui a les mêmes durées.
+     */
+    public static final long BORDS_ENTREE_MS = 250, BORDS_SORTIE_MS = 150;
 
     /** Facteur d'échelle f pour une fenêtre de {@code W} × {@code H} pixels écran. */
     public double facteur(int W, int H) {

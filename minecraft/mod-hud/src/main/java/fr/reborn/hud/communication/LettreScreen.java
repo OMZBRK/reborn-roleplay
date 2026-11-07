@@ -94,9 +94,9 @@ public final class LettreScreen extends Screen {
                     : "Cachet déjà brisé quand tu l'as prise : quelqu'un l'a lue avant toi.", cx, ys, 14, CommArt.AMBRE, false);
         else if (CommClient.bool(o, "vientDeBriser"))
             pz.texteC("Tu viens de briser le cachet : il le restera.", cx, ys, 14, CommArt.CREME_DOUX, false);
-        // Garder  Échap · Brûler · Tendre  menu R   (sur place : Laisser  Échap · Prendre)
+        // Garder  Échap · Brûler · Tendre  en concentration   (sur place : Laisser  Échap · Prendre)
         String g = surPlace ? "Laisser  Échap" : "Garder  Échap", b = surPlace ? "Prendre" : "Brûler",
-               t = surPlace ? "" : "Tendre  menu R", sep = "    ·    ";
+               t = surPlace ? "" : "Tendre  en concentration", sep = "    ·    ";
         float tot = pz.largeur(g + sep + b + (t.isEmpty() ? "" : sep + t), 13, false);
         float xx = cx - tot / 2f, yy = ys + 14;
         xx += pz.texte(g + sep, xx, yy, 13, CommArt.CREME_DOUX, false);

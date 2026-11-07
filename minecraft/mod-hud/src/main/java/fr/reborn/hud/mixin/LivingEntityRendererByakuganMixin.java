@@ -18,7 +18,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 /**
  * Byakugan, entités à portée (uniquement chez le porteur) : corps rendu en silhouette unie (texture blanche, pleine
  * lumière — le filtre négatif en fait une silhouette sombre), invisibles percés, aura (contour) visible à travers les
- * murs dans la couleur « inverse » du chakra.
+ * murs dans la couleur « inverse » du chakra. En concentration (lot 4), l'entité survolée prend le contour lumineux
+ * vanilla (blanc, comme l'effet « glowing »), côté client seulement.
  */
 @Mixin(LivingEntityRenderer.class)
 public abstract class LivingEntityRendererByakuganMixin {
@@ -32,6 +33,11 @@ public abstract class LivingEntityRendererByakuganMixin {
             state.isInvisibleToPlayer = false;
             state.outlineColor = ByakuganClient.CHAKRA_INVERSE;
             state.lightCoords = LightCoordsUtil.FULL_BRIGHT;
+        } else if (!state.isInvisibleToPlayer && fr.reborn.hud.concentration.ModeConcentration.halo(entity)) {
+            // Concentration (lot 4) : l'entité survolée prend le contour lumineux vanilla (« glowing »), chez soi
+            // seulement ; jamais sous le Byakugan (halo() le refuse : son filtre négatif l'inverserait), jamais sur un invisible
+            // (sa silhouette apparaîtrait)
+            state.outlineColor = fr.reborn.hud.concentration.ModeConcentration.HALO;
         }
     }
 
