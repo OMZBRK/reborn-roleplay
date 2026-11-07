@@ -1318,3 +1318,11 @@ communication:
     adresse-max: 40               # adresse écrite à la main (« Au chef de la Police »)
     destinataires-max: 10         # par missive (une copie et un coût chacun) ; aucune limite d'envois
     duree-alerte: 8               # secondes de la ligne « un corbeau a déposé une missive pour toi »
+
+# Concentration (lot 4, Game Plan n° 17) : plaques posées par le staff, lues seulement en concentration, face à l'objet.
+# Le texte part au seul joueur concentré, à portée (+ 1,5 bloc de tolérance) et en vue. Données : plaques.yml.
+concentration:
+  plaques:
+    ancres-portee: 32         # blocs : plaques signalées au client concentré (sans le texte)
+    portee-defaut: 6          # blocs de lecture d'une nouvelle plaque (2 à 16, réglable par plaque)
+    journal-lectures: false   # true : chaque lecture servie va au journal INTERACTION (PLAQUE_LUE), pour une enquête d'event

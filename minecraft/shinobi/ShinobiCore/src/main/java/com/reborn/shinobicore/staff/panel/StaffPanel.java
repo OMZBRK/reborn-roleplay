@@ -182,11 +182,16 @@ public final class StaffPanel implements Listener, PluginMessageListener {
 
     private void handle(Player p, String raw) {
         int grade = StaffGrades.of(p);
-        if (grade == StaffGrades.NONE) return;
         JsonObject in;
         try { in = JsonParser.parseString(raw).getAsJsonObject(); }
         catch (RuntimeException e) { return; }
         String a = str(in, "a");
+        // outil « Plaques » (lot 4) : un animateur sans grade y a ses plaques temporaires ; PlaquesPanel relit les droits
+        if (a.startsWith("plaque")) {
+            if (plugin.concentration() != null) plugin.concentration().panel(p, grade, a, in);
+            return;
+        }
+        if (grade == StaffGrades.NONE) return;
         switch (a) {
             case "open" -> openFor(p);
             case "refresh" -> sendSnapshot(p);

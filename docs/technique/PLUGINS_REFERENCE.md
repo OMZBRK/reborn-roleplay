@@ -99,6 +99,7 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/annonce` | `broadcast`, `bc` | Modérateur | `reborn.staff.helper` | Annonce à tous (bandeau du mod, sinon titre) ; `/annonce joueur <cible> <message>` = une seule personne |
 | `/annoncejoueur` | `broadcastplayer`, `bcp` | Helper | `reborn.staff.helper` | Message à un seul joueur (scène, convocation) |
 | `/narration` | `narrer` | Helper : un joueur ; Modérateur : ici, monde, tous ; animateur en mode animation : un joueur (64 blocs au plus), ici | `reborn.staff.narration` | **Narration au centre de l'écran** (lot 2, 01/11) : `/narration <joueur <cible>\|ici [rayon]\|monde\|tous> [+auto\|+tenir\|30s\|2m] [+remplace] [+tchat] <texte…>` ; couleurs `<rouge>…</>`, `<or>`, `<ombre>`, `<gris>` (alias `&c`, `&6`, `&9`, `&7`, `&r` = blanc ; `&&` = « & »), `\n` = à la ligne ; options **avant le texte**, marquées d'un `+` sauf la durée à suffixe (`30s`, `2m`, 2 à 180 s) : un mot ou un nombre seul fait partie du texte ; `+tenir` (jusqu'à l'arrêt, 10 min au plus) : Modérateur ; `ici` = 30 blocs par défaut, 64 au plus ; `tous` en jeu : résumé puis [Confirmer] (60 s) ; sous Modérateur : 3 s entre deux, 5 joueurs différents par minute, `+remplace` ne coupe que les siennes ; `/narration fin [id]` (les siennes ; Modérateur : toutes) ; journal `STAFF` `NARRATION` / `NARRATION_FIN`. La ligne de tchat de Minecraft s'arrête à 256 caractères : au-delà, le Poste de garde (1 000) ou plusieurs narrations à la suite — §4 bis.3 bis |
+| `/plaque` | `stele` | Helper : `liste`, `info`, `voir`, `corbeille`, `tp` ; Modérateur : `poser`, `objet`, `texte`, `portee`, `deplacer`, `retirer` ; Admin : `restaurer` ; animateur en mode animation : ses plaques temporaires (24 h) seulement | `reborn.staff.plaques` | **Plaques lues en concentration** (lot 4, étape B, 07/11) : `poser [p:6] [+24h] <texte…>` sur le bloc (8 blocs) ou le meuble (6) visé, `objet` sur l'objet en main ; portée **explicite** (`p:6`) : un nombre seul reste du texte. Balises de la narration. Journal `STAFF` (§4 undecies) |
 | `/aller` | `goto`, `stp` | Helper | `reborn.staff.helper` | Se téléporter à la cible (position de départ mémorisée) |
 | `/ramener` | `bring` | Modérateur | `reborn.staff.helper` | Ramener la cible à soi (sa position est mémorisée) |
 | `/retour` | `back` | Helper / Modérateur | `reborn.staff.helper` | Sans argument : revenir où l'on était ; `/retour <cible>` (Modérateur) : la renvoyer où elle était |
@@ -223,6 +224,7 @@ Admin. Qui sonne, qui écrit au palais, qui prend à une volière : seuils et dr
 | `shinobicore.staff` | Statut staff général (commandes staff, messages RPK) |
 | `reborn.staff.animation` | Mode animation `/modeanim` (animateur, MJ ; OP par défaut ; pas besoin d'un grade staff) |
 | `reborn.staff.narration` (op) | Commande `/narration` (01/11) : **donnée d'office** par `reborn.staff.helper` et `reborn.staff.animation` (enfants dans le `plugin.yml`) ; les droits réels — grade staff, mode animation — sont vérifiés à l'envoi (§4 bis.3 bis) |
+| `reborn.staff.plaques` (op) | Commande `/plaque` (lot 4, 07/11) : **donnée d'office** par `reborn.staff.helper` et `reborn.staff.animation` ; droits réels relus dans le code (Helper voit, Modérateur crée et modifie, Admin restaure, animateur en mode animation : ses plaques temporaires) — §4 undecies |
 | `reborn.douane.examinateur` (op) | Examinateur de la douane : mode examinateur, appels, questions, décisions, onglet Douane ; exige **aussi** un grade `reborn.staff.*` Helper au minimum (§4 decies.1) |
 | `shinobicore.admin`, `shinobiabilities.admin` | Contourne les vérifications (techniques non apprises, prérequis) |
 | `shinobicore.medic` | Médic rang 1 : paume jusqu'à 60 % des PV, reçoit les `/aide` |
@@ -303,6 +305,7 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `reborn:narration` | S → C | `staff.outils.Narrations` | `recit/NarrationClient` (+ `recit/Recit`, `recit/RecitHud`, allure `recit/Gabarit.NARRATION`) | Narration au centre de l'écran (01/11 ; en plein écran, blanc pur, plus grande, 02/11) : `narration` (segments colorés, durée, file / remplace, `ecoule` au rattrapage), `narration_fin` ; repli tchat, rattrapage à la connexion (§4 bis.3 bis) |
 | `reborn:ecran` | S → C | `staff.outils.EffetsStaff` | `staff/EffetsStaff` (+ `mixin/CameraSeismeMixin`) | Écran noir forcé, séisme (§4 bis.4) |
 | `reborn:plaques` | S → C | `staff.outils.ModeStaff` | `staff/NametagsStaff` | Nametags staff au-dessus des têtes, en mode staff (§4 bis.5) |
+| `reborn:concentration` | ⇄ | `concentration.ConcentrationCanal` | `concentration/ConcentrationCanal` (+ `Plaques`, `HaloPlaque`) | Concentration : `on` / `off`, ancres des plaques à 32 blocs sans le texte, texte au seul joueur concentré face à la plaque (§4 undecies) |
 | `reborn:douane` | ⇄ | `douane.DouaneCanal` | lot E (à venir) | Douane : ligne d'attente, écran neutre, appel, question, Bienvenue, résultat, nametags (message `plaques`, candidat) ; onglet Douane du Poste de garde (examinateur) (§4 decies.4 à .6) |
 | `reborn:radio` | S → C | `shinobiradio.Canal` (ShinobiRadio) | `radio/RadioClient` | Radio en escouades : état, qui parle, invitation, écoute staff (§4 quater) |
 
@@ -891,6 +894,76 @@ et refus → tchat.
   passé ne se reconstitue pas (« compté depuis le JJ/MM » dans le launcher).
 
 ---
+
+## 4 undecies. Concentration — plaques (lot 4, étape B, 07/11)
+
+Plaques posées par le staff, lues **seulement en concentration, face à l'objet** (décisions du 01/11 et du 07/11). Code :
+`ShinobiCore concentration/` (`ConcentrationModule`, `ConcentrationCanal`, `plaque/*`), mod `concentration/Plaques`,
+`HaloPlaque`, outil `staff/GardePlaques`. **Le texte n'atteint jamais un client qui n'est pas concentré devant la
+plaque.**
+
+### 4 undecies.1 Règles (serveur)
+
+- **Concentré** = le serveur l'a accepté à `on` et le revérifie à **chaque** demande de texte et toutes les 2 s : mort,
+  spectateur, écran noir du staff, et la capacité **`CONCENTRER`** de la matrice d'états (`etats.yml` : `vital.MORT`,
+  `vital.INCONSCIENT`, `vital.A_TERRE`, `cadre.HORS_JEU` (sélection, hors jeu), `cadre.HORS_JEU.CINEMATIQUE`,
+  `cadre.HORS_JEU.DOUANE`) → refus ou fin imposée (`etat on:false`). Changement de personnage, mort, déconnexion : fin.
+- **Lecture** (`PlaqueService.verifierLecture`) : plaque lisible (active, hors corbeille, non expirée), même monde, yeux
+  à **portée + 1,5** bloc de la boîte (portée 6 par défaut, 2 à 16), dans un cône de 60° autour du regard (garde-fou ;
+  le mod choisit à 25°), **ligne de vue réelle** (`PlaqueRegles.enVue`) : le rayon doit atteindre la boîte sans bloc
+  plein avant — un mur bloque aussi un meuble ou un cadre ; seules les **barrières** collées au meuble (hitbox Nexo, à un
+  bloc de sa boîte au plus) se traversent. Entité disparue (meuble cassé) : plus lue ni signalée, marquée « Absente »
+  au staff. Plaque d'objet à plusieurs exemplaires : il suffit que l'un d'eux soit devant le joueur.
+- **Débit** : `on` 4 par seconde (au-delà : `etat on:false`, « Trop vite. ») ; `off` jamais limité ; `lire` 10 par
+  seconde. Une lecture n'est comptée (« lue N fois », journal `INTERACTION PLAQUE_LUE` si `journal-lectures`) qu'une fois
+  par joueur, plaque et révision pendant sa connexion.
+
+### 4 undecies.2 Canal `reborn:concentration` (JSON UTF-8 brut, `v` = 1, champs inconnus ignorés)
+
+| Sens | Message | Effet |
+|---|---|---|
+| C → S | `{"v":1,"a":"on"}` / `{"v":1,"a":"off"}` | Entrée (revérifiée) / sortie |
+| S → C | `{"v":1,"t":"etat","on":true}` | Accepté : les ancres suivent |
+| S → C | `{"v":1,"t":"etat","on":false,"raison":"…"}` | Refus ou fin imposée : le mod ferme le mode |
+| S → C | `{"v":1,"t":"ancres","l":[…]}` — bloc : `{"id","rev","k":"bloc","x","y","z","b":[dx,dy,dz],"p"}` ; entité : `{"id","rev","k":"entite","x","y","z","w","h","p"}` | Plaques lisibles à 32 blocs (`ancres-portee`), **sans le texte** ; à l'entrée puis toutes les 2 s si la liste change ; un objet porteur part comme une entité |
+| C → S | `{"v":1,"a":"lire","id":"P1A"}` | Demande du texte de la plaque en face |
+| S → C | `{"v":1,"t":"texte","id","rev","segs":[[texte, couleur]…]}` | Seulement si toutes les règles passent |
+| S → C | `{"v":1,"t":"texte_refus","id"}` | Silencieux côté mod (pas de nouvelle demande pendant 1,5 s) |
+
+Côté mod : sélection **automatique** de la plaque en face (portée, ligne de vue, 25° autour de la caméra ; la plus
+centrée, la plus proche à 3° près ; hystérésis 5° ; grâce 150 ms), cache du texte par `(id, rev)`, texte
+`Gabarit.STELE` **ancré devant l'objet** (capitales 84 / profondeur, 10 à 16 px), halo ivoire-or, pages au clic gauche.
+
+### 4 undecies.3 Outil « Plaques » du Poste de garde (`reborn:staff`, C → S, champ `a`)
+
+| `a` | Droits | Champs | Réponse |
+|---|---|---|---|
+| `plaques` | Helper ; animateur en mode animation (les siennes) | `r` (64, 256 au plus), `q` | `plaques` |
+| `plaque_creer` | Modérateur ; animateur (temporaire, 24 h au plus, expiration obligatoire) | `ancre` (`{"k":"bloc","x","y","z","b":[dx,dy,dz]}`, `{"k":"entite","e":uuid}` ou `{"k":"objet"}` = objet en main), `segs` ou `texte` (balises), `titre`, `p` (2-16), `expire` (min, 0 = jamais) | `toast` puis `plaques` (`dernier` = id) |
+| `plaque_modifier` | Modérateur ; l'animateur, ses temporaires | `id` + champs à changer, `actif` | idem |
+| `plaque_deplacer` | idem (pas une plaque d'objet) | `id`, `ancre` | idem |
+| `plaque_suppr` | idem | `id`, `motif` (≥ 3) → corbeille 30 jours | idem |
+| `plaque_restaurer` | Admin | `id` | idem |
+| `plaque_tp` | Helper | `id` → place sûre devant l'ancre, journal `PLAQUE_TP` | idem |
+
+Réponse `plaques` : `grade`, `anim`, `peutCreer`, `temporaire`, `peutRestaurer`, `voirTout`, `rayon`, `texteMax`,
+`dernier` ; `l` = 60 plaques au plus, chacune `{id, titre, texte (160), segs, k, monde, x, y, z, b ou w, h, e, dist, p,
+actif, expire (min restantes), temporaire, rev, par, le, modifPar, modifLe, lectures, moi, peutModifier, absente?}` ;
+`corbeille` (Helper et plus) = `[{id, titre, texte, k, monde, par, le, motif, reste (jours)}]`. Ancre vérifiée au
+serveur : même monde, 8 blocs des yeux (+ 1), boîte de 32 blocs par côté au plus, entité chargée, jamais un joueur.
+`StaffPanel` laisse passer les actions `plaque*` sans grade : `PlaquesPanel` relit les droits (animateur en mode
+animation).
+
+### 4 undecies.4 Fichier, réglages, journal
+
+- `plugins/ShinobiCore/plaques.yml` : écriture **atomique** différée (`.tmp` puis renommage, la plus récente gagne).
+  **Fichier illisible ou YAML invalide** : jamais écrasé — copie `plaques.yml.corrompu-<date>`, log **SEVERE**,
+  créations et écritures **bloquées** jusqu'à `/sc reload` après correction (les identifiants ne sont jamais réutilisés :
+  le compteur repart au-dessus du plus grand id lu).
+- `config.yml` › `concentration.plaques` : `ancres-portee` (32), `portee-defaut` (6), `journal-lectures` (false).
+- Journal `STAFF` : `PLAQUE_CREEE`, `PLAQUE_MODIFIEE`, `PLAQUE_TEXTE` (texte entier en morceaux de 550),
+  `PLAQUE_DEPLACEE`, `PLAQUE_SUPPRIMEE`, `PLAQUE_RESTAUREE`, `PLAQUE_EXPIREE`, `PLAQUE_PURGEE`, `PLAQUE_TP`,
+  `PLAQUE_REFUS`.
 
 ## 4 ter. Nourriture et modificateurs — protocole (14/10)
 

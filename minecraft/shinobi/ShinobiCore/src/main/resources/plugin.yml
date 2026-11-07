@@ -238,6 +238,11 @@ commands:
     usage: "/<command> <joueur <cible>|ici [rayon]|monde|tous> [+auto|+tenir|30s|2m] [+remplace] [+tchat] <texte…> | /<command> fin [id]"
     aliases: [narrer]
     permission: reborn.staff.narration
+  plaque:
+    description: "Staff — plaques lues en concentration (lot 4) : poser (vise un bloc ou un meuble), objet (en main), texte, portee, deplacer, retirer, restaurer, liste, corbeille, info, voir, tp. Grade vérifié dans le code."
+    usage: "/<command> poser [p:6] [+24h] <texte…> | objet [p:6] <texte…> | texte <id> <texte…> | portee <id> <2-16> | deplacer <id> | retirer <id> <motif…> | restaurer <id> | liste [rayon] | corbeille | info <id> | voir <id> | tp <id>"
+    aliases: [stele]
+    permission: reborn.staff.plaques
   aller:
     description: "Staff — se téléporter à un joueur (pseudo, nom RP ou #N°)."
     usage: "/<command> <cible>"
@@ -371,6 +376,10 @@ permissions:
     default: op
     children:
       reborn.staff.narration: true
+      reborn.staff.plaques: true
+  reborn.staff.plaques:
+    description: "Commande /plaque (lot 4, plaques lues en concentration ; donnée au Helper et à l'animateur). Droits réels vérifiés dans le code : Helper voit, Modérateur crée et modifie, Admin restaure, animateur en mode animation ses plaques temporaires de 24 h."
+    default: op
   reborn.staff.narration:
     description: "Commande /narration (donnée au Helper et à l'animateur) ; les droits réels sont vérifiés à l'envoi : grade staff, ou mode animation."
     default: op
@@ -382,6 +391,7 @@ permissions:
     default: false
     children:
       reborn.staff.narration: true
+      reborn.staff.plaques: true
   reborn.staff.modo:
     description: Poste de garde — Modérateur (geler, observer, mute, ban jusqu'à 1 jour, KO / ATA).
     default: false

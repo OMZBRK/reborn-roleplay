@@ -87,6 +87,8 @@ public final class ShinobiCore extends JavaPlugin {
     private com.reborn.shinobicore.ko.KoHudSync koHudSync;
     private com.reborn.shinobicore.staff.panel.StaffPanel staffPanel;
     private com.reborn.shinobicore.journal.JournalServiceImpl journal;
+    /** Lot 4 « Concentration », étape B : plaques lues en concentration (canal reborn:concentration, /plaque). */
+    private com.reborn.shinobicore.concentration.ConcentrationModule concentration;
     private com.reborn.shinobicore.staff.outils.OutilsStaff outilsStaff;
     /** Douane en jeu (CANDIDATURE_ET_DOUANE.md §3.3-3.10) ; null en mode build. */
     private com.reborn.shinobicore.douane.DouaneManager douane;
@@ -845,6 +847,11 @@ public final class ShinobiCore extends JavaPlugin {
         this.outilsStaff = new com.reborn.shinobicore.staff.outils.OutilsStaff(this);
         this.outilsStaff.demarrer();
 
+        // Concentration, étape B (lot 4) : plaques posées par le staff, texte envoyé au seul joueur concentré devant
+        // (canal reborn:concentration), outil « Plaques » du Poste de garde, /plaque, plugins/ShinobiCore/plaques.yml.
+        this.concentration = new com.reborn.shinobicore.concentration.ConcentrationModule(this);
+        this.concentration.demarrer();
+
         // Douane (CANDIDATURE_ET_DOUANE.md §3.3-3.10) : aiguillage à la connexion (refus par défaut), monde « douane »,
         // hall, file, bureaux, mode examinateur, /douane, canal reborn:douane. Coupée tant que douane.enabled: false.
         if (!buildMode) {
@@ -948,6 +955,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (palmHealing != null) palmHealing.stopAll();
         if (koHudSync != null) koHudSync.stop();
         if (staffPanel != null) staffPanel.infirmerie().stop();
+        if (concentration != null) concentration.arreter();
         if (exhaustionManager != null) exhaustionManager.stop();
         if (dummyManager != null) dummyManager.save();
         if (cinematicManager != null) cinematicManager.shutdown();
@@ -985,6 +993,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (boutiques           != null) boutiques.recharger();
         if (etatsModule         != null) etatsModule.service().charger();
         if (douane              != null) douane.recharger();
+        if (concentration       != null) concentration.plaques().recharger();
         if (to != null) {
             to.sendMessage(Component.text("Configuration ShinobiCore rechargée.", NamedTextColor.GREEN));
         }
@@ -1421,6 +1430,8 @@ public final class ShinobiCore extends JavaPlugin {
     public com.reborn.shinobicore.medic.PalmHealing palm() { return palmHealing; }
     public com.reborn.shinobicore.ko.KoHudSync koHud() { return koHudSync; }
     public com.reborn.shinobicore.staff.panel.StaffPanel staffPanel() { return staffPanel; }
+    /** Lot 4 : plaques lues en concentration (null avant le démarrage). */
+    public com.reborn.shinobicore.concentration.ConcentrationModule concentration() { return concentration; }
     /** Journal universel (14/10) ; les add-ons passent par le service {@code JournalService}. */
     public com.reborn.shinobicore.journal.JournalServiceImpl journal() { return journal; }
     public com.reborn.shinobicore.staff.outils.OutilsStaff outilsStaff() { return outilsStaff; }

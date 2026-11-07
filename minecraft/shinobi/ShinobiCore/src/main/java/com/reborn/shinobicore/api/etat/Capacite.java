@@ -22,6 +22,8 @@ public enum Capacite {
     CONSOMMER(null),
     /* interaction (vers autrui) */
     INTERAGIR("int"), PORTER(null), EXECUTER("exe"), SOIGNER(null), FOUILLER(null),
+    /* perception : le mode Concentration (lot 4 ; « con » est déjà la stat Contrôle, d'où « cnc ») */
+    CONCENTRER("cnc"),
     /* ce que les autres peuvent faire sur lui */
     ETRE_PORTE(null), ETRE_FOUILLE(null), ETRE_EXECUTE(null),
     /* communication */
