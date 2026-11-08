@@ -26,11 +26,94 @@ import net.minecraft.resources.Identifier;
  * {@code GUI_TEXTURED_PREMULTIPLIED_ALPHA} — la lumière s'ajoute au décor, sans plaque sombre. Coût : 1 + 6 blits par
  * image pendant la lecture, <b>aucune allocation</b> (positions des étincelles calculées depuis l'horloge) ; deux petites
  * textures (64² et 16²) créées au premier usage.
+ *
+ * <p><b>Couleur par plaque</b> (décision du 07/11, planche c6) : le staff choisit la <b>lueur</b> ; le serveur l'envoie
+ * avec le texte ({@code halo} absent = {@link #DEFAUT} ivoire-or exact, {@code "aucun"} = {@link #AUCUN}, sinon
+ * {@code RRGGBB}) ; {@link Palette#depuis} en dérive le cœur, le voile et les étincelles. Les textures de chaque couleur
+ * vivent dans {@value #EMPLACEMENTS} emplacements fixes (le moins récent est repris) : deux plaques de couleurs
+ * différentes en fondu croisé, l'aperçu du staff et son sélecteur ne se marchent pas dessus ; aucune allocation par
+ * image (recherche linéaire sur des tableaux).
  */
 public final class HaloPlaque {
 
     /** Palette : cœur, lueur, voile, étincelle (RVB). */
-    public record Palette(int coeur, int lueur, int voile, int etincelle) { }
+    public record Palette(int coeur, int lueur, int voile, int etincelle) {
+
+        /** Luminosité HSV minimale d'une lueur : une lumière additive plus sombre ne se voit plus (planche c6). */
+        public static final float V_MIN = 0.55f;
+
+        /**
+         * Palette dérivée d'une seule couleur choisie ({@code glow}, RVB) : luminosité HSV relevée à {@link #V_MIN} au
+         * moins (teinte et saturation gardées) = la lueur ; cœur = lueur mêlée à 85 % de blanc ; étincelle = 70 % de blanc ;
+         * voile = teinte − 5°, saturation × 1,25 (bornée), luminosité ^ 1,6. Même calcul que {@code _c6.py} (deriver).
+         */
+        public static Palette depuis(int glow) {
+            int l = relever(glow);
+            float[] hsv = fr.reborn.hud.skin.SkinSpec.argbToHsv(l);
+            int voile = fr.reborn.hud.skin.SkinSpec.hsvToArgb(hsv[0] - 5f / 360f, Math.min(1f, hsv[1] * 1.25f),
+                (float) Math.pow(hsv[2], 1.6)) & 0xFFFFFF;
+            return new Palette(versBlanc(l, 0.85), l, voile, versBlanc(l, 0.70));
+        }
+
+        /** La lueur relevée : luminosité HSV portée à {@link #V_MIN} au moins (RVB). */
+        public static int relever(int rgb) {
+            float[] hsv = fr.reborn.hud.skin.SkinSpec.argbToHsv(rgb & 0xFFFFFF);
+            if (hsv[2] >= V_MIN) return rgb & 0xFFFFFF;
+            return fr.reborn.hud.skin.SkinSpec.hsvToArgb(hsv[0], hsv[1], V_MIN) & 0xFFFFFF;
+        }
+
+        private static int versBlanc(int c, double k) {
+            int r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
+            r = (int) Math.round(r + (255 - r) * k);
+            g = (int) Math.round(g + (255 - g) * k);
+            b = (int) Math.round(b + (255 - b) * k);
+            return r << 16 | g << 8 | b;
+        }
+    }
+
+    /** Code du halo : ivoire-or exact ({@link #IVOIRE_OR}, halo absent du message). */
+    public static final int DEFAUT = -1;
+    /** Code du halo : aucun (le texte seul). Tout code ≥ 0 est une lueur RVB. */
+    public static final int AUCUN = -2;
+
+    /**
+     * Les huit préréglages de l'éditeur, dans l'ordre de la rangée (planche c6). Ivoire-or en tête (le défaut, rien de
+     * stocké), « aucun » en dernier.
+     */
+    public static final int[] PRESETS = {DEFAUT, 0xD6E2F2, 0x6FB4FF, 0xA06CD2, 0xD9443F, 0x5FD49A, 0xFF9A3C, AUCUN};
+    public static final String[] PRESETS_NOMS = {"Ivoire-or", "Blanc lunaire", "Bleu chakra", "Violet", "Rouge sang", "Vert jade",
+        "Ambre", "Aucun halo"};
+
+    /** Code d'un halo reçu : absent ou vide = {@link #DEFAUT}, « aucun » = {@link #AUCUN}, « RRGGBB » = la lueur. */
+    public static int code(String halo) {
+        if (halo == null || halo.isEmpty()) return DEFAUT;
+        if ("aucun".equalsIgnoreCase(halo)) return AUCUN;
+        String h = halo.startsWith("#") ? halo.substring(1) : halo;
+        if (h.length() != 6) return DEFAUT;
+        try {
+            int v = Integer.parseInt(h, 16) & 0xFFFFFF;
+            return v == 0xFFCC7A ? DEFAUT : v;
+        } catch (NumberFormatException e) { return DEFAUT; }
+    }
+
+    /** Valeur à envoyer au serveur : {@code ""} (ivoire-or), {@code "aucun"}, {@code "RRGGBB"}. */
+    public static String valeur(int code) {
+        if (code == DEFAUT) return "";
+        if (code == AUCUN) return "aucun";
+        return String.format(java.util.Locale.ROOT, "%06X", code & 0xFFFFFF);
+    }
+
+    /** Palette d'un code (ivoire-or exact pour {@link #DEFAUT}) ; null pour {@link #AUCUN}. Alloue : pas par image. */
+    public static Palette paletteDe(int code) {
+        if (code == AUCUN) return null;
+        return code == DEFAUT ? palette : Palette.depuis(code);
+    }
+
+    /** Lueur affichée d'un code (pastilles, fiche) : RVB, ou -1 pour {@link #AUCUN}. */
+    public static int lueurDe(int code) {
+        if (code == AUCUN) return -1;
+        return code == DEFAUT ? palette.lueur() : Palette.relever(code);
+    }
 
     /** H1, retenue le 07/11 : ivoire-or chaud. */
     public static final Palette IVOIRE_OR = new Palette(0xFFF9E8, 0xFFCC7A, 0xFFB25C, 0xFFF2D2);
@@ -58,10 +141,24 @@ public final class HaloPlaque {
     /** Rayon de l'étincelle dans sa texture (px à l'échelle 1) : la lueur σ 2,2 tient dans 6 px. */
     private static final double ETINCELLE_R = 6.0;
 
-    private static final Identifier TEX_HALO = Identifier.fromNamespaceAndPath("reborn-hud", "concentration/halo_plaque"),
-        TEX_ETINCELLE = Identifier.fromNamespaceAndPath("reborn-hud", "concentration/etincelle_plaque");
+    /** Emplacements de textures (une couleur chacun) : fondu croisé, aperçu du staff, sélecteur. */
+    static final int EMPLACEMENTS = 6;
+    private static final Identifier[] TEX_HALO = new Identifier[EMPLACEMENTS], TEX_ETINCELLE = new Identifier[EMPLACEMENTS];
+    /** Code de chaque emplacement ({@link #DEFAUT} ou la lueur RVB), {@code Integer.MIN_VALUE} = libre. */
+    private static final int[] CODES = new int[EMPLACEMENTS];
+    private static final long[] VU = new long[EMPLACEMENTS];
+    /** Palette ivoire-or en service quand l'emplacement {@link #DEFAUT} a été fait (le banc peut changer {@link #palette}). */
     private static Palette faite;
+    private static long horlogeVu;
     private static boolean enPanne;
+
+    static {
+        for (int i = 0; i < EMPLACEMENTS; i++) {
+            TEX_HALO[i] = Identifier.fromNamespaceAndPath("reborn-hud", "concentration/halo_plaque_" + i);
+            TEX_ETINCELLE[i] = Identifier.fromNamespaceAndPath("reborn-hud", "concentration/etincelle_plaque_" + i);
+            CODES[i] = Integer.MIN_VALUE;
+        }
+    }
 
     /** Banc : nombre d'étincelles dessinées à la dernière image. */
     static int etincellesVues;
@@ -74,13 +171,20 @@ public final class HaloPlaque {
      * l'opacité {@code a} (celle du texte), au temps {@code tMs}. À appeler en pixels écran ({@code DaKit.debutPx}).
      */
     public static void dessiner(GuiGraphicsExtractor ctx, double cx, double cy, double k, float a, long tMs) {
-        if (a <= 0.004f || enPanne) return;
-        if (!preparer()) return;
+        dessiner(ctx, cx, cy, k, a, tMs, DEFAUT);
+    }
+
+    /** Comme {@link #dessiner(GuiGraphicsExtractor, double, double, double, float, long)}, de la couleur {@code code}. */
+    public static void dessiner(GuiGraphicsExtractor ctx, double cx, double cy, double k, float a, long tMs, int code) {
+        if (a <= 0.004f || enPanne || code == AUCUN) return;
+        int emp = preparer(code);
+        if (emp < 0) return;
+        Identifier texHalo = TEX_HALO[emp], texEtincelle = TEX_ETINCELLE[emp];
         cy += HALO_DY * k;
         int col = gris(a);
         int d = (int) Math.round(2 * QUAD_DEMI * k);
         int x0 = (int) Math.round(cx - d / 2.0), y0 = (int) Math.round(cy - d / 2.0);
-        ctx.blit(RenderPipelines.GUI_TEXTURED_PREMULTIPLIED_ALPHA, TEX_HALO, x0, y0, 0f, 0f, d, d, T_HALO, T_HALO, T_HALO, T_HALO, col);
+        ctx.blit(RenderPipelines.GUI_TEXTURED_PREMULTIPLIED_ALPHA, texHalo, x0, y0, 0f, 0f, d, d, T_HALO, T_HALO, T_HALO, T_HALO, col);
         // étincelles : chacune monte depuis la lueur, ondule, naît et s'éteint sur sa période
         int n = 0;
         double t = tMs / 1000.0;
@@ -93,7 +197,7 @@ public final class HaloPlaque {
             double ex = cx + (e[0] + e[5] * Math.sin(2 * Math.PI * (1.5 * u + e[3]))) * k;
             double ey = cy + (e[1] - e[4] * u) * k;
             int ix = (int) Math.round(ex - de / 2.0), iy = (int) Math.round(ey - de / 2.0);
-            ctx.blit(RenderPipelines.GUI_TEXTURED_PREMULTIPLIED_ALPHA, TEX_ETINCELLE, ix, iy, 0f, 0f, de, de,
+            ctx.blit(RenderPipelines.GUI_TEXTURED_PREMULTIPLIED_ALPHA, texEtincelle, ix, iy, 0f, 0f, de, de,
                 T_ETINCELLE, T_ETINCELLE, T_ETINCELLE, T_ETINCELLE, gris(av));
             n++;
         }
@@ -106,20 +210,39 @@ public final class HaloPlaque {
         return v << 24 | v << 16 | v << 8 | v;
     }
 
-    /** Textures (une fois, et à chaque changement de palette). */
-    private static boolean preparer() {
-        Palette p = palette;
-        if (p == faite) return true;
+    /**
+     * Emplacement des textures de la couleur {@code code} (faites au premier usage) ; -1 si le halo est en panne. Une
+     * couleur déjà faite ne coûte qu'une recherche dans {@value #EMPLACEMENTS} cases ; une nouvelle reprend l'emplacement
+     * le moins récemment utilisé (ses textures sont libérées).
+     */
+    private static int preparer(int code) {
+        long n = ++horlogeVu;
+        int reprise = -1;
+        for (int i = 0; i < EMPLACEMENTS; i++) {
+            if (CODES[i] == code) {
+                if (code != DEFAUT || faite == palette) { VU[i] = n; return i; }
+                reprise = i;   // l'ivoire-or à refaire (le banc a changé de palette) : sa propre case
+                break;
+            }
+            if (reprise < 0 || VU[i] < VU[reprise]) reprise = i;
+        }
+        Palette p = code == DEFAUT ? palette : Palette.depuis(code);
         try {
             var tm = Minecraft.getInstance().getTextureManager();
-            tm.register(TEX_HALO, new Lineaire("reborn-hud halo de plaque", texHalo(p)));
-            tm.register(TEX_ETINCELLE, new Lineaire("reborn-hud étincelle de plaque", texEtincelle(p)));
-            faite = p;
-            return true;
+            if (CODES[reprise] != Integer.MIN_VALUE) {
+                tm.release(TEX_HALO[reprise]);
+                tm.release(TEX_ETINCELLE[reprise]);
+            }
+            tm.register(TEX_HALO[reprise], new Lineaire("reborn-hud halo de plaque", texHalo(p)));
+            tm.register(TEX_ETINCELLE[reprise], new Lineaire("reborn-hud étincelle de plaque", texEtincelle(p)));
+            CODES[reprise] = code;
+            VU[reprise] = n;
+            if (code == DEFAUT) faite = p;
+            return reprise;
         } catch (RuntimeException | LinkageError e) {
             enPanne = true;
             org.slf4j.LoggerFactory.getLogger("reborn-hud").warn("Halo de plaque coupé ({})", e.toString());
-            return false;
+            return -1;
         }
     }
 

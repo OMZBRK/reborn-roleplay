@@ -38,7 +38,8 @@ import static fr.reborn.hud.staff.GardeArt.*;
  *   <li><b>Éditeur</b> : ancre choisie au <b>sélecteur façon Axiom</b> ({@link SelecteurPlaque} : le volet se replie en
  *       bandeau, la souris vise un bloc, une boîte de blocs ou une entité) ou l'objet en main ; titre interne ; texte à
  *       couleurs de la narration (700 caractères, avertissement au-delà de 450) ; portée 2 à 16 ; expiration (24 h au
- *       plus et obligatoire pour un animateur) ; <b>aperçu en direct</b> devant l'objet, taille réelle, halo compris
+ *       plus et obligatoire pour un animateur) ; <b>couleur du halo</b> (planche c6 : huit préréglages, « Personnalisée »
+ *       avec sélecteur en ligne, {@link GardeHalo}) ; <b>aperçu en direct</b> devant l'objet, taille réelle, halo compris
  *       ({@link RecitHud.Apercu#dessinerAncre}).</li>
  * </ul>
  * Droits (décision du 07/11) : Helper voit, prévisualise, se téléporte ; Modérateur crée, modifie, déplace, supprime ;
@@ -56,6 +57,8 @@ final class GardePlaques {
     final SelecteurPlaque sel = new SelecteurPlaque();
     final GardeEditeur editeur = new GardeEditeur(TEXTE_MAX);
     private final RecitHud.Apercu apercu = new RecitHud.Apercu();
+    /** Rangée « Halo » de l'éditeur, ligne de la fiche (planche c6). */
+    final GardeHalo halo;
     private EditBox rech, titreBox;
     private int ticks;
 
@@ -92,11 +95,15 @@ final class GardePlaques {
     private static final Vector3f V = new Vector3f();
     private static final double[] PT = new double[3];
 
-    GardePlaques(StaffScreen s) { this.s = s; }
+    GardePlaques(StaffScreen s) {
+        this.s = s;
+        this.halo = new GardeHalo(s);
+    }
 
     void init() {
         rech = s.box(rech, "Titre, texte ou id (P1A)", 40);
         titreBox = s.box(titreBox, "Stèle du premier gardien", 60);
+        halo.init();
     }
 
     /** Ouverture de l'outil : liste demandée. */
@@ -116,6 +123,7 @@ final class GardePlaques {
 
     void tick() {
         Minecraft mc = Minecraft.getInstance();
+        if ("editeur".equals(vue)) halo.tick();
         if (sel.actif) {
             if (horsVolet(s.mouseX, s.mouseY)) sel.survoler(mc, s.mouseX, s.mouseY);
             else sel.viseK = 0;
@@ -138,6 +146,7 @@ final class GardePlaques {
         apercu.liberer();
         segsVus = segsPoses = null;
         focus = glisse = false;
+        halo.relacher();
         if (sel.actif) relacherTouches();
         sel.fermer();
         montrerCurseur();
@@ -437,6 +446,7 @@ final class GardePlaques {
             y = info("État", (String) et[0] + (StaffScreen.bool(p, "temporaire") ? " · temporaire" : ""), (int) et[1], y);
             y = info("Ancre", coords(p) + " · " + distance(p), CREME, y);
             y = info("Portée", StaffScreen.num(p, "p") + " blocs de lecture (+ 1,5 au serveur)", CREME, y);
+            y = halo.ligneFiche(y, fr.reborn.hud.concentration.HaloPlaque.code(StaffScreen.str(p, "halo")));
             y = info("Posée", "par " + StaffScreen.str(p, "par") + " le " + StaffScreen.str(p, "le"), CREME, y);
             if (!StaffScreen.str(p, "modifPar").isEmpty())
                 y = info("Modifiée", "par " + StaffScreen.str(p, "modifPar") + " le " + StaffScreen.str(p, "modifLe") + " · rév. " + StaffScreen.num(p, "rev"), CREME, y);
@@ -595,6 +605,7 @@ final class GardePlaques {
         titreBox.setValue("");
         portee = PORTEE_DEFAUT;
         expire = expireInitial = drapeau("temporaire") ? 1440 : 0;
+        halo.effacer();
         apercuVisible = true;
         vue = "editeur";
         focus = true;
@@ -620,6 +631,7 @@ final class GardePlaques {
         titreBox.setValue(StaffScreen.str(p, "titre"));
         portee = Math.max(PORTEE_MIN, Math.min(PORTEE_MAX, StaffScreen.num(p, "p")));
         expire = expireInitial = StaffScreen.num(p, "expire");
+        halo.poser(fr.reborn.hud.concentration.HaloPlaque.code(StaffScreen.str(p, "halo")));
         vue = "editeur";
         focus = true;
         s.scroll = 0;
@@ -718,6 +730,8 @@ final class GardePlaques {
         y += 13;
         if (temp) y = note("Mode animation : la plaque est temporaire (24 h au plus) ; toi seul la modifies.", ANIM, y);
         y += 2;
+        // ------------------------------------------------------------------ halo (planche c6)
+        y = halo.rangee(y);
         // ------------------------------------------------------------------ aperçu
         pz.texte("Aperçu", ix, y + 4, 12, GRIS, false);
         s.txt(ancreBoiteOk ? "devant l'objet, taille réelle, comme en concentration" : "au centre de l'écran (pas encore d'ancre)", ix + 46, y + 4, iw - 46, 11, GRIS_2, false);
@@ -743,6 +757,10 @@ final class GardePlaques {
         pz.capitales("Sélecteur", ix, y + 4, 10, GRIS_2);
         y += 10;
         y = note("Changer : le volet se replie, la souris choisit dans le monde (clic : un bloc ; Maj + clic : second coin d'une boîte ; un meuble ou un objet se choisit d'un clic). Entrée valide, Échap revient ici sans rien changer.", GRIS_2, y);
+        y += 4;
+        pz.capitales("Halo", ix, y + 4, 10, GRIS_2);
+        y += 10;
+        y = note(GardeHalo.ASTUCE + " Le halo naît et meurt avec le texte ; « Aucun halo » laisse le texte seul.", GRIS_2, y);
         return y + 4;
     }
 
@@ -823,6 +841,8 @@ final class GardePlaques {
             o.addProperty("titre", titreBox.getValue().trim());
             o.addProperty("p", portee);
             o.addProperty("expire", expire);
+            // halo : absent = ivoire-or (rien de stocké)
+            if (halo.code() != fr.reborn.hud.concentration.HaloPlaque.DEFAUT) o.addProperty("halo", halo.valeur());
             StaffClient.send(o);
         } else {
             JsonObject o = base("plaque_modifier", editId);
@@ -830,6 +850,8 @@ final class GardePlaques {
             o.addProperty("titre", titreBox.getValue().trim());
             o.addProperty("p", portee);
             if (expire != expireInitial) o.addProperty("expire", expire);
+            // seulement s'il change ; vide = retour à l'ivoire-or
+            if (halo.change()) o.addProperty("halo", halo.valeur());
             StaffClient.send(o);
             if (ancreChangee && ancre != null) {
                 JsonObject d = base("plaque_deplacer", editId);
@@ -837,6 +859,7 @@ final class GardePlaques {
                 StaffClient.send(d);
             }
         }
+        halo.retenir();
         envoiA = System.currentTimeMillis();
         attendu = editId == null ? "creer" : editId;
         RebornSounds.confirm();
@@ -1056,6 +1079,7 @@ final class GardePlaques {
         double[] boite = null;
         boolean bloc = true;
         net.minecraft.core.Direction faceA = null;
+        int codeHalo = fr.reborn.hud.concentration.HaloPlaque.DEFAUT;
         if ("editeur".equals(vue) && apercuVisible) {
             segs = editeur.segments();
             long now = net.minecraft.util.Util.getMillis();
@@ -1063,12 +1087,14 @@ final class GardePlaques {
             if (apercu.pages() == 0 || segs.isEmpty() || now - segsVusA >= ATTENTE_FRAPPE_MS) segsPoses = segs;
             segs = segsPoses;
             if (ancreBoiteOk) { boite = ancreBoite; bloc = ancreBloc; faceA = faceSeule ? ancreFace : null; }
+            codeHalo = halo.code();   // la couleur choisie, en direct
         } else if ("fiche".equals(vue) && apercuFiche) {
             JsonObject p = plaque(ficheId, false);
             if (p != null) {
                 String cle = ficheId + ":" + StaffScreen.num(p, "rev");
                 if (!cle.equals(segsFicheDe)) { segsFicheDe = cle; segsFiche = segments(StaffScreen.arr(p, "segs")); }
                 segs = segsFiche;
+                codeHalo = fr.reborn.hud.concentration.HaloPlaque.code(StaffScreen.str(p, "halo"));
                 if (boite(p, PT_FICHE)) {
                     boite = PT_FICHE;
                     bloc = "bloc".equals(StaffScreen.str(p, "k"));
@@ -1079,11 +1105,11 @@ final class GardePlaques {
         }
         apercu.poser(segs == null || segs.isEmpty() ? null : segs, Gabarit.STELE);
         if (apercu.pages() == 0) return;
-        if (boite != null && Plaques.pointDevant(boite, bloc, faceA, PT) && apercu.dessinerAncre(ctx, PT[0], PT[1], PT[2], 1f, true)) return;
+        if (boite != null && Plaques.pointDevant(boite, bloc, faceA, PT) && apercu.dessinerAncre(ctx, PT[0], PT[1], PT[2], 1f, codeHalo)) return;
         // pas d'ancre (objet en main) ou point derrière la caméra : au centre, à gauche du volet
         var win = mc.getWindow();
         int libre = (s.px0() - StaffScreen.MARGE) * Math.max(1, win.getGuiScale());
-        apercu.dessiner(ctx, Math.min(win.getWidth() / 2, libre / 2), 1f);
+        apercu.dessiner(ctx, Math.min(win.getWidth() / 2, libre / 2), 1f, 1.0, codeHalo);
     }
 
     private static final double[] PT_BOITE = new double[6], PT_FICHE = new double[6], PT_APERCU = new double[6];
@@ -1221,6 +1247,7 @@ final class GardePlaques {
     boolean echap() {
         if (!actif()) return false;
         if (sel.actif) { fermerSelecteur(); return true; }
+        if ("editeur".equals(vue) && halo.echap()) return true;
         if (!"liste".equals(vue)) { vue = "liste"; focus = false; apercuFiche = false; s.scroll = 0; return true; }
         return false;
     }
@@ -1250,6 +1277,7 @@ final class GardePlaques {
     }
 
     boolean glisser(double x, double y) {
+        if (actif() && "editeur".equals(vue) && halo.glisser(x, y)) return true;
         if (!glisse || !saisie()) return false;
         editeur.cliquer(x, y, true);
         return true;
@@ -1257,6 +1285,7 @@ final class GardePlaques {
 
     void relacher() {
         glisse = false;
+        halo.relacher();
         montrerCurseur();
     }
 
@@ -1302,6 +1331,11 @@ final class GardePlaques {
     }
 
     void debugApercuFiche(boolean on) { apercuFiche = on; }
+
+    /** Banc : halo de l'éditeur (préréglage, ou « Personnalisée » de la couleur donnée, sélecteur ouvert ou non). */
+    void debugHalo(int code, boolean perso, int couleur, boolean ouvert) { halo.debug(code, perso, couleur, ouvert); }
+
+    GardeHalo debugHaloVolet() { return halo; }
 
     /** Banc : page suivante de l'aperçu (comme le clic sur « Page 1 / 2 › »). */
     void debugPageSuivante() { apercu.pageSuivante(); }

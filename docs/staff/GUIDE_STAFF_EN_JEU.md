@@ -183,15 +183,41 @@ détourne. Rien n'apparaît à travers un mur ni au-delà de la portée. Hors co
     ou un meuble se lisent de tous côtés.
   - Titre (staff seulement), texte en couleurs comme la narration (700 caractères ; au-delà de 450, le joueur tourne
     les pages au clic gauche), portée de lecture 2 à 16 blocs (6 par défaut), expiration (Jamais, 1 h, 24 h, 7 jours).
+  - **Halo** (couleur de la lueur derrière le texte, plaque par plaque) : huit pastilles — **ivoire-or** (par défaut),
+    blanc lunaire, bleu chakra, violet, rouge sang, vert jade, ambre, **aucun halo** (le texte seul) ; le nom s'affiche
+    au survol. **Personnalisée** ouvre un sélecteur sous la rangée : carré (saturation × luminosité), barre de teinte,
+    code hex (`#F29CC2`), et tes 4 dernières couleurs personnalisées. Une lueur ne peut pas être sombre : une couleur
+    trop foncée est éclaircie toute seule. Astuce : prends un halo d'une autre famille que les mots colorés du texte
+    (du rouge sur rouge sang perd sa couleur). L'aperçu devant l'objet change tout de suite.
   - **L'aperçu** s'affiche en direct devant l'objet, à la vraie taille, lueur comprise, comme un joueur concentré le
     verra ; texte long : « Page 1 / 2 › » montre les pages suivantes. « Poser la plaque » (ou Ctrl + Entrée).
-  - **Fiche** (clic sur une ligne) : aperçu devant l'objet sans te concentrer, modifier, déplacer (sélecteur), aller
+  - **Fiche** (clic sur une ligne) : la ligne « Halo » montre la couleur choisie ; aperçu devant l'objet sans te concentrer, modifier, déplacer (sélecteur), aller
     devant (journalisé), désactiver, copier l'id, supprimer (motif obligatoire : corbeille 30 jours).
 - **Au tchat** : `/plaque poser [p:6] [+24h] <texte>` sur le bloc ou le meuble que tu vises (`p:6` = portée ; un nombre
   seul reste du texte : `/plaque poser 3 guerriers reposent ici`) ; `/plaque objet <texte>` sur l'objet en main ;
-  `/plaque texte|portee|deplacer|retirer|restaurer|info|voir|tp <id>`, `/plaque liste [rayon]`, `/plaque corbeille`.
+  `/plaque texte|portee|deplacer|retirer|restaurer|info|voir|tp <id>`, `/plaque liste [rayon]`, `/plaque corbeille` ;
+  `/plaque halo <id> ivoire|aucun|6FB4FF` change la couleur du halo (journal : `PLAQUE_MODIFIEE · halo … → …`).
 - Une **narration** passe devant le texte d'une plaque ; la plaque revient ensuite. Tout est au journal Staff
   (`PLAQUE_CREEE`, `PLAQUE_TEXTE`, `PLAQUE_SUPPRIMEE`, `PLAQUE_TP`…) ; « lue N fois » sur la fiche.
+
+### Traces de pas en concentration (lot 4, 08/11, pas encore publiées : ShinobiCore + reborn-hud 0.4.200)
+Tout joueur concentré voit, au sol, les traces de pas des **autres** joueurs : semelles blanches, sombres sur un sol clair (sable,
+neige, béton blanc, quartz, bouleau), jusqu'à 16 blocs puis en fondu jusqu'à 24, jamais de nom. Curseur dessus (8 blocs au plus) :
+« à l'instant », « il y a 7 min », « il y a 1 h 20 ».
+- **Combien de temps** : une trace reste, elle sert à savoir si quelqu'un est passé : **2 h** ; × 2 sur sable, neige, boue (4 h) ;
+  × 0,4 sur pierre, bois, chemin (48 min) ; × 0,5 sous la pluie ; × 0,3 en tempête ; × 0,5 accroupi (et plus pâles). Bien lisibles
+  jusqu'à 60 % de leur vie, puis elles s'effritent et pâlissent. Perdues au redémarrage du serveur.
+- **Toi, staff** : en mode staff ou en vanish, tu ne laisses **aucune trace** ; en mode animation, si. Pas de trace non plus en
+  vol, dans l'eau, à cheval, porté (le porteur marque), en cinématique. Un joueur ne voit pas les siennes.
+- **Pour une scène** : personne, staff compris, ne peut savoir à qui est une trace : aucune commande ne le dit. Seule la taille
+  du pied trahit la taille du personnage.
+- **Lire une piste** : un saut ne fait pas disparaître la piste (un pas à chaque retombée). Des pas courts à l'avant du pied, très
+  espacés : c'est un vrai sprint ; le trot laisse des pas de marche.
+- **Réglages** `config.yml › concentration.traces` : `actif`, `vie-base-secondes`, `vitesse-sprint`, `sang` (les blessés marquent le
+  talon de sang, coupé au départ). `actif: false` puis `/sc reload` : tout s'arrête dans la seconde, les traces en mémoire sont
+  oubliées et disparaissent de l'écran de ceux qui sont concentrés.
+- Chaque joueur peut choisir la **couleur** des traces sur son écran (Paramètres › Interface › Concentration, « Automatique » par
+  défaut) : cela ne change rien pour les autres.
 
 ### Outils staff (14/10, pas encore publiés)
 Cible : pseudo, nom RP ou `#N°`. **Tout est journalisé** : la commande tapée et son effet (`/journal`).

@@ -29,7 +29,7 @@ public final class InterfaceTab {
     private InterfaceTab() {}
 
     /** Rang des sous-catégories (ouverture directe : ancien onglet Caméra, tchat de Minecraft redirigé). */
-    public static final int HUD = 0, RAPPELS = 1, VISEUR = 2, CAMERA = 3, CHAT = 4, NOMS = 5, LISTE = 6, SOL = 7;
+    public static final int HUD = 0, RAPPELS = 1, VISEUR = 2, CAMERA = 3, CHAT = 4, NOMS = 5, LISTE = 6, SOL = 7, CONCENTRATION = 8;
 
     public static OngletPages onglet(Screen ecran) {
         return new OngletPages(
@@ -40,7 +40,8 @@ public final class InterfaceTab {
             new OngletPages.Page("Chat", new PageReglages(p -> chat(p, ecran)), null),
             new OngletPages.Page("Noms", new PageReglages(InterfaceTab::noms), InterfaceTab::resetNoms),
             new OngletPages.Page("Liste des joueurs", new PageReglages(InterfaceTab::liste), InterfaceTab::resetListe),
-            new OngletPages.Page("Objets au sol", new PageReglages(InterfaceTab::sol), InterfaceTab::resetSol));
+            new OngletPages.Page("Objets au sol", new PageReglages(InterfaceTab::sol), InterfaceTab::resetSol),
+            new OngletPages.Page("Concentration", new PageReglages(InterfaceTab::concentration), CouleurTracesReglage::reinitialiser));
     }
 
     // ─── HUD ─────────────────────────────────────────────
@@ -184,6 +185,18 @@ public final class InterfaceTab {
         RebornPrefs prefs = RebornPrefs.INSTANCE;
         p.bascule("Lueur de rareté", "Petit halo sous les objets au sol, à la couleur de leur rareté.", prefs.aurasSol,
             v -> { prefs.aurasSol = v; prefs.save(); });
+    }
+
+    // ─── Concentration (lot 4, planche c7) : la couleur des traces de pas, sur l'écran de ce joueur seulement ───
+    private static void concentration(PageReglages p) {
+        p.nouveau = true;
+        p.row("Couleur des traces", "Sur ton écran seulement : rien ne change pour les autres.",
+            (cx, cy, cw) -> CouleurTracesReglage.ligne(cx + cw, cy - 2));
+        if (CouleurTracesReglage.ouvert()) {
+            p.bloc(CouleurTracesReglage.SELECTEUR_H + 6,
+                (x, y, w) -> CouleurTracesReglage.champ(x + w - 300 + 56, y + 4 + 59),
+                (x, y, w) -> CouleurTracesReglage.selecteur(x + w - 300, y + 4, 300));
+        }
     }
 
     private static void resetSol() {

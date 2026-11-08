@@ -138,6 +138,20 @@ public final class RebornPrefs {
     /** Réglages d'images par seconde déjà migrés ({@code runtime/FpsDefauts.VERSION}) : 0 = jamais. */
     public int fpsVersion = 0;
 
+    // ────────────────── Plaques (lot 4, planche c6) ──────
+    /** Outil « Plaques » du Poste de garde : les 4 dernières couleurs de halo « Personnalisée » posées (RVB), la plus
+     *  récente en tête (lu par {@code staff/GardePlaques}). Préférence locale, jamais envoyée au serveur. */
+    public int[] haloRecentes = new int[0];
+
+    // ────────────────── Traces de pas (lot 4, planche c7, 08/11) ──────
+    /** Couleur automatique (défaut, décision du 08/11) : blanc sur un sol sombre, sombre sur un sol clair. Faux : {@link #tracesCouleur}.
+     *  Préférence locale, jamais envoyée au serveur (lu par {@code concentration/Traces}). */
+    public boolean tracesAuto = true;
+    /** Couleur choisie à la main pour les traces de pas <b>sur cet écran</b> (RVB, toutes les mêmes : l'anonymat reste entier). */
+    public int tracesCouleur = fr.reborn.hud.concentration.Traces.IVOIRE;
+    /** Les 4 dernières couleurs de traces « Personnalisée » de ce poste, la plus récente en tête. */
+    public int[] tracesRecentes = new int[0];
+
     private boolean loaded = false;
 
     private RebornPrefs() {}
@@ -233,5 +247,9 @@ public final class RebornPrefs {
         this.rappelsAvecNotifs = other.rappelsAvecNotifs;
         this.rappelsPortee = other.rappelsPortee;
         this.vitalsToujoursDetailles = other.vitalsToujoursDetailles;
+        this.haloRecentes = other.haloRecentes != null ? other.haloRecentes : new int[0];
+        this.tracesAuto = other.tracesAuto;
+        this.tracesCouleur = other.tracesCouleur;
+        this.tracesRecentes = other.tracesRecentes != null ? other.tracesRecentes : new int[0];
     }
 }

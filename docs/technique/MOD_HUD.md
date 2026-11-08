@@ -81,10 +81,19 @@ Client seul ; plaques et traces de pas viendront avec ShinobiCore (étapes B et 
   sortie ; combat : entrée refusée 5 s après un coup donné ou reçu, sortie au coup, à la garde, au dash ; écran ouvert =
   sortie, **sauf le tchat** ; narration, méditation, cécité : le mode reste ; déconnexion / changement de joueur : remise
   à zéro sans fondu.
-- **Touches, migration v5** (`TouchesMigration.VERSION = 5`) : R (Interaction) déliée **seulement** si elle est encore sur
-  son défaut et si Concentration a une touche ; sinon R reste l'alias. Paramètres › Commandes › Monde : aide de
-  Concentration réécrite, ligne « Interaction » montrée seulement si elle a encore une touche. Textes « menu R » à
-  l'écran remplacés (lettre, faction, radio, viseur ; invite de la nourriture sur la touche réelle de Concentration).
+- **Touches, migration v5 — retrait de R** (code après la validation en jeu du 07/11, sort avec la version suivante ;
+  `TouchesMigration.VERSION = 5`, drapeau `touchesVersion` de `reborn_prefs.json`) : l'ancienne touche « Interaction »
+  déliée **seulement** si elle est encore sur son défaut **et** si Concentration a une touche (règle pure
+  `TouchesMigration.retraitR`) ; « défaut » = R ou la touche qui affiche « r » où la version 2 l'a posée (BÉPO US L,
+  Dvorak US O, Colemak US S : `TouchesMigration.surDefaut`) ; Concentration sans touche (Y déjà prise) = R gardée, elle ouvre la Concentration
+  (`HudKeybinds.concentrationEffective`) ; touche Interaction personnalisée = jamais touchée, alias de la Concentration.
+  Idempotente (rejouée seulement sous la version 5). Le défaut de la liaison reste R (pour reconnaître la valeur d'origine) ;
+  « Réinitialiser la section » rejoue la règle avant celle du clavier (R ne revient pas, ni sur la touche « r » en BÉPO). Libellé de la touche : « Interaction (ancienne
+  touche) ». Paramètres › Commandes › Monde : aide de Concentration réécrite, ligne « Interaction » montrée seulement si
+  elle a encore une touche (aide selon le cas), refaite dès qu'on change Interaction ou Concentration dans l'écran
+  (`KeybindButton.assign` vide le cache de `ControlsTab` et remet la page en page). Plus aucun « R » écrit en dur à l'écran : lettre, faction, viseur,
+  invite « Tendre » et rappel sur la touche réelle ; rappel du duel = `/duel abandonner` (la Concentration, donc le
+  curseur, est refusée en duel). Banc `REBORN_LOT4_DEBUG=v5` (§5).
 - Coût hors mode : rien (aucun rayon, aucun filtre, texture jamais réécrite). En mode : un rayon par tick, une passe
   plein écran, la passe de contour vanilla seulement pendant un survol.
 
@@ -108,12 +117,53 @@ Client seul ; plaques et traces de pas viendront avec ShinobiCore (étapes B et 
   mélange additif `GUI_TEXTURED_PREMULTIPLIED_ALPHA`, dessiné dans le HUD (donc après l'effet d'écran) juste avant le
   texte, à son opacité : il naît et meurt avec lui. Ivoire-or (cœur 255/249/232, lueur 255/204/122) ; violet
   160/108/210 en constante de rechange (`HaloPlaque.VIOLET`). Aucune allocation par image.
+- **Couleur du halo par plaque** (0.4.200, planche c6, décision du 07/11) : le texte reçu porte `halo` (absent =
+  ivoire-or exact `IVOIRE_OR`, `"aucun"`, ou la lueur `"RRGGBB"`) → `HaloPlaque.code` (`DEFAUT` -1, `AUCUN` -2, sinon
+  RVB), gardé avec le texte en cache (`Plaques.Texte.halo`) et par place (`haloA` / `haloB` : la sortante garde sa
+  couleur pendant son fondu) ; `RecitHud.halos` ← `Plaques.haloDe`. `HaloPlaque.Palette.depuis(lueur)` : luminosité HSV
+  relevée à 0,55 au moins, cœur = 85 % vers le blanc, étincelle = 70 %, voile = teinte −5°, saturation × 1,25 (bornée),
+  luminosité^1,6 (mêmes valeurs que la planche c6-11). Textures par couleur dans **6 emplacements fixes** (le moins récent
+  est repris et libéré) : recherche linéaire, aucune allocation par image. Toujours dessiné dans le HUD, après l'effet.
 - **Outil staff** `staff/GardePlaques` (F7 › Outils › Plaques) : liste, fiche, éditeur (texte `GardeEditeur` 700,
-  portée, expiration, aperçu ancré en direct `RecitHud.Apercu.dessinerAncre`), sélecteur façon Axiom
+  portée, expiration, **rangée « Halo »** `staff/GardeHalo` — huit pastilles « lumière » (`HaloPlaque.PRESETS`), nom et
+  code dessous, « Personnalisée » qui ouvre un sélecteur en ligne : carré saturation × luminosité 100 → 55 % (texture
+  128×64 refaite au changement de teinte), barre de teinte, aperçu de la lueur, champ hex (relevé à 55 %), 4 récentes
+  (`RebornPrefs.haloRecentes`), défilement automatique à l'ouverture ; ligne « Halo » dans la fiche ; aperçu ancré en
+  direct `RecitHud.Apercu.dessinerAncre(…, code)`), sélecteur façon Axiom
   `staff/SelecteurPlaque` (volet replié en bandeau, survol par `CursorRaycast` à chaque tick, clic, Maj + clic = boîte,
   clic droit = caméra, ZQSD passés au personnage, Entrée / Échap) ; repères dans le monde `staff/MondePlaques`
   (`RenderTypes.lines()`, un lot : coins dorés, fil de fer crème, or épais, gris hors de portée), seulement outil ouvert.
-- **Banc** `REBORN_LOT4_DEBUG=b` (`audit/Lot4bDebug`, serveur simulé côté client) : §5.
+- **Traces de pas** (étape C, planche c7, 08/11, `concentration/Traces`, protocole PLUGINS_REFERENCE §4 undecies.5) : sur
+  le patron d'`AuraSol`, un quad par pas, un lot, plus un second la nuit pour le contour (`RenderTypes.entityTranslucentEmissive`, géométrie sans capture :
+  aucune allocation par image), 256 pas au plus, les plus proches, sélectionnés une fois par tick sur des tableaux à plat ;
+  dans le monde, donc sous l'effet d'écran. Semelle 6 × 10 (1 texel = 1/28 de bloc × échelle), pied droit en miroir par les
+  UV, sprint = les 6 rangées de l'avant, accroupi × 0,55, chargé × 1,15 et 8 % plus large, opacité 0,92 × âge (« une trace reste »,
+  08/11 : pleine jusqu'à 60 % de la vie, puis jusqu'à 25 %) × distance (16 → 24 blocs) × niveau de l'effet. **Effritement** : texture
+  `assets/reborn/textures/concentration/traces.png` (`tools/gen_traces_texture.py`, 48 × 48, 6 colonnes d'effacement, 3 ordres
+  de grains, 1 rangée sang), colonne choisie selon la fraction de vie (67, 74, 81, 87, 93 %, ± 4 % selon le pas : rien avant 63 %). Le test
+  alpha seul n'effritait qu'à la toute fin de la vie sans trouer une semelle fraîche : d'où des colonnes, même coût.
+  **Couleur** (Paramètres › Interface › Concentration, `menu/settings/CouleurTracesReglage`) : **« Automatique » par défaut**
+  (`RebornPrefs.tracesAuto`, 08/11) : ivoire, sauf sur un sol clair où la semelle est sombre (`#141210`, même texture, même
+  effritement). Sol clair = luminance de la couleur de carte du bloc sous le pas ≥ `Traces.SEUIL_SOL_CLAIR` (0,70 : sable, neige,
+  béton blanc, quartz, calcite, bouleau, grès ; herbe 0,62, terre, pierre, briques, chemin, bois, sable rouge 0,55 restent sombres).
+  Le bloc est lu une fois à la réception du pas, dans le tableau `SOL` ; inconnu (chunk pas là) : blanc, relu chaque seconde ; aucune
+  lecture du monde par image. C'est le bloc qui décide, jamais l'heure. La nuit, un sable n'est plus qu'à 10 % de luminance et une
+  semelle sombre n'y a plus de marge : un **contour** pâle d'un texel (`traces_contour.png`, opacité 0,38, dessiné dans ses propres
+  texels, jamais sur la semelle : ni ordre de dessin ni forme changée ; rangées dédiées au sprint, fermées au talon) la fait lire. De jour il
+  se verrait et élargirait le pied : il n'existe que **la nuit** (`Traces.contourNuit`, `Level#getSkyDarken` lu une fois par tick, rien
+  jusqu'à 4, plein à 9) ; une grotte de jour n'en a donc pas. Choix manuels : sept
+  préréglages + « Personnalisée » (`tracesCouleur`, même sélecteur que le halo : `ui/CouleurTextures`, 4 récentes `tracesRecentes`) ;
+  ouvrir « Personnalisée » ne change rien tant qu'on n'a pas touché au sélecteur (depuis « Automatique », curseurs, champ et aperçu partent de la dernière personnalisée) ; « Réinitialiser » revient à « Automatique ». L'effet ne garde que 20 % de l'écart à la
+  luminance : `Traces.poussee` le multiplie d'autant et, si un canal est déjà au maximum (ambre, bleu chakra), baisse la
+  luminance pour se donner de la marge (jusqu'à 70 %, moins pour une couleur pâle). **Limite physique** : passé l'effet, l'écart
+  entre deux canaux ne dépasse jamais 51/255 ; la teinte exacte demanderait de composer les traces après l'effet avec la
+  profondeur du monde. Sous le filtre du KO, la couleur telle quelle ; sous le Byakugan, ni traces ni étiquette (comme le contour
+  de `ModeConcentration.halo`). **Temps écoulé** : curseur sur un pas à 8 blocs du joueur au plus (projection une fois par tick, un rayon vers
+  le pas retenu : un mur le cache), couche HUD `traces-temps` (avant `RecitHud`) : « à l'instant », « il y a 7 min », « il y a 1 h »,
+  « il y a 1 h 20 » (arrondi à la minute, `Traces.texteDuree`, espaces doublées à l'affichage), Inter 7, ivoire avec ombre d'un pixel, ou
+  sombre cerné d'un pixel pâle sur un sol clair de jour (la nuit ce sol ne l'est plus : ivoire), aucun fond, fondu 120 ms. Cécité : rien. Hors concentration : rien.
+- **Banc** `REBORN_LOT4_DEBUG=b` (`audit/Lot4bDebug`, serveur simulé côté client) : §5 ; couleur du halo :
+  `REBORN_LOT4_DEBUG=c6` (`audit/Lot4c6Debug`) ; traces : `REBORN_LOT4_DEBUG=c7` et `c8` (`audit/Lot4c7Debug`).
 
 ## 2. Touches
 
@@ -130,7 +180,7 @@ le Poste de garde quand ils sont là) et dans Options → Commandes, catégorie 
 | Touche | Action | Touche | Action |
 |---|---|---|---|
 | **E** | Sacoche (touche Inventaire de Minecraft) | **K** | Fiche shinobi |
-| **M** | Carte | **R** | Mode interaction |
+| **M** | Carte | **Y** | Concentration (lot 4) : curseur, plaques, menu d'interaction ; l'ancienne touche R est déliée par la migration 5 |
 | **F** | Contextuel : ramasser / exécuter / prendre ce qu'on me tend (sinon F garde son rôle) | **Z** | Dégainer / rengainer l'arme de l'étui |
 | **B** | Radio : **maintenir** = parler à l'escouade (recopiée dans l'activation « radio » de Plasmo Voice) ; **appui bref** (< 0,25 s) = écran de l'escouade | **Entrée / Retour** | Accepter / refuser (radio d'abord, puis duel, puis ce qu'on me tend) |
 | **.** | Animations : émotes (Reborn et Emotecraft) et démarches ; la même touche referme | **F5** | Vue : épaule ↔ 1ʳᵉ personne (touche « Changer de vue » de Minecraft, détournée en caméra Reborn) |
@@ -273,6 +323,10 @@ JAVA_HOME=/c/Users/omarb/dev-cache/jdk-25.0.4.1+1 REBORN_FEATURE_PREVIEW=1 \
 | `REBORN_ESC_DEBUG=captures` (+ `REBORN_ESC_STAFF=1` ; autres modes `reprendre`, `echap`, `boutons`, `tout`) | Échap e5 du lot 3 (05/11, `menu/esc/EscDebug`) : données fictives (solde 1 250, Discord 1 234, stream en direct, deux charmes actifs), repos et survol de chaque entrée et de chaque carte, Boutique fermée puis ouverte, fermeture et ouverture animées → `run/screenshots/echap_e5_*.png` ; retours du 05/11 (`echap_e5_r0197_*`) : carte Stream sur les streamers 1, 2, 3, sortie, entrée, survol, hors ligne, défilement réel vérifié (change seul, pas au survol), identité masquée, sans version, identité réelle en solo (vide) ; perso quitté avec sa fiche encore en mémoire (Échap vide, sacoche = pseudo seul), roster avec personnage (Échap et sacoche « Aki Uchiha · Chūnin · Konohagakure » sans fiche ouverte, pied « Serveur 1.2.0 » tiré de la patch note fictive) ; identité « Aki Uchiha » imposée par le banc seulement ; « [EscDebug] OK / ECHEC » dans le log |
 | `REBORN_LOT3_DEBUG=1` | Lot 3 « Échap et touches » (05/11, `audit/Lot3Debug`, intégrateur) : rappels en jeu (normal — `RappelsTouches.concentrationBranchee` forcé le temps du banc : avant le lot 4, aucune ligne permanente —, concentration, combat via `RappelsTouches.debugMode`, plafond de 3 lignes où Concentration reste), éditeur de HUD ouvert sur les rappels (panneau replié à gauche), Paramètres (Commandes › Monde et › Voix et escouade, conflit Concentration sur F, Interface › Rappels et HUD, Audio › Voix et Général, Graphismes › Affichage et Rendu, Compte, Compte › Avancé, Graphismes en « Petite »), puis (05/11, `lot3_r0197_*`) le lien « Options de Minecraft › » au repos et survolé, le clic qui ouvre l'écran d'origine sans redirection, « Terminé » qui revient aux Paramètres, Vidéo ouvert depuis l'écran d'origine, redirection maintenue hors du lien → `run/screenshots/lot3_*.png`. Rien n'est sauvegardé. À lancer en 1920 × 1080 puis 1366 × 768, client en `lang:fr_fr` pour les noms de touches |
 | `REBORN_LOT4_DEBUG=b` | Lot 4, **étape B** (07/11, `audit/Lot4bDebug`) : scène bâtie sur un sol à nous (six stèles, lanterne, mur), serveur simulé côté client (`ConcentrationCanal.debugServeur`, `GardePlaquesDebug.serveur`), horloges figées ; lecture automatique à 2, 4 et 6 blocs de jour et de nuit, halo à 0, 120, 250 ms, sortie à 175 ms et fin, deux stèles (la plus centrée puis l'autre après un pas), hors de portée, mur entre les deux, narration qui passe devant puis retour, texte long (pages 1 et 2) ; outil « Plaques » : liste et repères, fiche et aperçu, sélecteur (survol, bloc, boîte), éditeur et aperçu ; en 1920×1080 puis 1366×768 → `run/screenshots/lot4b_*.png`, `[lot4b] OK / ECHEC`, puis ferme le jeu |
+| `REBORN_LOT4_DEBUG=c6` | Couleur du halo des plaques (08/11, `audit/Lot4c6Debug`, planche c6) : quatre stèles en rang (ivoire-or = halo absent, bleu chakra `6FB4FF`, rouge sang `D9443F`, aucun), serveur simulé qui envoie `halo` avec le texte, horloges figées ; vérifie les palettes dérivées (cœur du bleu chakra = `E9F4FF`), les codes du protocole et `Plaques.haloDe` ; 1920×1080 jour puis nuit, chaque stèle à 4 blocs sous l'effet ; outil Plaques : éditeur au repos, bleu chakra, aucun, « Personnalisée » ouverte (rose cerisier `F29CC2`, 4 récentes), plaque déjà en `123ABC` par le vrai chemin « Modifier le texte » puis « Personnalisée » (curseurs et champ sur sa couleur, rien de changé, clic sur la teinte), éditeur sans ancre (aperçu de repli : rouge sang, aucun), fiche bleu chakra ; 1366×768 : une stèle, éditeur, sélecteur, fiche → `run/screenshots/lot4c6_*.png` (copies dans `Maquettes/gameplan/17_lot4_concentration/code_c/`), « [lot4c6] FIN » |
+| `REBORN_LOT4_DEBUG=c7` | Traces de pas (08/11, `audit/Lot4c7Debug`, planche c7) : chemin de pierre, dalle, escalier, terrasse, sable, bâtis sur un sol à nous ; serveur simulé qui envoie le vrai message `traces` (hauteur lue dans la vraie collision), horloges figées ; 1920×1080 puis 1366×768 : pistes de jour et de nuit (marche, sprint qui croise, accroupi, vieille piste sur le sable), sortie à 75 ms puis plus rien (vérifié au journal), vue plongeante du frais au vieux (jour, nuit), gros plan (âges, sprint, accroupi, chargé, sang, marche vers le fond), survol (fondu à 60 ms, « à l'instant », « il y a 7 min », curseur ailleurs), quatre couleurs dans le monde (ivoire, bleu chakra, rouge sang, ambre), table de `Traces.poussee` au journal (écran avec et sans poussée, identité hors effet), sous le Byakugan (ni traces ni étiquette, puis retour), Paramètres › Interface › Concentration (ivoire, bleu chakra, « Personnalisée » ouverte), parcours par les vrais événements de l'écran (ouvrir et refermer « Personnalisée » depuis l'ivoire sans rien changer, clic sur une pastille, sur le lien, dans le carré, saisie `#202020` relevée) → `run/screenshots/lot4c7_*.png` (copies dans `Maquettes/gameplan/17_lot4_concentration/code_c/`), `[lot4c7] OK / ECHEC`, couleur remise, puis ferme le jeu |
+| `REBORN_LOT4_DEBUG=c8` | Traces, retour du 08/11 (`audit/Lot4c7Debug`) : contraste automatique et « une trace reste ». Bandes d'herbe, de pierre, de sable, puis neige, béton blanc, quartz, calcite, bouleau ; table `Traces.solClair` sur les couleurs de carte réelles au journal, classement de chaque pas lu dans le monde, sol inconnu relu en moins de 2 s, jour et nuit, rangées à 10, 80 et 95 % de la vie, gros plan d'un sprint et d'une marche sur le sable (jour sans contour, nuit avec contour fermé au talon), « il y a 1 h 20 » sur l'herbe et sur le sable (nuit comprise), réglage « Automatique » par les vrais événements de l'écran (pastille, retour, « Personnalisée » sans le quitter, un geste le quitte, « Réinitialiser ») ; 1920×1080 et 1366×768 → `run/screenshots/lot4c8_*.png` (copies dans `Maquettes/gameplan/17_lot4_concentration/code_c/`), réglage et sol remis, puis ferme le jeu |
+| `REBORN_LOT4_DEBUG=v5` | Retrait de R (migration 5, 07/11, `audit/Lot4v5Debug`) : bilan de la migration réelle du démarrage (lancer avec `options.txt` sur `key_key.reborn-hud.open_interaction:key.keyboard.r` et `touchesVersion` à 4 dans `config/reborn_prefs.json`), règle pure `retraitR` (options neuves, R personnalisée, Concentration sans touche, R déliée, souris, Concentration sur R), migration rejouée sur les vraies liaisons (drapeau 4 → 5 écrit sur le disque, idempotence, R personnalisée gardée, Concentration sans touche = R gardée, « Réinitialiser la section »), claviers simulés (BÉPO, Dvorak, Colemak : Interaction posée par la version 2 sur la touche qui affiche « r » = défaut ; migration et « Réinitialiser la section » en BÉPO), captures Commandes › Monde (sans ligne Interaction, Interaction personnalisée, Concentration sans touche), parcours d'un vrai joueur dans le même écran par les cases (`KeybindButton`) : Concentration liée → aide d'Interaction à jour, Échap sur Interaction → ligne partie sans redémarrage, invite « Tendre » et rappel sur Y puis sur R gardée → `run/screenshots/lot4v5_*.png`, `[lot4v5] OK / ECHEC`, liaisons et drapeau remis, puis ferme le jeu. Client en `lang:fr_fr` |
 | `REBORN_LOT4_DEBUG=1` | Lot 4 « Concentration », étape A (07/11, `audit/Lot4Debug`) : mannequin « autre joueur » décalé à droite, horloge du fondu figée (`ModeConcentration.horloge`) ; de jour en 1920×1080 puis 1366×768 : avant, entrée à 0 et 125 ms, concentré (six rappels), curseur sur le mannequin (contour), clic (menu de l'entité), menu d'un joueur, sortie à 75 ms, après ; de nuit : avant, concentré, survol ; blocages vérifiés au journal (`[lot4] OK / ECHEC`) : Malaxage du chakra (refus, capture, puis sortie), coup donné (sortie, refus 5 s), tchat (le mode reste), écran (sortie), Échap et touche Concentration par le vrai chemin du clavier → `run/screenshots/lot4_*.png`, puis ferme le jeu |
 | `REBORN_MOCKUPS` | Maquettes de scènes |
 

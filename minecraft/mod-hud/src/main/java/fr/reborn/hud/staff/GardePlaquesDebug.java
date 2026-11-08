@@ -53,6 +53,42 @@ public final class GardePlaquesDebug {
         if (v != null) v.debugEditeur(balise, titre, portee, ancre, lib, boite, true);
     }
 
+    /** Halo de l'éditeur (planche c6) : préréglage {@code code}, ou « Personnalisée » {@code couleur} (sélecteur ouvert ?). */
+    public static void halo(Minecraft mc, int code, boolean perso, int couleur, boolean ouvert) {
+        GardePlaques v = vue(mc);
+        if (v != null) v.debugHalo(code, perso, couleur, ouvert);
+    }
+
+    /** « Modifier le texte » d'une plaque de halo {@code c}, puis clic sur « Personnalisée » (le vrai chemin). */
+    public static void haloModifier(Minecraft mc, int c) {
+        GardePlaques v = vue(mc);
+        if (v != null) v.debugHaloVolet().debugModifierPuisOuvrir(c);
+    }
+
+    /** Un clic sur la barre de teinte. */
+    public static void haloTeinte(Minecraft mc, float t) {
+        GardePlaques v = vue(mc);
+        if (v != null) v.debugHaloVolet().debugTeinte(t);
+    }
+
+    public static String haloEtat(Minecraft mc) {
+        GardePlaques v = vue(mc);
+        return v == null ? "?" : v.debugHaloVolet().debugEtat();
+    }
+
+    public static int haloCouleur(Minecraft mc) {
+        GardePlaques v = vue(mc);
+        return v == null ? -1 : v.debugHaloVolet().debugCouleur();
+    }
+
+    /** Banc : récentes du sélecteur (préférence locale). */
+    public static void recentes(int... c) { fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.haloRecentes = c; }
+
+    /** Défilement du corps du volet (GUI). */
+    public static void defiler(Minecraft mc, int y) {
+        if (mc.gui.screen() instanceof GardeScreen g) g.scroll = y;
+    }
+
     public static void selecteur(Minecraft mc) {
         GardePlaques v = vue(mc);
         if (v != null) v.ouvrirSelecteur("creer");

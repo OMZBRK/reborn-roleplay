@@ -202,7 +202,7 @@ public class CrosshairTab implements SettingsTab {
             {"Espacement", "Gap au centre (croix / cercle)"},
             {"Longueur", "Branches / rayon (procédural)"},
             {"Épaisseur", "Trait (procédural)"},
-            {"Curseur du menu d'interaction", "Style du curseur (R + clic) — pour en proposer plusieurs"},
+            {"Curseur de la Concentration", "Style du curseur de la Concentration — pour en proposer plusieurs"},
         };
         int cursorY = y;
         for (String[] row : rows) {

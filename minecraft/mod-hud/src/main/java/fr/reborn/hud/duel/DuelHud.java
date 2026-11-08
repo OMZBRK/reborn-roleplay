@@ -21,7 +21,8 @@ import net.minecraft.resources.Identifier;
  *       « accepter » / « refuser » se cliquent (soulignés au survol).</li>
  *   <li><b>Attente</b> (proposant) : une ligne grise.</li>
  *   <li><b>Pendant le duel</b> : indicateur fin en haut au centre « Kazuki Uchiha · 4:56 · abandon » ; il passe en rouge
- *       pâle quand on s'éloigne ; « abandon » se clique en mode interaction.</li>
+ *       pâle quand on s'éloigne ; « abandon » se clique en mode curseur ({@code /duel abandonner} sinon : la
+ *       Concentration est refusée en duel).</li>
  *   <li><b>Compte à rebours</b> : chiffres sobres en fondu, puis « COMBAT » bref.</li>
  *   <li><b>Fin</b> : un mot centré en fondu, un filet d'or fin, la raison en petit gris.</li>
  * </ul>
@@ -39,6 +40,8 @@ public final class DuelHud {
     private static boolean enDemande;
     /** Banc d'essai : survol forcé (0 accepter, 1 refuser, 2 abandon, -1 aucun). */
     public static int debugHover = -1;
+    /** Rappel du début de combat (la Concentration, donc le curseur, est refusée en duel : abandon par la commande). */
+    private static final Component ABANDON_RAPPEL = DaKit.inter("sans séquelles  ·  /duel abandonner pour abandonner");
 
     private DuelHud() {}
 
@@ -182,7 +185,7 @@ public final class DuelHud {
         // rappel, quelques secondes au début du combat seulement
         if (sf >= 0 && sf < 5000 && !InteractionMode.INSTANCE.isActive()) {
             float r = sf > 4000 ? (5000 - sf) / 1000f : 1f;
-            DaKit.inter7o(g, f, DaKit.inter("sans séquelles  ·  R puis clic sur « abandon » pour abandonner"), cx, 24,
+            DaKit.inter7o(g, f, ABANDON_RAPPEL, cx, 24,
                 DaKit.alpha(GRIS, 0.85f * r * a), 1);
         }
     }

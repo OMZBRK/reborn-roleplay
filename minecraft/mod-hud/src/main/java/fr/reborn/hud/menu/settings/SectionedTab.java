@@ -234,6 +234,20 @@ public abstract class SectionedTab implements SettingsTab {
         cursorY += ROW_H;
     }
 
+    /**
+     * Bloc libre sur toute la largeur de la colonne, haut de {@code hauteur} GUI (le sélecteur de couleur ouvert sous sa
+     * ligne) ; les widgets reçoivent (x de la colonne, haut du bloc, largeur). Le premier widget passe devant les suivants
+     * pour le clic, derrière pour le dessin.
+     */
+    protected void bloc(int hauteur, WidgetFactory... factories) {
+        if (pass == Pass.LAYOUT) {
+            for (WidgetFactory f : factories) widgets.add(f.create(originX, cursorY, width));
+            noterReglage(0);
+        }
+        ligne++;
+        cursorY += hauteur;
+    }
+
     /** Ligne label (+ hint) seule, sans contrôle (le contrôle suit, ex. bouton). */
     protected void labelRow(String label, String hint) {
         if (pass == Pass.RENDER) {

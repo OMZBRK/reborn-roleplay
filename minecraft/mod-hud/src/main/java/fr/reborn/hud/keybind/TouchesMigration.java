@@ -67,11 +67,15 @@ import java.util.function.IntFunction;
  *   <li>Le « couper le micro » de Plasmo resté sur US M en AZERTY (il affichait « , ») est remplacé par la touche
  *       Reborn, à la première synchronisation ({@code voice/PlasmoTouches}).</li>
  * </ul>
- * <p><b>Version 5 — prévue, pas encore branchée</b> (lot 4 « Concentration », 07/11) : la Concentration remplace le menu
- * d'interaction R. D'ici la validation en jeu (CADRAGE §6.1), R reste liée et ouvre la Concentration (alias de
- * transition, {@link HudKeybinds#INTERACTION}) ; la carte reste donc en version 4. Après validation, la version 5
- * appellera {@link #retirerInteraction} : R déliée seulement si elle est encore sur son défaut <b>et</b> si Concentration
- * a une touche (un joueur dont Y était déjà prise garde R). Une touche R personnalisée n'est jamais touchée.
+ * <p><b>Version 5 — retrait de R</b> (lot 4 « Concentration », validé en jeu le 07/11, CADRAGE §5.4) : la
+ * Concentration remplace le menu d'interaction R. {@link #retirerInteraction} délie l'ancienne touche « Interaction »
+ * ({@link HudKeybinds#INTERACTION}) <b>seulement</b> si elle est encore sur son défaut <b>et</b> si Concentration a
+ * une touche ; le défaut est R ou la touche qui affiche « r » où la version 2 l'a posée (BÉPO US L, Dvorak US O,
+ * Colemak US S, {@link #surDefaut}) ; règle pure {@link #retraitR}, testée par le banc {@code REBORN_LOT4_DEBUG=v5}.
+ * Un joueur dont Y était déjà prise (Concentration sans touche) garde R, qui ouvre la Concentration à sa place ; une
+ * touche Interaction personnalisée (le joueur l'a mise sur une autre touche) n'est jamais touchée et reste un alias de
+ * la Concentration. « Réinitialiser la section » applique la même règle après avoir remis les défauts, avant la règle
+ * du clavier ({@link #reinitialiser}).
  *
  * Idempotente : chaque partie ne s'applique qu'aux versions antérieures, puis le drapeau passe à {@link #VERSION}.
  */
@@ -80,7 +84,7 @@ public final class TouchesMigration {
     private static final Logger LOG = LoggerFactory.getLogger("reborn-hud/touches");
 
     /** Version de la carte des touches ; on la monte si une nouvelle migration s'ajoute. */
-    public static final int VERSION = 4;
+    public static final int VERSION = 5;
 
     /**
      * Touches de Minecraft cachées des Paramètres › Commandes (et déliées une fois par la version 4 si elles étaient sur
@@ -96,6 +100,21 @@ public final class TouchesMigration {
 
     static void init() {
         ClientLifecycleEvents.CLIENT_STARTED.register(TouchesMigration::migrer);
+    }
+
+    /** Banc ({@code audit/Lot4v5Debug}) : rejoue la migration telle qu'au démarrage (drapeau {@link RebornPrefs#touchesVersion} lu). */
+    public static void debugMigrer(Minecraft mc) {
+        migrer(mc, k -> GLFW.glfwGetKeyName(k, 0));
+    }
+
+    /** Banc : migration rejouée sur un clavier simulé ({@code nom} : ce qu'affiche chaque touche, BÉPO, Dvorak…). */
+    public static void debugMigrer(Minecraft mc, IntFunction<String> nom) {
+        migrer(mc, nom);
+    }
+
+    /** Banc : « Réinitialiser la section » sur un clavier simulé. */
+    public static void debugReinitialiser(List<KeyMapping> cles, IntFunction<String> nom) {
+        reinitialiser(cles, nom);
     }
 
     /** Migration faite (les liens avec Plasmo attendent qu'elle soit passée). */
@@ -116,12 +135,15 @@ public final class TouchesMigration {
     };
 
     static void migrer(Minecraft mc) {
+        migrer(mc, k -> GLFW.glfwGetKeyName(k, 0));
+    }
+
+    private static void migrer(Minecraft mc, IntFunction<String> nom) {
         RebornPrefs prefs = RebornPrefs.INSTANCE;
         prefs.ensureLoaded();
         int v = prefs.touchesVersion;
         if (v >= VERSION || mc.options == null) return;
         int changees = 0;
-        IntFunction<String> nom = k -> GLFW.glfwGetKeyName(k, 0);
         if (v < 1) changees += anciensDefauts();
         if (v < 2) {
             // version 2 : toutes les touches Reborn (Concentration et micro compris, échange QWERTZ)
@@ -142,7 +164,9 @@ public final class TouchesMigration {
             changees += cacher(mc);
             changees += jamaisPrises(mc);
         }
-        // version 5 (après la validation en jeu du lot 4) : if (v < 5) changees += retirerInteraction();
+        // version 5 (lot 4, validé en jeu le 07/11) : R déliée si elle est sur son défaut et que Concentration a une
+        // touche ; après la version 4, qui a pu laisser Concentration sans touche (Y déjà prise)
+        if (v < 5) changees += retirerInteraction(nom);
         if (changees > 0) {
             KeyMapping.resetMapping();
             mc.options.save();
@@ -216,14 +240,49 @@ public final class TouchesMigration {
     }
 
     /**
-     * Version 5 (pas encore appelée, voir l'en-tête) : l'ancienne touche « Interaction » (R) est déliée si elle est encore sur son défaut et si Concentration a
-     * une touche ; sinon elle reste (alias de la Concentration). Renvoie 1 si elle a été déliée.
+     * Règle de la version 5, pure (le banc la teste sans toucher aux liaisons) : l'ancienne touche « Interaction » est à
+     * délier si elle est liée ({@code rActuelle != -1}), encore sur son défaut ({@code rActuelle == rDefaut}) et si
+     * Concentration a une touche ({@code concentration != -1}). Codes de {@link #code}.
      */
-    static int retirerInteraction() {
+    public static boolean retraitR(int rActuelle, int rDefaut, int concentration) {
+        return rActuelle != -1 && rActuelle == rDefaut && concentration != -1;
+    }
+
+    /**
+     * Une touche est-elle « encore sur son défaut » au sens de la carte ? Soit la position US du défaut, soit la touche où
+     * la version 2 l'a posée : celle qui <b>affiche</b> la lettre du défaut sur ce clavier ({@link #cible}). En BÉPO, la
+     * touche US R affiche « o » et le « r » est sur US L ; en Dvorak sur US O ; en Colemak sur US S. Pure (banc).
+     */
+    public static boolean surDefaut(int actuelle, int defaut, IntFunction<String> nom) {
+        if (actuelle == -1) return false;
+        if (actuelle == defaut) return true;
+        Integer c = cible(defaut, nom);
+        return c != null && c == actuelle;
+    }
+
+    /** {@link #retraitR} selon le clavier : le défaut de R compte aussi sur la touche qui affiche « r » ({@link #surDefaut}). */
+    public static boolean retraitR(int rActuelle, int rDefaut, int concentration, IntFunction<String> nom) {
+        return surDefaut(rActuelle, rDefaut, nom) && concentration != -1;
+    }
+
+    /**
+     * Version 5 : l'ancienne touche « Interaction » (R) est déliée si elle est encore sur son défaut et si Concentration a
+     * une touche ({@link #retraitR}) ; sinon elle reste (alias de la Concentration). Renvoie 1 si elle a été déliée.
+     * N'enregistre rien : l'appelant fait {@code KeyMapping.resetMapping()} et {@code options.save()}.
+     */
+    public static int retirerInteraction() {
+        return retirerInteraction(k -> GLFW.glfwGetKeyName(k, 0));
+    }
+
+    private static int retirerInteraction(IntFunction<String> nom) {
         KeyMapping r = HudKeybinds.INTERACTION, c = HudKeybinds.CONCENTRATION;
-        if (r == null || c == null || r.isUnbound() || !r.isDefault()) return 0;
-        if (c.isUnbound()) {
-            LOG.info("touche {} : gardée sur {} (Concentration n'a pas de touche : elle l'ouvre à sa place)",
+        if (r == null || c == null) return 0;
+        int ra = code(KeyMappingHelper.getBoundKeyOf(r)), rd = code(r.getDefaultKey()),
+            cc = code(KeyMappingHelper.getBoundKeyOf(c));
+        if (!retraitR(ra, rd, cc, nom)) {
+            if (surDefaut(ra, rd, nom)) LOG.info("touche {} : gardée sur {} (Concentration n'a pas de touche : elle l'ouvre à sa place)",
+                r.getName(), KeyMappingHelper.getBoundKeyOf(r).getName());
+            else if (ra != -1) LOG.info("touche {} : personnalisée ({}), gardée (alias de la Concentration)",
                 r.getName(), KeyMappingHelper.getBoundKeyOf(r).getName());
             return 0;
         }
@@ -270,6 +329,10 @@ public final class TouchesMigration {
      * quel : ce sont des positions (ZQSD en AZERTY). Enregistre {@code options.txt}.
      */
     public static void reinitialiser(List<KeyMapping> cles) {
+        reinitialiser(cles, k -> GLFW.glfwGetKeyName(k, 0));
+    }
+
+    private static void reinitialiser(List<KeyMapping> cles, IntFunction<String> nom) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.options == null) return;
         List<KeyMapping> reborn = new ArrayList<>();
@@ -279,7 +342,11 @@ public final class TouchesMigration {
             km.setKey(km.getDefaultKey());
             if (HudKeybinds.REBORN_KEYS.contains(km) || km == ost) reborn.add(km);
         }
-        if (!reborn.isEmpty()) clavier(k -> GLFW.glfwGetKeyName(k, 0), reborn);
+        // version 5 : le défaut de l'ancienne touche Interaction (R) ne revient pas si Concentration a une touche.
+        // Avant la règle du clavier : déliée ici, elle n'est plus « sur son défaut » et la version 2 ne la déplace pas
+        // sur la touche qui affiche « r » (BÉPO, Dvorak, Colemak) ; sinon (Concentration sans touche) elle y passe.
+        if (cles.contains(HudKeybinds.INTERACTION)) retirerInteraction(nom);
+        if (!reborn.isEmpty()) clavier(nom, reborn);
         KeyMapping.resetMapping();
         mc.options.save();
         TouchesConflits.invalider();

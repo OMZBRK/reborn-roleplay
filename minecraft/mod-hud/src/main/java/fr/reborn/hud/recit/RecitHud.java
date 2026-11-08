@@ -111,6 +111,11 @@ public final class RecitHud {
      * « 1 / 2 › » sous le bloc. Hors champ (derrière la caméra) : fondu de sortie, jamais collé au bord.
      */
     public static volatile AncreTexte ancres;
+    /**
+     * Fourni par {@code concentration.Plaques} : la couleur du halo de la plaque {@code "plaque:<id>"}
+     * ({@code HaloPlaque.code} : ivoire-or, aucun, ou la lueur RVB ; planche c6). Null : ivoire-or.
+     */
+    public static volatile java.util.function.ToIntFunction<String> halos;
     /** Capitales d'une plaque ancrée : 84 / profondeur, de 10 à 16 px (1080p). */
     public static final double ANCRE_K = 84.0;
     public static final int PALIER_MIN = 10, PALIER_MAX = 16;
@@ -475,7 +480,9 @@ public final class RecitHud {
                 if (ancre != 0) {
                     // halo lumineux derrière le texte (naît et meurt avec lui), puis le texte
                     DaKit.debutPx(ctx);
-                    fr.reborn.hud.concentration.HaloPlaque.dessiner(ctx, cx, cy, f, a, now);
+                    var hs = halos;
+                    fr.reborn.hud.concentration.HaloPlaque.dessiner(ctx, cx, cy, f, a, now,
+                        hs == null ? fr.reborn.hud.concentration.HaloPlaque.DEFAUT : hs.applyAsInt(aff.id));
                     DaKit.finPx(ctx);
                 }
                 texte.dessiner(ctx, a);
@@ -915,6 +922,11 @@ public final class RecitHud {
          * tient pas à gauche du volet. Une nouvelle réduction relance le rendu : la donner arrondie.
          */
         public void dessiner(GuiGraphicsExtractor ctx, double cx, float alpha, double reduction) {
+            dessiner(ctx, cx, alpha, reduction, fr.reborn.hud.concentration.HaloPlaque.AUCUN);
+        }
+
+        /** Comme {@link #dessiner(GuiGraphicsExtractor, double, float, double)}, le halo {@code halo} derrière (outil « Plaques », aperçu sans ancre). */
+        public void dessiner(GuiGraphicsExtractor ctx, double cx, float alpha, double reduction, int halo) {
             if (e == null) return;
             var win = Minecraft.getInstance().getWindow();
             int W = Math.max(1, win.getWidth()), H = Math.max(1, win.getHeight());
@@ -940,6 +952,11 @@ public final class RecitHud {
             if (t.ajour()) reductionTex = reduction;
             if (!t.pret() || alpha <= 0.002f) return;
             effetsEcran(ctx, g, alpha, 0f);
+            if (halo != fr.reborn.hud.concentration.HaloPlaque.AUCUN) {
+                DaKit.debutPx(ctx);
+                fr.reborn.hud.concentration.HaloPlaque.dessiner(ctx, cx, Math.round(cy), f, alpha, Util.getMillis(), halo);
+                DaKit.finPx(ctx);
+            }
             t.dessiner(ctx, alpha);
         }
 
@@ -953,6 +970,12 @@ public final class RecitHud {
          * dessiné). Le texte n'est re-rastérisé qu'au changement de palier ; aucune allocation par image.
          */
         public boolean dessinerAncre(GuiGraphicsExtractor ctx, double x, double y, double z, float alpha, boolean halo) {
+            return dessinerAncre(ctx, x, y, z, alpha, halo ? fr.reborn.hud.concentration.HaloPlaque.DEFAUT
+                : fr.reborn.hud.concentration.HaloPlaque.AUCUN);
+        }
+
+        /** Comme {@link #dessinerAncre(GuiGraphicsExtractor, double, double, double, float, boolean)}, halo de la couleur {@code halo}. */
+        public boolean dessinerAncre(GuiGraphicsExtractor ctx, double x, double y, double z, float alpha, int halo) {
             if (e == null) return false;
             if (!fr.reborn.hud.anchor.ProjectionMonde.versPx(x, y, z, px)) return false;
             palierA = palier(px.z, palierA);
@@ -972,9 +995,9 @@ public final class RecitHud {
                 Equilibrage.AUTO, g.ombre() == null ? null : ombre);
             reductionTex = 1.0;
             if (!t.pret() || alpha <= 0.002f) return true;
-            if (halo) {
+            if (halo != fr.reborn.hud.concentration.HaloPlaque.AUCUN) {
                 DaKit.debutPx(ctx);
-                fr.reborn.hud.concentration.HaloPlaque.dessiner(ctx, cx, cy, f, alpha, Util.getMillis());
+                fr.reborn.hud.concentration.HaloPlaque.dessiner(ctx, cx, cy, f, alpha, Util.getMillis(), halo);
                 DaKit.finPx(ctx);
             }
             t.dessiner(ctx, alpha);

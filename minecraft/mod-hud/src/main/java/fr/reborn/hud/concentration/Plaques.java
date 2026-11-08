@@ -96,7 +96,8 @@ public final class Plaques {
         }
     }
 
-    private record Texte(int rev, List<Recit.Segment> segs) { }
+    /** Texte d'une plaque en cache : révision, segments, couleur du halo ({@link HaloPlaque#code}). */
+    private record Texte(int rev, List<Recit.Segment> segs, int halo) { }
 
     /** Horloge de la grâce (le banc la fige). */
     public static volatile LongSupplier horloge = Util::getMillis;
@@ -116,6 +117,8 @@ public final class Plaques {
     /** Boîtes des deux dernières plaques montrées (la sortante garde sa place pendant son fondu). */
     private static final double[] BOITE_A = new double[6], BOITE_B = new double[6];
     private static String boiteAId, boiteBId;
+    /** Couleur du halo de chaque place ({@link HaloPlaque#code}) : la sortante garde la sienne pendant son fondu. */
+    private static int haloA = HaloPlaque.DEFAUT, haloB = HaloPlaque.DEFAUT;
     private static boolean boiteABloc, boiteBBloc;
     private static net.minecraft.core.Direction boiteAFace, boiteBFace;
     /** Dernier refus d'entrée du serveur (banc). */
@@ -129,6 +132,7 @@ public final class Plaques {
         ClientTickEvents.END_CLIENT_TICK.register(Plaques::tick);
         ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> c.execute(Plaques::oublier));
         fr.reborn.hud.recit.RecitHud.ancres = Plaques::pointTexte;
+        fr.reborn.hud.recit.RecitHud.halos = Plaques::haloDe;
     }
 
     /* ================================================================ API du mode */
@@ -162,6 +166,7 @@ public final class Plaques {
         choisie = lue = null;
         lueRev = 0;
         boiteAId = boiteBId = null;
+        haloA = haloB = HaloPlaque.DEFAUT;
         perdueA = -1;
     }
 
@@ -237,7 +242,8 @@ public final class Plaques {
                         segs.add(new Recit.Segment(s.get(0).getAsString(), s.size() > 1 ? s.get(1).getAsString() : ""));
                     }
                 } catch (RuntimeException e) { return; }
-                CACHE.put(id, new Texte(num(o, "rev"), List.copyOf(segs)));
+                // halo absent = ivoire-or (serveur d'avant la planche c6) ; « aucun » ; sinon la lueur RRGGBB
+                CACHE.put(id, new Texte(num(o, "rev"), List.copyOf(segs), HaloPlaque.code(str(o, "halo"))));
                 REFUS.remove(id);
                 if (id.equals(choisie)) montrer(id);
             }
@@ -246,6 +252,7 @@ public final class Plaques {
                 REFUS.put(id, horloge.getAsLong() + REFUS_MS);
                 if (id.equals(lue)) cacherLue();
             }
+            case "traces" -> Traces.recevoir(o);   // étape C : les pas des autres joueurs
             default -> { }
         }
     }
@@ -323,6 +330,8 @@ public final class Plaques {
         if (meme && t.rev() == lueRev) return;
         Ancre a = ancre(id);
         if (a != null) garderBoite(a);
+        if (id.equals(boiteAId)) haloA = t.halo();
+        else if (id.equals(boiteBId)) haloB = t.halo();
         if (Recit.lire("plaque:" + id, t.segs(), meme)) {
             lue = id;
             lueRev = t.rev();
@@ -347,6 +356,9 @@ public final class Plaques {
         // la plus ancienne place (B) est reprise ; A devient B
         System.arraycopy(BOITE_A, 0, BOITE_B, 0, 6);
         boiteBId = boiteAId;
+        haloB = haloA;
+        Texte t = CACHE.get(a.id);
+        haloA = t != null ? t.halo() : HaloPlaque.DEFAUT;
         boiteBBloc = boiteABloc;
         boiteBFace = boiteAFace;
         System.arraycopy(a.b, 0, BOITE_A, 0, 6);
@@ -537,6 +549,17 @@ public final class Plaques {
         out[1] = y;
         out[2] = z;
         return true;
+    }
+
+    /**
+     * Couleur du halo de l'entrée {@code recitId} ({@code "plaque:<id>"}) : {@link HaloPlaque#code} de son dernier texte,
+     * ivoire-or ({@link HaloPlaque#DEFAUT}) sinon. Aucune allocation (lu par {@code RecitHud} à chaque image).
+     */
+    public static int haloDe(String recitId) {
+        if (recitId == null) return HaloPlaque.DEFAUT;
+        if (estId(recitId, boiteAId)) return haloA;
+        if (estId(recitId, boiteBId)) return haloB;
+        return HaloPlaque.DEFAUT;
     }
 
     /** {@code recitId} vaut « plaque:<id> » (sans allocation). */

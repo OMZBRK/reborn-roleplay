@@ -80,8 +80,10 @@ public final class HudKeybinds {
     public static KeyMapping VOIX_PORTEE;
 
     /**
-     * Ancienne touche du menu d'interaction (R) : alias de transition de la Concentration (lot 4), gardée jusqu'à la
-     * validation en jeu (CADRAGE §6.1), puis déliée par une migration suivante ({@code TouchesMigration#retirerInteraction}).
+     * Ancienne touche du menu d'interaction (défaut R). Déliée par la migration 5 ({@link TouchesMigration#retirerInteraction})
+     * si elle est restée sur R et que Concentration a une touche ; gardée (alias de la Concentration) chez un joueur dont
+     * Concentration n'a pas de touche, ou qui l'a mise sur une autre touche. Le défaut reste R pour que la migration
+     * reconnaisse la valeur d'origine dans {@code options.txt}.
      */
     public static KeyMapping INTERACTION;
 
@@ -144,8 +146,9 @@ public final class HudKeybinds {
      * invites au lieu d'une lettre écrite en dur.
      */
     /**
-     * Touche qui ouvre réellement la Concentration : {@link #CONCENTRATION}, ou l'ancienne touche R ({@link #INTERACTION},
-     * alias de transition) quand Concentration n'a pas de touche (Y déjà prise). Lue par les invites et les rappels.
+     * Touche qui ouvre réellement la Concentration : {@link #CONCENTRATION}, ou l'ancienne touche Interaction
+     * ({@link #INTERACTION}, gardée par la migration 5) quand Concentration n'a pas de touche (Y déjà prise). Lue par les
+     * invites, les aides et les rappels : aucun texte n'écrit « R » en dur.
      */
     public static KeyMapping concentrationEffective() {
         if (CONCENTRATION != null && !CONCENTRATION.isUnbound()) return CONCENTRATION;
@@ -371,10 +374,12 @@ public final class HudKeybinds {
             fr.reborn.hud.voice.VoiceState.tick(client);
             // wasPressed() drain le queue d'events — false sur les frames
             // sans transition pressed.
-            // Ancienne touche du menu d'interaction (R) : alias de la Concentration le temps de la transition (lot 4 ;
-            // déliée après la validation en jeu). Plus jamais InteractionMode.toggle() en direct.
-            while (INTERACTION.consumeClick()) {
-                fr.reborn.hud.concentration.ModeConcentration.basculer();
+            // Ancienne touche du menu d'interaction : déliée par la migration 5 chez presque tous ; gardée, elle reste un
+            // alias de la Concentration (Concentration sans touche, ou touche personnalisée). Jamais InteractionMode.toggle().
+            if (INTERACTION.isUnbound()) {
+                while (INTERACTION.consumeClick()) { }
+            } else {
+                while (INTERACTION.consumeClick()) fr.reborn.hud.concentration.ModeConcentration.basculer();
             }
             while (CINEMA.consumeClick()) {
                 fr.reborn.hud.immersion.CinemaBars.INSTANCE.toggle();

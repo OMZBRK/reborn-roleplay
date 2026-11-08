@@ -51,7 +51,17 @@ public final class KeybindButton extends Button {
         Minecraft mc = Minecraft.getInstance();
         if (mc != null && mc.options != null) mc.options.save();
         stopListening();
+        // La ligne « Interaction » des Commandes (présente si elle a une touche, aide selon que Concentration en a une)
+        // vient du cache de ControlsTab : refaite, et la page remise en page (une ligne peut apparaître ou partir).
+        if (mapping == fr.reborn.hud.keybind.HudKeybinds.INTERACTION
+                || mapping == fr.reborn.hud.keybind.HudKeybinds.CONCENTRATION) {
+            fr.reborn.hud.menu.settings.ControlsTab.invaliderCache();
+            fr.reborn.hud.menu.settings.SectionedTab.demanderRafraichir();
+        }
     }
+
+    /** Liaison réglée par ce bouton (banc des Paramètres). */
+    public KeyMapping mapping() { return mapping; }
 
     @Override
     public void onPress(InputWithModifiers input) {

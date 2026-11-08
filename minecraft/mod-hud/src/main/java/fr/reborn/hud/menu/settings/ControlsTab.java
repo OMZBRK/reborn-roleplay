@@ -115,6 +115,8 @@ public class ControlsTab extends SectionedTab implements SousListe {
         List<KeyMapping> cles = new ArrayList<>();
         for (Ligne l : lignes(choisie, o)) cles.add(l.km());
         if (!cles.isEmpty()) TouchesMigration.reinitialiser(cles);
+        // la ligne « Interaction » dépend de sa liaison (migration 5 rejouée par la réinitialisation) : listes à refaire
+        invaliderCache();
         if (choisie == DEPLACEMENT) {
             o.autoJump().set(false);
             o.toggleSprint().set(false);
@@ -174,6 +176,14 @@ public class ControlsTab extends SectionedTab implements SousListe {
         });
     }
 
+    /**
+     * Listes refaites au prochain {@code build()} (la ligne « Interaction » dépend de sa liaison et de celle de
+     * Concentration) : appelée par « Réinitialiser la section » et par {@link KeybindButton} quand l'une des deux change.
+     */
+    public static void invaliderCache() {
+        java.util.Arrays.fill(CACHE, null);
+    }
+
     /** Touches de la sous-catégorie {@code s} (en cache, voir {@link #CACHE}). */
     private static List<Ligne> lignes(int s, Options o) {
         if (o == null) return List.of();
@@ -217,12 +227,14 @@ public class ControlsTab extends SectionedTab implements SousListe {
                 add(l, o.keySwapOffhand, "Main secondaire", "Partagée avec Contextuel, qui ne la prend que s'il y a quelque chose à faire.");
             }
             case MONDE -> {
-                add(l, HudKeybinds.CONCENTRATION, "Concentration", "Un appui pour te concentrer : un curseur, et un clic sur ce que tu vises pour agir. Un autre appui pour revenir.");
+                add(l, HudKeybinds.CONCENTRATION, "Concentration", "Un appui : lire les plaques, viser un joueur ou un objet et cliquer pour agir. Un autre appui, ou Échap, pour revenir.");
                 add(l, HudKeybinds.PICKUP, "Contextuel", "Ramasser, prendre ce qu'on te tend : seulement s'il y a quelque chose à faire.");
-                // Ancienne touche du menu d'interaction : montrée seulement si elle a encore une touche (alias de la
-                // Concentration, déliée par la migration v5 dès que Concentration a la sienne).
+                // Ancienne touche du menu d'interaction : montrée seulement si elle a encore une touche (gardée par la
+                // migration 5 : Concentration sans touche, ou touche personnalisée) ; elle ouvre la Concentration.
                 if (HudKeybinds.INTERACTION != null && !HudKeybinds.INTERACTION.isUnbound()) {
-                    add(l, HudKeybinds.INTERACTION, "Interaction", "Ancienne touche : ouvre la Concentration, comme elle.");
+                    add(l, HudKeybinds.INTERACTION, "Interaction", HudKeybinds.CONCENTRATION.isUnbound()
+                        ? "Ancienne touche : ouvre la Concentration, qui n'a pas de touche."
+                        : "Ancienne touche : ouvre la Concentration, comme elle. Échap pour la retirer.");
                 }
                 add(l, o.keyDrop, "Jeter", "Jeter l'objet en main ; avec Ctrl, toute la pile.");
                 add(l, HudKeybinds.DUEL_ACCEPT, "Accepter", "Une invitation, un duel, une demande.");

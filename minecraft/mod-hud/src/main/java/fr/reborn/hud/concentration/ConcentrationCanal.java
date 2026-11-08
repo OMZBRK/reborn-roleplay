@@ -14,7 +14,7 @@ import java.util.function.Consumer;
  * Canal {@code reborn:concentration} côté mod (lot 4, étape B ; PLUGINS_REFERENCE §4 undecies) : JSON UTF-8 brut dans
  * les deux sens, champ {@code v} = {@value #VERSION}. <b>Jamais</b> {@code reborn:plaques} (nametags du mode staff).
  * C → S : {@code on}, {@code off}, {@code lire} ; S → C : {@code etat}, {@code ancres}, {@code texte},
- * {@code texte_refus}, reçus sur le fil client et passés à {@link Plaques}.
+ * {@code texte_refus}, {@code traces} (étape C), reçus sur le fil client et passés à {@link Plaques} et {@link Traces}.
  */
 public final class ConcentrationCanal {
 

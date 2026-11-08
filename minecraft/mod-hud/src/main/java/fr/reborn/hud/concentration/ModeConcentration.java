@@ -125,6 +125,7 @@ public final class ModeConcentration {
         ClientTickEvents.END_CLIENT_TICK.register(ModeConcentration::tick);
         ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> c.execute(ModeConcentration::reinitialiser));
         Plaques.init();   // étape B : canal reborn:concentration, plaques en face, halo
+        Traces.init();    // étape C : traces de pas
     }
 
     /* ================================================================ API */
@@ -189,6 +190,7 @@ public final class ModeConcentration {
         fr.reborn.hud.menu.RebornSounds.playReborn("concentration.entree", 1.0f, SON_VOLUME);
         preparerParams(mc);
         fr.reborn.hud.effets.FiltresEcran.tick();
+        Traces.entree();    // étape C : plus rien de l'entrée précédente, le serveur renvoie la liste complète
         Plaques.entree();   // étape B : « on » au serveur (il revérifie et peut refuser)
         return true;
     }
@@ -208,6 +210,7 @@ public final class ModeConcentration {
         if (InteractionMode.INSTANCE.isActive()) InteractionMode.INSTANCE.deactivate();
         Recit.concentration(false);
         Plaques.sortie();   // étape B : « off », texte de la plaque effacé en 350 ms
+        Traces.sortie();    // étape C : fondu avec l'effet, puis oubliées
         // son de sortie seulement quand le joueur sort lui-même (un coup, un écran : pas de souffle par-dessus)
         if (raison == Raison.TOUCHE || raison == Raison.ECHAP) {
             fr.reborn.hud.menu.RebornSounds.playReborn("concentration.sortie", 1.0f, SON_VOLUME);
@@ -231,6 +234,7 @@ public final class ModeConcentration {
             Recit.concentration(false);
             Plaques.sortie();
         }
+        Traces.oublier();
     }
 
     /** Étape B : le serveur refuse ou termine la concentration ({@code etat on:false}) : sortie, raison gardée (banc). */
@@ -346,9 +350,11 @@ public final class ModeConcentration {
         if (im.menuOuvert() || rotation) {
             survolId = -1;
             interactif = false;
+            Traces.sortie();
             return;
         }
         HitResult hit = CursorRaycast.raycast(mc, im.cursorGuiX(), im.cursorGuiY(), SURVOL_PORTEE);
+        Traces.survoler(mc, im.cursorGuiX(), im.cursorGuiY());
         int id = -1;
         boolean inter = false;
         if (hit instanceof EntityHitResult ehr) {

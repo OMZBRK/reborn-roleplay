@@ -777,6 +777,9 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.concentration.ModeConcentration.init();
         fr.reborn.hud.audit.Lot4Debug.init();
         fr.reborn.hud.audit.Lot4bDebug.init();   // banc de l'étape B (REBORN_LOT4_DEBUG=b, dev)
+        fr.reborn.hud.audit.Lot4v5Debug.init();  // banc du retrait de R, migration 5 (REBORN_LOT4_DEBUG=v5, dev)
+        fr.reborn.hud.audit.Lot4c6Debug.init();  // banc de la couleur du halo, planche c6 (REBORN_LOT4_DEBUG=c6, dev)
+        fr.reborn.hud.audit.Lot4c7Debug.init();  // banc des traces de pas, planche c7 (REBORN_LOT4_DEBUG=c7, dev)
         // Narration du staff (lot 2, étape 2d, canal reborn:narration, ShinobiCore Narrations) : type S2C enregistré (le
         // serveur sait que le joueur a le mod, sinon repli tchat), message passé au texte au centre ; oubli à la connexion.
         fr.reborn.hud.recit.NarrationClient.init();
