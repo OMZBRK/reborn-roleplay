@@ -42,6 +42,7 @@ class PlaqueStoreTest {
         a.creePseudo = "Omar";
         a.creeLe = 1_762_376_580_000L;
         a.lectures = 37;
+        a.halo = "6FB4FF";
         s.plaques.put(a.id, a);
 
         Plaque b = new Plaque(s.nouvelId());
@@ -56,6 +57,7 @@ class PlaqueStoreTest {
         c.segs = List.of(new Narrations.Segment("Signé d'une ombre", "ombre"));
         c.ancre = Ancre.objet();
         c.actif = false;
+        c.halo = "aucun";
         s.plaques.put(c.id, c);
 
         s.ecrire(s.serialiser(), 1);
@@ -74,6 +76,7 @@ class PlaqueStoreTest {
         assertEquals(3, a2.rev);
         assertEquals(staff, a2.creePar);
         assertEquals(37, a2.lectures);
+        assertEquals("6FB4FF", a2.halo, "halo gardé");
         assertNull(a2.supprimee);
         assertEquals("Ici repose <or>le premier gardien</>.\nSilence.", a2.balise());
 
@@ -85,11 +88,44 @@ class PlaqueStoreTest {
         assertNotNull(b2.supprimee);
         assertEquals("doublon", b2.supprimee.motif());
         assertTrue(b2.dansCorbeille());
+        assertNull(b2.halo, "halo absent = ivoire-or");
 
         Plaque c2 = r.plaques.get("P3");
         assertEquals(Ancre.Type.OBJET, c2.ancre.type());
         assertFalse(c2.actif);
         assertEquals("ombre", c2.segs.get(0).couleur());
+        assertEquals("aucun", c2.halo);
+    }
+
+    @Test
+    void halo_fichier() {
+        String bon = "    ancre: { type: bloc, monde: world, x: 1, y: 2, z: 3, boite: [1, 1, 1] }";
+        String seg = "    segs: [[\"a\", \"\"]]";
+        PlaqueStore s = store(tmp.resolve("h.yml").toFile());
+        // à la main : minuscules acceptées, ivoire-or écrit en clair = absent ; un nombre seul (sans lettre) passe aussi
+        assertTrue(s.charger(String.join("\n", "prochain: 4", "plaques:",
+                "  P1:", seg, bon, "    halo: 6fb4ff",
+                "  P2:", seg, bon, "    halo: ivoire",
+                "  P3:", seg, bon, "    halo: 123456", "")));
+        assertEquals("6FB4FF", s.plaques.get("P1").halo);
+        assertNull(s.plaques.get("P2").halo);
+        assertEquals("123456", s.plaques.get("P3").halo);
+        // une couleur commençant par 0 écrite sans guillemets est lue en octal par YAML : rejetée, écritures bloquées
+        PlaqueStore t = store(tmp.resolve("o.yml").toFile());
+        assertFalse(t.charger(String.join("\n", "prochain: 2", "plaques:", "  P1:", seg, bon, "    halo: 012345", "")));
+        assertTrue(t.bloque());
+        assertFalse(t.charger(String.join("\n", "prochain: 2", "plaques:", "  P1:", seg, bon, "    halo: violet", "")));
+        // l'écriture met les guillemets nécessaires : « 012345 » se relit tel quel
+        PlaqueStore u = store(tmp.resolve("q.yml").toFile());
+        Plaque p = new Plaque("P1");
+        p.segs = List.of(Narrations.Segment.blanc("x"));
+        p.ancre = Ancre.bloc("world", 1, 2, 3, 1, 1, 1);
+        p.halo = "012345";
+        u.plaques.put(p.id, p);
+        String yaml = u.serialiser();
+        PlaqueStore v = store(tmp.resolve("r.yml").toFile());
+        assertTrue(v.charger(yaml), yaml);
+        assertEquals("012345", v.plaques.get("P1").halo);
     }
 
     @Test

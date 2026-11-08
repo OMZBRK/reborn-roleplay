@@ -99,7 +99,7 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/annonce` | `broadcast`, `bc` | Modérateur | `reborn.staff.helper` | Annonce à tous (bandeau du mod, sinon titre) ; `/annonce joueur <cible> <message>` = une seule personne |
 | `/annoncejoueur` | `broadcastplayer`, `bcp` | Helper | `reborn.staff.helper` | Message à un seul joueur (scène, convocation) |
 | `/narration` | `narrer` | Helper : un joueur ; Modérateur : ici, monde, tous ; animateur en mode animation : un joueur (64 blocs au plus), ici | `reborn.staff.narration` | **Narration au centre de l'écran** (lot 2, 01/11) : `/narration <joueur <cible>\|ici [rayon]\|monde\|tous> [+auto\|+tenir\|30s\|2m] [+remplace] [+tchat] <texte…>` ; couleurs `<rouge>…</>`, `<or>`, `<ombre>`, `<gris>` (alias `&c`, `&6`, `&9`, `&7`, `&r` = blanc ; `&&` = « & »), `\n` = à la ligne ; options **avant le texte**, marquées d'un `+` sauf la durée à suffixe (`30s`, `2m`, 2 à 180 s) : un mot ou un nombre seul fait partie du texte ; `+tenir` (jusqu'à l'arrêt, 10 min au plus) : Modérateur ; `ici` = 30 blocs par défaut, 64 au plus ; `tous` en jeu : résumé puis [Confirmer] (60 s) ; sous Modérateur : 3 s entre deux, 5 joueurs différents par minute, `+remplace` ne coupe que les siennes ; `/narration fin [id]` (les siennes ; Modérateur : toutes) ; journal `STAFF` `NARRATION` / `NARRATION_FIN`. La ligne de tchat de Minecraft s'arrête à 256 caractères : au-delà, le Poste de garde (1 000) ou plusieurs narrations à la suite — §4 bis.3 bis |
-| `/plaque` | `stele` | Helper : `liste`, `info`, `voir`, `corbeille`, `tp` ; Modérateur : `poser`, `objet`, `texte`, `portee`, `deplacer`, `retirer` ; Admin : `restaurer` ; animateur en mode animation : ses plaques temporaires (24 h) seulement | `reborn.staff.plaques` | **Plaques lues en concentration** (lot 4, étape B, 07/11) : `poser [p:6] [+24h] <texte…>` sur le bloc (8 blocs) ou le meuble (6) visé, `objet` sur l'objet en main ; portée **explicite** (`p:6`) : un nombre seul reste du texte. Balises de la narration. Journal `STAFF` (§4 undecies) |
+| `/plaque` | `stele` | Helper : `liste`, `info`, `voir`, `corbeille`, `tp` ; Modérateur : `poser`, `objet`, `texte`, `portee`, `halo`, `deplacer`, `retirer` ; Admin : `restaurer` ; animateur en mode animation : ses plaques temporaires (24 h) seulement | `reborn.staff.plaques` | **Plaques lues en concentration** (lot 4, étape B, 07/11) : `poser [p:6] [+24h] <texte…>` sur le bloc (8 blocs) ou le meuble (6) visé, `objet` sur l'objet en main ; portée **explicite** (`p:6`) : un nombre seul reste du texte. Balises de la narration. `halo <id> <ivoire\|aucun\|RRGGBB>` : couleur du halo (planche c6, 08/11). Journal `STAFF` (§4 undecies) |
 | `/aller` | `goto`, `stp` | Helper | `reborn.staff.helper` | Se téléporter à la cible (position de départ mémorisée) |
 | `/ramener` | `bring` | Modérateur | `reborn.staff.helper` | Ramener la cible à soi (sa position est mémorisée) |
 | `/retour` | `back` | Helper / Modérateur | `reborn.staff.helper` | Sans argument : revenir où l'on était ; `/retour <cible>` (Modérateur) : la renvoyer où elle était |
@@ -895,7 +895,7 @@ et refus → tchat.
 
 ---
 
-## 4 undecies. Concentration — plaques (lot 4, étape B, 07/11)
+## 4 undecies. Concentration — plaques (lot 4, étape B, 07/11) et traces de pas (étape C, 08/11, §4 undecies.5)
 
 Plaques posées par le staff, lues **seulement en concentration, face à l'objet** (décisions du 01/11 et du 07/11). Code :
 `ShinobiCore concentration/` (`ConcentrationModule`, `ConcentrationCanal`, `plaque/*`), mod `concentration/Plaques`,
@@ -927,20 +927,22 @@ plaque.**
 | S → C | `{"v":1,"t":"etat","on":false,"raison":"…"}` | Refus ou fin imposée : le mod ferme le mode |
 | S → C | `{"v":1,"t":"ancres","l":[…]}` — bloc : `{"id","rev","k":"bloc","x","y","z","b":[dx,dy,dz],"p"}` ; entité : `{"id","rev","k":"entite","x","y","z","w","h","p"}` | Plaques lisibles à 32 blocs (`ancres-portee`), **sans le texte** ; à l'entrée puis toutes les 2 s si la liste change ; un objet porteur part comme une entité |
 | C → S | `{"v":1,"a":"lire","id":"P1A"}` | Demande du texte de la plaque en face |
-| S → C | `{"v":1,"t":"texte","id","rev","segs":[[texte, couleur]…]}` | Seulement si toutes les règles passent |
+| S → C | `{"v":1,"t":"texte","id","rev","segs":[[texte, couleur]…],"halo"}` | Seulement si toutes les règles passent ; `halo` (planche c6, 08/11) : **absent = ivoire-or**, `"aucun"`, ou la lueur `"RRGGBB"` — un mod plus ancien l'ignore (ivoire-or) |
 | S → C | `{"v":1,"t":"texte_refus","id"}` | Silencieux côté mod (pas de nouvelle demande pendant 1,5 s) |
+| S → C | `{"v":1,"t":"traces","plein"?,"o":[ox,oy,oz],"a":[…],"r":[…]}` | Traces de pas des autres joueurs (étape C, §4 undecies.5), aux seuls concentrés |
 
 Côté mod : sélection **automatique** de la plaque en face (portée, ligne de vue, 25° autour de la caméra ; la plus
 centrée, la plus proche à 3° près ; hystérésis 5° ; grâce 150 ms), cache du texte par `(id, rev)`, texte
-`Gabarit.STELE` **ancré devant l'objet** (capitales 84 / profondeur, 10 à 16 px), halo ivoire-or, pages au clic gauche.
+`Gabarit.STELE` **ancré devant l'objet** (capitales 84 / profondeur, 10 à 16 px), halo de la couleur reçue (ivoire-or
+par défaut ; `HaloPlaque.Palette.depuis` dérive cœur, voile et étincelles de la seule lueur), pages au clic gauche.
 
 ### 4 undecies.3 Outil « Plaques » du Poste de garde (`reborn:staff`, C → S, champ `a`)
 
 | `a` | Droits | Champs | Réponse |
 |---|---|---|---|
 | `plaques` | Helper ; animateur en mode animation (les siennes) | `r` (64, 256 au plus), `q` | `plaques` |
-| `plaque_creer` | Modérateur ; animateur (temporaire, 24 h au plus, expiration obligatoire) | `ancre` (`{"k":"bloc","x","y","z","b":[dx,dy,dz]}`, `{"k":"entite","e":uuid}` ou `{"k":"objet"}` = objet en main), `segs` ou `texte` (balises), `titre`, `p` (2-16), `expire` (min, 0 = jamais) | `toast` puis `plaques` (`dernier` = id) |
-| `plaque_modifier` | Modérateur ; l'animateur, ses temporaires | `id` + champs à changer, `actif` | idem |
+| `plaque_creer` | Modérateur ; animateur (temporaire, 24 h au plus, expiration obligatoire) | `ancre` (`{"k":"bloc","x","y","z","b":[dx,dy,dz]}`, `{"k":"entite","e":uuid}` ou `{"k":"objet"}` = objet en main), `segs` ou `texte` (balises), `titre`, `p` (2-16), `expire` (min, 0 = jamais), `halo` (absent ou vide = ivoire-or, `"aucun"`, `"RRGGBB"`) | `toast` puis `plaques` (`dernier` = id) |
+| `plaque_modifier` | Modérateur ; l'animateur, ses temporaires | `id` + champs à changer, `actif`, `halo` (seulement s'il change ; vide = retour à l'ivoire-or) | idem |
 | `plaque_deplacer` | idem (pas une plaque d'objet) | `id`, `ancre` | idem |
 | `plaque_suppr` | idem | `id`, `motif` (≥ 3) → corbeille 30 jours | idem |
 | `plaque_restaurer` | Admin | `id` | idem |
@@ -948,7 +950,7 @@ centrée, la plus proche à 3° près ; hystérésis 5° ; grâce 150 ms), cache
 
 Réponse `plaques` : `grade`, `anim`, `peutCreer`, `temporaire`, `peutRestaurer`, `voirTout`, `rayon`, `texteMax`,
 `dernier` ; `l` = 60 plaques au plus, chacune `{id, titre, texte (160), segs, k, monde, x, y, z, b ou w, h, e, dist, p,
-actif, expire (min restantes), temporaire, rev, par, le, modifPar, modifLe, lectures, moi, peutModifier, absente?}` ;
+actif, expire (min restantes), temporaire, rev, halo?, par, le, modifPar, modifLe, lectures, moi, peutModifier, absente?}` ;
 `corbeille` (Helper et plus) = `[{id, titre, texte, k, monde, par, le, motif, reste (jours)}]`. Ancre vérifiée au
 serveur : même monde, 8 blocs des yeux (+ 1), boîte de 32 blocs par côté au plus, entité chargée, jamais un joueur.
 `StaffPanel` laisse passer les actions `plaque*` sans grade : `PlaquesPanel` relit les droits (animateur en mode
@@ -961,9 +963,62 @@ animation).
   créations et écritures **bloquées** jusqu'à `/sc reload` après correction (les identifiants ne sont jamais réutilisés :
   le compteur repart au-dessus du plus grand id lu).
 - `config.yml` › `concentration.plaques` : `ancres-portee` (32), `portee-defaut` (6), `journal-lectures` (false).
+- **Halo** (planche c6, décision du 07/11, 08/11) : `Plaque.halo` — clé `halo` **absente = ivoire-or** (aucune migration :
+  les plaques déjà posées gardent leur halo) ; `halo: aucun` = le texte seul ; sinon la lueur `halo: "6FB4FF"`. Saisie
+  normalisée par `PlaqueRegles.lireHalo` (`^(aucun|[0-9A-Fa-f]{6})$`, `#` facultatif, mis en majuscules ; `ivoire`,
+  vide ou `FFCC7A` = absent). À la main, **mettre la couleur entre guillemets** : YAML lit `012345` en octal — une
+  valeur incomprise rejette la plaque et bloque les écritures, comme toute erreur du fichier. Changer le halo fait monter
+  `rev` (le cache `(id, rev)` des clients tombe) et s'inscrit au journal : `PLAQUE_MODIFIEE · halo #FFCC7A (ivoire-or)
+  → #6FB4FF`.
 - Journal `STAFF` : `PLAQUE_CREEE`, `PLAQUE_MODIFIEE`, `PLAQUE_TEXTE` (texte entier en morceaux de 550),
   `PLAQUE_DEPLACEE`, `PLAQUE_SUPPRIMEE`, `PLAQUE_RESTAUREE`, `PLAQUE_EXPIREE`, `PLAQUE_PURGEE`, `PLAQUE_TP`,
   `PLAQUE_REFUS`.
+
+### 4 undecies.5 Traces de pas (étape C, planche c7, décision du 08/11)
+
+Code : `ShinobiCore concentration/trace/` (`TraceService` pour le serveur ; `TraceRegles`, `TraceMarche`, `TraceStore`,
+`TraceProtocole`, sans dépendance au serveur, testés par `TraceReglesTest` et `TraceStoreTest`), mod `concentration/Traces`.
+
+- **Relevé** : toutes les 4 ticks, pour chaque joueur qui marque, un pas tous les **1,2 bloc** (sprint 2, accroupi 0,8,
+  chargé 1, × racine de l'échelle du personnage), posé le long du segment parcouru, à plat sur le dessus de la **forme de
+  collision** (neige en couches, boue, sable des âmes : sur la surface visible, sinon le pas y serait caché). Gauche et
+  droite alternent, écart latéral 0,12 × échelle, pointe tournée de 6° vers l'extérieur. Plus de 6 blocs en un relevé au sol
+  (téléportation) : rien.
+- **Saut** : il ne coupe pas la marche. Rien en l'air, **un pas à l'atterrissage**, guetté à chaque tick pour les seuls joueurs
+  en l'air (courir en sautant ne touche le sol que 1 à 2 ticks sur 13, le relevé le raterait). Sauter sur place ne pose rien.
+- **Sprint** : lu à la **vitesse réelle** (`vitesse-sprint`, 5,8 blocs/s, mesurée sur 8 ticks ; × 1,27 sur un saut), pas au
+  drapeau de sprint Minecraft, qui veut dire trot ou sprint. Le trot laisse des pas de marche.
+- **Pas de trace** : mode staff, vanish, spectateur, en vol ou planeur, sur ou dans l'eau (nénuphar compris), monture, porté
+  ou tenu (c'est le porteur qui marque, drapeau **chargé**), cinématique, sélection du personnage, douane, sans personnage,
+  mort.
+- **Durée de vie**, fixée à la pose : `vie-base-secondes` (**7200, 2 h**, décision du 08/11 : « une trace de pas reste », elle sert à savoir si quelqu'un est passé) × sol (× 2 sable, neige, boue ; × 0,4 pierre, bois, chemin,
+  dalles, escaliers ; × 1 le reste) × météo (× 0,5 pluie et vent de sable, × 0,3 blizzard, tempête de sable, orage ; météo
+  RP du lieu `MeteoCommand.typeLieu`, zones comprises, **sans les météos individuelles** ; pluie et orage du monde sauf dans
+  les biomes où il ne pleut pas, `TraceRegles.biomeSec` : désert, savanes, badlands, Nether, End ; rien sous un toit) × 0,5
+  accroupi. Une pluie qui arrive après la pose ne raccourcit pas les pas déjà là.
+- **Mémoire seule**, perdues au redémarrage : anneau de **1024** pas par tronçon (`max-troncon`, 96 ne tenait que 27 s de va-et-vient), **500 000** au plus sur le serveur (`max-global`, le
+  plus vieux part). Mesuré au tas d'une JVM 25 (`Trace`, anneaux, tables des tronçons ; pistes denses ou tronçons peu remplis) :
+  **93 à 109 octets par pas, environ 50 Mo au plus**. Rien ne parcourt tout : ordre d'arrivée chaîné dans les pas (ôter un pas : O(1), plafond :
+  O(1), anneau : 1024 au plus), balayage borné à **5 000 pas par seconde** qui reprend où il s'était arrêté (`TraceStore.balayer`,
+  un tour de 500 000 pas en 100 s ; 0,1 ms sans expiré, 10 ms au pire, un pas sur deux expiré ; envoi à un concentré dans une zone pleine, 25 tronçons de 1024 pas : 3 ms en moyenne, 6 ms au pire, une fois par seconde). Fin de l'anneau ou du plafond : le plus vieux part, même avant sa durée de vie. Un pas expiré pas encore balayé
+  n'est jamais envoyé. Le code a les mêmes valeurs par défaut que `config.yml` : un serveur sans section `traces` les prend.
+- **Qui voit** : tout joueur concentré voit les traces des **autres**, jamais les siennes. Pleines à 16 blocs, rien à 24, côté
+  mod ; le serveur envoie les 320 plus proches à 28 blocs. Aucun coût. Personne ne sait qu'on regarde. Avant chaque envoi, le
+  droit est relu comme pour une demande de texte (`ConcentrationCanal.maintenir`) : à terre, cinématique, douane… rien ne part,
+  `etat on:false`.
+- **Anonymat** : jamais de nom ni d'UUID. Clé de piste 16 bits = SHA-256(marcheur, spectateur, jour de naissance du pas en UTC,
+  sel tiré au démarrage) : relie les pas d'une piste pour ce spectateur ; un pas garde sa clé toute sa vie, le renvoyer après
+  minuit ne relie pas deux jours. Clés différentes d'un spectateur à l'autre, mais `id` commun : deux clients qui comparent ce
+  qu'ils reçoivent peuvent se dire « même piste », jamais à qui elle est. Le mod la reçoit mais ne s'en sert pas encore (même
+  semelle pour tous) ; réservée au suivi d'une piste (flair Inuzuka, plus tard).
+- **Message** : `plein` = la liste remplace tout (à l'entrée, au changement de monde) ; sinon différentiel chaque seconde, rien
+  s'il n'y a rien de neuf. `a` = 10 entiers à plat par pas : `id, clé, dx, dy, dz (1/32 de bloc depuis o), angle (degrés),
+  drapeaux, échelle %, âge (s), vie (s)` ; drapeaux : 1 droit, 2 sprint, 4 accroupi, 8 chargé, 16 sang. `r` = id à oublier.
+  De 30 à 53 octets par pas (âges et vies à 5 chiffres), environ 17 Ko au pire à l'entrée, plus environ 3 Ko de retraits, sous la limite de 32 766 octets de `sendPluginMessage`. Un mod plus ancien ignore le message.
+- **Sang** des blessés (moins de la moitié de leur vie, deux texels éteints au talon) : option `sang`, coupée au départ.
+- **Réglages** `config.yml › concentration.traces` : `actif`, `vie-base-secondes`, `vitesse-sprint`, `sang`, `max-troncon`,
+  `max-global` (absents d'un `config.yml` du disque : ces défauts). `actif: false` (`/sc reload`) arrête tout dans la seconde :
+  plus de relevé ni d'envoi, mémoire vidée, et un message `plein` vide efface les traces de l'écran des concentrés.
 
 ## 4 ter. Nourriture et modificateurs — protocole (14/10)
 

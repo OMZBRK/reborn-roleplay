@@ -403,6 +403,12 @@ public final class PlaqueService {
     }
 
     public Resultat creer(Player s, Ancre ancre, List<Narrations.Segment> segs, String titre, int portee, int expireMin) {
+        return creer(s, ancre, segs, titre, portee, expireMin, null);
+    }
+
+    /** Création ; {@code halo} déjà normalisé ({@link PlaqueRegles#lireHalo}) : null = ivoire-or par défaut. */
+    public Resultat creer(Player s, Ancre ancre, List<Narrations.Segment> segs, String titre, int portee, int expireMin,
+                          String halo) {
         if (store.bloque()) return Resultat.ko(BLOQUE);
         int grade = StaffGrades.of(s);
         boolean anim = animation(s);
@@ -431,6 +437,7 @@ public final class PlaqueService {
         p.portee = PlaqueRegles.bornerPortee(portee <= 0 ? porteeDefaut() : portee);
         p.expire = expireMin > 0 ? now + expireMin * 60_000L : 0;
         p.temporaire = temp;
+        p.halo = halo;
         p.creeLe = now;
         p.creePar = s.getUniqueId();
         p.creePseudo = s.getName();
@@ -442,7 +449,8 @@ public final class PlaqueService {
         store.plaques.put(p.id, p);
         changement();
         journal(JournalService.Categorie.STAFF, "PLAQUE_CREEE", s, p, p.id + " · " + ancre.libelle() + " · portée " + p.portee
-                + (p.expire > 0 ? " · expire dans " + expireMin + " min" : "") + (temp ? " · temporaire" : "") + " · « "
+                + (p.expire > 0 ? " · expire dans " + expireMin + " min" : "") + (temp ? " · temporaire" : "")
+                + (p.halo != null ? " · halo " + PlaqueRegles.libelleHalo(p.halo) : "") + " · « "
                 + p.aPlat(TEXTE_JOURNAL) + " »");
         journalTexte(s, p);
         return new Resultat(p, null);
@@ -451,6 +459,16 @@ public final class PlaqueService {
     /** Modification : champs null = inchangés. Le {@code rev} monte (caches des clients). */
     public Resultat modifier(Player s, String id, List<Narrations.Segment> segs, String titre, Integer portee, Integer expireMin,
                              Boolean actif) {
+        return modifier(s, id, segs, titre, portee, expireMin, actif, null);
+    }
+
+    /**
+     * Modification ; {@code halo} : null = inchangé, sinon la saisie normalisée ({@link PlaqueRegles#lireHalo}) dont la
+     * valeur null veut dire ivoire-or par défaut. Un halo changé fait monter {@code rev} (le texte relu porte le nouveau
+     * halo) et s'inscrit au journal : {@code PLAQUE_MODIFIEE · halo #FFCC7A (ivoire-or) → #6FB4FF}.
+     */
+    public Resultat modifier(Player s, String id, List<Narrations.Segment> segs, String titre, Integer portee, Integer expireMin,
+                             Boolean actif, PlaqueRegles.Halo halo) {
         if (store.bloque()) return Resultat.ko(BLOQUE);
         Plaque p = get(id);
         if (p == null || p.dansCorbeille()) return Resultat.ko("Plaque introuvable : " + id + ".");
@@ -482,6 +500,10 @@ public final class PlaqueService {
             quoi.add("portée " + p.portee);
         }
         if (actif != null && actif != p.actif) { p.actif = actif; quoi.add(actif ? "activée" : "désactivée"); }
+        if (halo != null && halo.ok() && !java.util.Objects.equals(halo.valeur(), p.halo)) {
+            quoi.add("halo " + PlaqueRegles.libelleHalo(p.halo) + " → " + PlaqueRegles.libelleHalo(halo.valeur()));
+            p.halo = halo.valeur();
+        }
         if (quoi.isEmpty()) return new Resultat(p, null);
         p.changer(s.getUniqueId(), s.getName(), System.currentTimeMillis());
         changement();

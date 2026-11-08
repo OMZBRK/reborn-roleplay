@@ -34,6 +34,7 @@ import java.util.logging.Logger;
  *     actif: true
  *     expire: 0
  *     rev: 3
+ *     halo: "6FB4FF"       # absent = ivoire-or ; "aucun" = le texte seul ; sinon la lueur RRGGBB (entre guillemets)
  *     temporaire: false
  *     cree: { le: 1762376580000, par: &lt;uuid&gt;, pseudo: Omar }
  *     modifie: { le: …, par: …, pseudo: … }
@@ -283,6 +284,13 @@ public final class PlaqueStore {
         p.actif = c.getBoolean("actif", true);
         p.expire = c.getLong("expire", 0);
         p.rev = Math.max(1, c.getInt("rev", 1));
+        if (c.contains("halo") && c.get("halo") != null) {
+            // un nombre non quoté (« 012345 ») serait lu en octal par YAML : refusé plutôt que changé en silence
+            PlaqueRegles.Halo h = PlaqueRegles.lireHalo(c.getString("halo"));
+            if (!h.ok()) throw new IllegalArgumentException("halo invalide « " + c.getString("halo")
+                    + " » (aucun, ou RRGGBB entre guillemets)");
+            p.halo = h.valeur();
+        }
         p.temporaire = c.getBoolean("temporaire", false);
         p.creeLe = c.getLong("cree.le", 0);
         p.creePar = uuid(c.getString("cree.par"));
@@ -338,6 +346,7 @@ public final class PlaqueStore {
             y.set(k + "actif", p.actif);
             y.set(k + "expire", p.expire);
             y.set(k + "rev", p.rev);
+            if (p.halo != null) y.set(k + "halo", p.halo);
             y.set(k + "temporaire", p.temporaire);
             y.set(k + "cree.le", p.creeLe);
             if (p.creePar != null) y.set(k + "cree.par", p.creePar.toString());

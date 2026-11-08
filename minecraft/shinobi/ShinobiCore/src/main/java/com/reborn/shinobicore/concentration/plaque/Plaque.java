@@ -29,6 +29,12 @@ public final class Plaque {
     /** Expiration (epoch ms), 0 = jamais. */
     public long expire;
     public int rev = 1;
+    /**
+     * Couleur du halo (décision du 07/11, planche c6) : <b>null = ivoire-or par défaut</b> (absent du fichier),
+     * {@code "aucun"} = le texte seul, sinon la lueur {@code "RRGGBB"} en majuscules ({@link PlaqueRegles#lireHalo}). Le
+     * mod dérive le cœur, le voile et les étincelles de cette seule couleur. Changer le halo fait monter {@code rev}.
+     */
+    public String halo;
     /** Plaque d'animateur (mode animation, sans grade Modérateur) : 24 h au plus, modifiable par son auteur. */
     public boolean temporaire;
     public long creeLe, modifLe;

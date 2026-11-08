@@ -27,9 +27,10 @@ import java.util.UUID;
  *   <tr><th>{@code a}</th><th>Grade</th><th>Champs</th></tr>
  *   <tr><td>{@code plaques}</td><td>Helper</td><td>{@code r} (64, 256 au plus), {@code q}</td></tr>
  *   <tr><td>{@code plaque_creer}</td><td>Modérateur ; animateur (temporaire)</td><td>{@code ancre}, {@code segs} ou
- *       {@code texte}, {@code titre}, {@code p} (2-16), {@code expire} (minutes, 0 = jamais)</td></tr>
+ *       {@code texte}, {@code titre}, {@code p} (2-16), {@code expire} (minutes, 0 = jamais), {@code halo} (absent ou
+ *       vide = ivoire-or, {@code "aucun"}, {@code "RRGGBB"})</td></tr>
  *   <tr><td>{@code plaque_modifier}</td><td>Modérateur ; l'animateur, les siennes</td><td>{@code id} + champs à
- *       changer, {@code actif}</td></tr>
+ *       changer, {@code actif}, {@code halo} (envoyé seulement s'il change ; vide = ivoire-or)</td></tr>
  *   <tr><td>{@code plaque_deplacer}</td><td>idem</td><td>{@code id}, {@code ancre}</td></tr>
  *   <tr><td>{@code plaque_suppr}</td><td>idem</td><td>{@code id}, {@code motif} (≥ 3)</td></tr>
  *   <tr><td>{@code plaque_restaurer}</td><td>Admin</td><td>{@code id}</td></tr>
@@ -74,7 +75,10 @@ public final class PlaquesPanel implements org.bukkit.event.Listener {
                 Narrations.Analyse t = texte(in);
                 if (t == null) { toast(p, "Écris d'abord le texte."); return; }
                 if (!t.ok()) { toast(p, t.erreur()); return; }
-                r = svc.creer(p, (Ancre) an, t.segments(), str(in, "titre"), intDe(in, "p", 0), Math.max(0, intDe(in, "expire", 0)));
+                PlaqueRegles.Halo h = PlaqueRegles.lireHalo(str(in, "halo"));
+                if (!h.ok()) { toast(p, h.erreur()); return; }
+                r = svc.creer(p, (Ancre) an, t.segments(), str(in, "titre"), intDe(in, "p", 0), Math.max(0, intDe(in, "expire", 0)),
+                        h.valeur());
                 if (r.ok()) toast(p, "Plaque " + r.plaque().id + " posée · " + r.plaque().ancre.libelle() + "."
                         + (r.plaque().temporaire ? " Temporaire (mode animation)." : ""));
             }
@@ -85,10 +89,12 @@ public final class PlaquesPanel implements org.bukkit.event.Listener {
                     if (t == null || !t.ok()) { toast(p, t == null ? "Texte vide." : t.erreur()); return; }
                     segs = t.segments();
                 }
+                PlaqueRegles.Halo h = in.has("halo") ? PlaqueRegles.lireHalo(str(in, "halo")) : null;
+                if (h != null && !h.ok()) { toast(p, h.erreur()); return; }
                 r = svc.modifier(p, str(in, "id"), segs, in.has("titre") ? str(in, "titre") : null,
                         in.has("p") ? intDe(in, "p", PlaqueRegles.PORTEE_DEFAUT) : null,
                         in.has("expire") && intDe(in, "expire", -1) >= 0 ? intDe(in, "expire", 0) : null,
-                        in.has("actif") ? boolDe(in, "actif") : null);
+                        in.has("actif") ? boolDe(in, "actif") : null, h);
                 if (r.ok()) toast(p, "Plaque " + r.plaque().id + " enregistrée.");
             }
             case "plaque_deplacer" -> {
@@ -161,6 +167,7 @@ public final class PlaquesPanel implements org.bukkit.event.Listener {
             x.addProperty("expire", pl.expire > 0 ? Math.max(1, (pl.expire - now + 59_999) / 60_000) : 0);
             x.addProperty("temporaire", pl.temporaire);
             x.addProperty("rev", pl.rev);
+            if (pl.halo != null) x.addProperty("halo", pl.halo);   // absent = ivoire-or
             x.addProperty("par", pl.creePseudo);
             x.addProperty("le", pl.creeLe > 0 ? f.format(new Date(pl.creeLe)) : "");
             x.addProperty("modifPar", pl.modifPseudo);

@@ -41,9 +41,13 @@ import java.util.UUID;
  *   <tr><td>S → C</td><td>{@code {"v":1,"t":"ancres","l":[…]}}</td><td>plaques lisibles à 32 blocs, <b>sans le
  *       texte</b> ; à l'entrée puis toutes les 2 s si la liste change</td></tr>
  *   <tr><td>C → S</td><td>{@code {"v":1,"a":"lire","id":"P1A"}}</td><td>10 par seconde au plus</td></tr>
- *   <tr><td>S → C</td><td>{@code {"v":1,"t":"texte","id","rev","segs"}}</td><td>seulement concentré, à portée + 1,5,
- *       dans le cône, en vue ({@link PlaqueService#verifierLecture})</td></tr>
+ *   <tr><td>S → C</td><td>{@code {"v":1,"t":"texte","id","rev","segs","halo"}}</td><td>seulement concentré, à portée
+ *       + 1,5, dans le cône, en vue ({@link PlaqueService#verifierLecture}) ; {@code halo} absent = ivoire-or, {@code "aucun"}
+ *       ou la lueur {@code "RRGGBB"} (planche c6)</td></tr>
  *   <tr><td>S → C</td><td>{@code {"v":1,"t":"texte_refus","id"}}</td><td>silencieux côté mod</td></tr>
+ *   <tr><td>S → C</td><td>{@code {"v":1,"t":"traces","plein","o","a","r"}}</td><td>traces de pas des autres joueurs
+ *       (étape C, {@link com.reborn.shinobicore.concentration.trace.TraceService}) : complètes à l'entrée, en différentiel
+ *       chaque seconde, aux seuls concentrés</td></tr>
  * </table>
  * Rien n'est journalisé pour l'entrée et la sortie (bruit) ; personne d'autre ne sait qu'un joueur est concentré. Une
  * lecture n'est comptée (« lue N fois », journal facultatif) qu'une fois par joueur, plaque et révision pendant sa
@@ -65,6 +69,8 @@ public final class ConcentrationCanal implements PluginMessageListener, Listener
     private final PlaqueRegles.Limiteur<UUID> bascules = new PlaqueRegles.Limiteur<>(PlaqueRegles.BASCULES_S, 1000);
     private final PlaqueRegles.Limiteur<UUID> lectures = new PlaqueRegles.Limiteur<>(PlaqueRegles.LECTURES_S, 1000);
     private int tache = -1;
+    /** Traces de pas (étape C) : la liste complète part à chaque entrée. */
+    private com.reborn.shinobicore.concentration.trace.TraceService traces;
 
     public ConcentrationCanal(ShinobiCore plugin, PlaqueService plaques) {
         this.plugin = plugin;
@@ -88,7 +94,25 @@ public final class ConcentrationCanal implements PluginMessageListener, Listener
         comptees.clear();
     }
 
+    public void traces(com.reborn.shinobicore.concentration.trace.TraceService t) { traces = t; }
+
     public boolean concentre(UUID id) { return concentres.contains(id); }
+
+    /** Les joueurs concentrés (vue en lecture seule, fil principal). */
+    public Set<UUID> concentres() { return java.util.Collections.unmodifiableSet(concentres); }
+
+    /**
+     * Relit {@link #refus} avant d'envoyer quelque chose à un concentré (traces, chaque seconde : {@link #pousser} ne passe
+     * que toutes les 2 s) ; faux : il n'est plus concentré, le mod en est averti. On ne fait pas confiance au client.
+     */
+    public boolean maintenir(Player p) {
+        String r = refus(p);
+        if (r == null) return true;
+        concentres.remove(p.getUniqueId());
+        derniere.remove(p.getUniqueId());
+        etat(p, false, r);
+        return false;
+    }
 
     /** Les ancres seront renvoyées à tous au prochain passage (une plaque a changé). */
     public void relire() { derniere.clear(); }
@@ -128,6 +152,7 @@ public final class ConcentrationCanal implements PluginMessageListener, Listener
                 etat(p, true, null);
                 derniere.remove(p.getUniqueId());
                 ancres(p, true);
+                if (traces != null) traces.entree(p);
             }
             case "off" -> {
                 // jamais limité : sortir ne fait que retirer un droit
@@ -196,6 +221,7 @@ public final class ConcentrationCanal implements PluginMessageListener, Listener
         o.addProperty("id", pl.id);
         o.addProperty("rev", pl.rev);
         o.add("segs", PlaqueService.segsJson(pl.segs));
+        if (pl.halo != null) o.addProperty("halo", pl.halo);   // absent = ivoire-or (anciens mods : ignoré)
         envoyer(p, o);
         // une seule fois par (joueur, plaque, révision) : un client qui redemande en boucle ne gonfle ni le compteur ni le journal
         if (comptees.computeIfAbsent(p.getUniqueId(), k -> new HashSet<>()).add(pl.id + ":" + pl.rev)) plaques.lue(p, pl);
@@ -246,8 +272,13 @@ public final class ConcentrationCanal implements PluginMessageListener, Listener
     }
 
     private void envoyer(Player p, JsonObject o) {
+        envoyerBrut(p, gson.toJson(o));
+    }
+
+    /** Un message déjà composé (traces : JSON écrit à la main, plusieurs centaines de nombres à plat). */
+    public void envoyerBrut(Player p, String json) {
         if (!plugin.isEnabled() || !p.getListeningPluginChannels().contains(CANAL)) return;
-        p.sendPluginMessage(plugin, CANAL, gson.toJson(o).getBytes(StandardCharsets.UTF_8));
+        p.sendPluginMessage(plugin, CANAL, json.getBytes(StandardCharsets.UTF_8));
     }
 
     /* ================================================================ fins imposées */

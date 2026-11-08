@@ -1326,3 +1326,12 @@ concentration:
     ancres-portee: 32         # blocs : plaques signalées au client concentré (sans le texte)
     portee-defaut: 6          # blocs de lecture d'une nouvelle plaque (2 à 16, réglable par plaque)
     journal-lectures: false   # true : chaque lecture servie va au journal INTERACTION (PLAQUE_LUE), pour une enquête d'event
+  # Traces de pas (étape C, planche c7) : le serveur note où les joueurs marchent, en mémoire seulement (perdues au
+  # redémarrage), et les envoie aux seuls joueurs concentrés. Jamais de nom : une clé de piste par (marcheur, spectateur, jour).
+  traces:
+    actif: true
+    vie-base-secondes: 7200   # 2 h (une trace reste) ; x 2 sable, neige, boue ; x 0,4 pierre, bois, chemin ; x 0,5 pluie ; x 0,3 tempête ; x 0,5 accroupi
+    vitesse-sprint: 5.8       # blocs/s au-delà desquels un pas est un pas de sprint (le trot reste une marche), comme la satiété
+    sang: false               # true : les blessés (moins de la moitié de leur vie) marquent le talon de sang
+    max-troncon: 1024         # pas gardés par tronçon (le plus vieux part) ; l'envoi reste borné : 320 pas à un joueur, les plus proches
+    max-global: 500000        # pas gardés sur le serveur (le plus vieux part)

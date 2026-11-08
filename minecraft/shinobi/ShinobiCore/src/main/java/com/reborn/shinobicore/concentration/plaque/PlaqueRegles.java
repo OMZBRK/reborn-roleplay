@@ -275,6 +275,44 @@ public final class PlaqueRegles {
         return new Expiration(exp, true, null);
     }
 
+    /* ================================================================ halo (planche c6) */
+
+    /** Lueur du halo par défaut (ivoire-or H1) : choisie, elle n'est pas stockée (absent = ivoire-or). */
+    public static final String HALO_DEFAUT = "FFCC7A";
+    public static final String HALO_AUCUN = "aucun";
+
+    /** Saisie du halo : valeur à stocker (null = ivoire-or par défaut, {@code "aucun"}, {@code "RRGGBB"}) ou l'erreur. */
+    public record Halo(String valeur, String erreur) {
+        public boolean ok() { return erreur == null; }
+    }
+
+    /**
+     * Halo saisi par le staff (volet, commande, fichier) : vide, {@code ivoire}, {@code ivoire-or}, {@code defaut} ou la
+     * lueur par défaut {@code FFCC7A} → null (ivoire-or, rien de stocké) ; {@code aucun} → {@code "aucun"} ; sinon six
+     * chiffres hexadécimaux, {@code #} facultatif, rendus en majuscules ({@code ^(aucun|[0-9A-Fa-f]{6})$}). Le reste est
+     * refusé.
+     */
+    public static Halo lireHalo(String s) {
+        String t = s == null ? "" : s.strip();
+        if (t.startsWith("#")) {
+            t = t.substring(1);
+            if (t.isEmpty()) return new Halo(null, "Halo : « aucun » ou une couleur RRGGBB (ex. 6FB4FF).");
+        }
+        String b = t.toLowerCase(java.util.Locale.ROOT);
+        if (b.isEmpty() || b.equals("ivoire") || b.equals("ivoire-or") || b.equals("defaut") || b.equals("défaut"))
+            return new Halo(null, null);
+        if (b.equals(HALO_AUCUN) || b.equals("sans") || b.equals("aucun-halo")) return new Halo(HALO_AUCUN, null);
+        if (!t.matches("[0-9A-Fa-f]{6}")) return new Halo(null, "Halo : « aucun » ou une couleur RRGGBB (ex. 6FB4FF).");
+        String v = t.toUpperCase(java.util.Locale.ROOT);
+        return new Halo(v.equals(HALO_DEFAUT) ? null : v, null);
+    }
+
+    /** Libellé du halo pour le journal et la commande : « #FFCC7A (ivoire-or) », « aucun », « #6FB4FF ». */
+    public static String libelleHalo(String h) {
+        if (h == null) return "#" + HALO_DEFAUT + " (ivoire-or)";
+        return HALO_AUCUN.equals(h) ? "aucun" : "#" + h;
+    }
+
     /** Boîte : chaque côté de 1 à {@link #BOITE_MAX}. */
     public static boolean boiteValide(int dx, int dy, int dz) {
         return dx >= 1 && dy >= 1 && dz >= 1 && dx <= BOITE_MAX && dy <= BOITE_MAX && dz <= BOITE_MAX;

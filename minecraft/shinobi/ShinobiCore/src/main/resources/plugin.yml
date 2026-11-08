@@ -239,8 +239,8 @@ commands:
     aliases: [narrer]
     permission: reborn.staff.narration
   plaque:
-    description: "Staff — plaques lues en concentration (lot 4) : poser (vise un bloc ou un meuble), objet (en main), texte, portee, deplacer, retirer, restaurer, liste, corbeille, info, voir, tp. Grade vérifié dans le code."
-    usage: "/<command> poser [p:6] [+24h] <texte…> | objet [p:6] <texte…> | texte <id> <texte…> | portee <id> <2-16> | deplacer <id> | retirer <id> <motif…> | restaurer <id> | liste [rayon] | corbeille | info <id> | voir <id> | tp <id>"
+    description: "Staff — plaques lues en concentration (lot 4) : poser (vise un bloc ou un meuble), objet (en main), texte, portee, halo, deplacer, retirer, restaurer, liste, corbeille, info, voir, tp. Grade vérifié dans le code."
+    usage: "/<command> poser [p:6] [+24h] <texte…> | objet [p:6] <texte…> | texte <id> <texte…> | portee <id> <2-16> | halo <id> <ivoire|aucun|RRGGBB> | deplacer <id> | retirer <id> <motif…> | restaurer <id> | liste [rayon] | corbeille | info <id> | voir <id> | tp <id>"
     aliases: [stele]
     permission: reborn.staff.plaques
   aller:

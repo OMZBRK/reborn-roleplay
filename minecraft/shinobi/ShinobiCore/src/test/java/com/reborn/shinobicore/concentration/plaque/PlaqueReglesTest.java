@@ -183,4 +183,31 @@ class PlaqueReglesTest {
         double[] r = Ancre.entite("world", java.util.UUID.randomUUID(), t).boite();
         for (int i = 0; i < 6; i++) assertEquals(t[i], r[i], 1e-9);
     }
+
+    @Test
+    void halo_saisieNormalisee() {
+        // ivoire-or par défaut : rien de stocké (vide, mots, ou la lueur par défaut elle-même)
+        for (String v : new String[]{null, "", "  ", "ivoire", "Ivoire-or", "defaut", "FFCC7A", "#ffcc7a"}) {
+            PlaqueRegles.Halo h = PlaqueRegles.lireHalo(v);
+            assertTrue(h.ok(), "accepté : " + v);
+            assertNull(h.valeur(), "ivoire-or = absent : " + v);
+        }
+        assertEquals("aucun", PlaqueRegles.lireHalo("aucun").valeur());
+        assertEquals("aucun", PlaqueRegles.lireHalo(" AUCUN ").valeur());
+        assertEquals("6FB4FF", PlaqueRegles.lireHalo("6fb4ff").valeur(), "en majuscules");
+        assertEquals("D9443F", PlaqueRegles.lireHalo("#D9443F").valeur(), "# facultatif");
+        assertEquals("000000", PlaqueRegles.lireHalo("000000").valeur(), "le mod relève les couleurs sombres, le serveur garde");
+        for (String v : new String[]{"bleu", "6FB4F", "6FB4FFF", "GGGGGG", "#", "12 34 56", "rgb(1,2,3)"}) {
+            PlaqueRegles.Halo h = PlaqueRegles.lireHalo(v);
+            assertFalse(h.ok(), "refusé : " + v);
+            assertNotNull(h.erreur());
+        }
+    }
+
+    @Test
+    void halo_libelle() {
+        assertEquals("#FFCC7A (ivoire-or)", PlaqueRegles.libelleHalo(null));
+        assertEquals("aucun", PlaqueRegles.libelleHalo("aucun"));
+        assertEquals("#6FB4FF", PlaqueRegles.libelleHalo("6FB4FF"));
+    }
 }

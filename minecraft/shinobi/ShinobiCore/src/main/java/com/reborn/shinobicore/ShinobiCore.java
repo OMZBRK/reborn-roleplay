@@ -89,6 +89,8 @@ public final class ShinobiCore extends JavaPlugin {
     private com.reborn.shinobicore.journal.JournalServiceImpl journal;
     /** Lot 4 « Concentration », étape B : plaques lues en concentration (canal reborn:concentration, /plaque). */
     private com.reborn.shinobicore.concentration.ConcentrationModule concentration;
+    /** Météo RP (null si la commande manque) : lue par les traces de pas (lot 4, étape C). */
+    private com.reborn.shinobicore.meteo.MeteoCommand meteoCommand;
     private com.reborn.shinobicore.staff.outils.OutilsStaff outilsStaff;
     /** Douane en jeu (CANDIDATURE_ET_DOUANE.md §3.3-3.10) ; null en mode build. */
     private com.reborn.shinobicore.douane.DouaneManager douane;
@@ -710,6 +712,7 @@ public final class ShinobiCore extends JavaPlugin {
         PluginCommand meteoCmd = getCommand("meteo");
         if (meteoCmd != null) {
             com.reborn.shinobicore.meteo.MeteoCommand meteo = new com.reborn.shinobicore.meteo.MeteoCommand(this);
+            this.meteoCommand = meteo;
             meteoCmd.setExecutor(meteo);
             meteoCmd.setTabCompleter(meteo);
             Bukkit.getPluginManager().registerEvents(meteo, this);
@@ -1432,6 +1435,8 @@ public final class ShinobiCore extends JavaPlugin {
     public com.reborn.shinobicore.staff.panel.StaffPanel staffPanel() { return staffPanel; }
     /** Lot 4 : plaques lues en concentration (null avant le démarrage). */
     public com.reborn.shinobicore.concentration.ConcentrationModule concentration() { return concentration; }
+
+    public com.reborn.shinobicore.meteo.MeteoCommand meteo() { return meteoCommand; }
     /** Journal universel (14/10) ; les add-ons passent par le service {@code JournalService}. */
     public com.reborn.shinobicore.journal.JournalServiceImpl journal() { return journal; }
     public com.reborn.shinobicore.staff.outils.OutilsStaff outilsStaff() { return outilsStaff; }

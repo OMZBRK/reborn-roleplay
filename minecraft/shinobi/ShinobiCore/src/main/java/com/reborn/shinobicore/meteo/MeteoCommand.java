@@ -339,11 +339,21 @@ public final class MeteoCommand implements TabExecutor, Listener {
         return Math.sqrt(dx * dx + dz * dz);
     }
 
+    /**
+     * Type de la météo à cet endroit ({@link #CLAIR}, {@link #PLUIE}…), celle de tout le monde : zones, monde, serveur, sans les
+     * météos individuelles (invisibles des autres). Lu par les traces de pas (lot 4, étape C).
+     */
+    public int typeLieu(Location l) { return (int) auLieu(l)[0]; }
+
     /** Météo effective d'un joueur : {type, intensité} (fondu au bord des zones). */
     private float[] effective(Player p) {
         Meteo ind = individuelles.get(p.getUniqueId());
         if (ind != null) return new float[]{ind.type(), ind.intensite()};
-        Location l = p.getLocation();
+        return auLieu(p.getLocation());
+    }
+
+    /** Météo de tout le monde à cet endroit : {type, intensité}. */
+    private float[] auLieu(Location l) {
         double bord = Math.max(0.01, Math.min(0.9, plugin.getConfig().getDouble("meteo.zone-bord", 0.25)));
         Zone meilleure = null;
         float facteur = 0f;

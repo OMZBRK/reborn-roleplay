@@ -21,6 +21,7 @@ import java.util.Locale;
  * /plaque poser [p:6] [+1h|+24h|+30m] &lt;texte…&gt;      vise un meuble (6 blocs) ou un bloc (8 blocs)
  * /plaque objet [p:6] [+…] &lt;texte…&gt;                 l'objet en main porte la plaque
  * /plaque texte &lt;id&gt; &lt;texte…&gt; · portee &lt;id&gt; &lt;2-16&gt; · deplacer &lt;id&gt; · retirer &lt;id&gt; &lt;motif…&gt;
+ * /plaque halo &lt;id&gt; &lt;ivoire|aucun|RRGGBB&gt;                couleur du halo (planche c6)
  * /plaque restaurer &lt;id&gt; · liste [rayon] · corbeille · info &lt;id&gt; · voir &lt;id&gt; · tp &lt;id&gt;
  * </pre>
  * Texte : balises de la narration ({@code <rouge>…</>}, {@code <or>}, {@code <ombre>}, {@code <gris>}, {@code \n}). La
@@ -32,7 +33,7 @@ import java.util.Locale;
  */
 public final class PlaqueCommand implements TabExecutor {
 
-    private static final List<String> SOUS = List.of("poser", "objet", "texte", "portee", "deplacer", "retirer", "restaurer",
+    private static final List<String> SOUS = List.of("poser", "objet", "texte", "portee", "halo", "deplacer", "retirer", "restaurer",
             "liste", "corbeille", "info", "voir", "tp");
     private final PlaqueService svc;
     private final Runnable relire;
@@ -70,6 +71,12 @@ public final class PlaqueCommand implements TabExecutor {
                 try { fin(p, svc.modifier(p, a.get(0), null, null, Integer.parseInt(a.get(1)), null, null), "portée enregistrée"); }
                 catch (NumberFormatException e) { err(p, "Portée : un nombre de 2 à 16."); }
             }
+            case "halo" -> {
+                if (a.size() < 2) { err(p, "/plaque halo <id> <ivoire|aucun|RRGGBB>"); return true; }
+                PlaqueRegles.Halo h = PlaqueRegles.lireHalo(a.get(1));
+                if (!h.ok()) { err(p, h.erreur()); return true; }
+                fin(p, svc.modifier(p, a.get(0), null, null, null, null, null, h), "halo " + PlaqueRegles.libelleHalo(h.valeur()));
+            }
             case "deplacer", "déplacer" -> {
                 if (a.isEmpty()) { err(p, "/plaque deplacer <id> (vise le nouvel endroit)"); return true; }
                 Ancre an = svc.ancreVisee(p);
@@ -102,7 +109,8 @@ public final class PlaqueCommand implements TabExecutor {
             case "info" -> {
                 Plaque pl = a.isEmpty() ? null : svc.get(a.get(0));
                 if (pl == null) { err(p, "Plaque introuvable."); return true; }
-                p.sendMessage("§e" + pl.id + " §7" + pl.ancre.libelle() + " · portée " + pl.portee + " · rév. " + pl.rev
+                p.sendMessage("§e" + pl.id + " §7" + pl.ancre.libelle() + " · portée " + pl.portee + " · halo "
+                        + PlaqueRegles.libelleHalo(pl.halo) + " · rév. " + pl.rev
                         + " · lue " + pl.lectures + " fois · posée par " + pl.creePseudo
                         + (pl.modifPseudo.isEmpty() ? "" : " · modifiée par " + pl.modifPseudo)
                         + (pl.dansCorbeille() ? " · §ccorbeille (" + pl.supprimee.motif() + ")" : ""));
@@ -146,6 +154,7 @@ public final class PlaqueCommand implements TabExecutor {
     private static void aide(Player p) {
         p.sendMessage("§6/plaque §fposer [p:6] [+24h] <texte> §7(vise un bloc ou un meuble ; portée 2 à 16) · §fobjet §7(objet en main)");
         p.sendMessage("§6/plaque §ftexte|portee|deplacer|retirer|restaurer|info|voir|tp <id> §7· §fliste [rayon] §7· §fcorbeille");
+        p.sendMessage("§6/plaque §fhalo <id> <ivoire|aucun|RRGGBB> §7(couleur du halo ; ivoire-or par défaut)");
         p.sendMessage("§7Couleurs : <rouge>…</>, <or>, <ombre>, <gris> ; \\n = à la ligne. Poste de garde (F7) › Outils › Plaques.");
     }
 
