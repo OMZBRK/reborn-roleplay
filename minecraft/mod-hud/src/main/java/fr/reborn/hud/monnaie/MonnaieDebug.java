@@ -160,14 +160,14 @@ public final class MonnaieDebug {
                 c.sendCommand("item replace entity @s hotbar.8 with minecraft:air");
                 mc.player.getInventory().setSelectedSlot(0);
                 MonnaieClient.recevoir("{\"t\":\"bourse\",\"n\":990}");
-                InteractionMode.INSTANCE.toggle();
+                InteractionMode.INSTANCE.debugBascule();
             }
             case 151 -> InteractionMode.INSTANCE.debugOpen("Ren_Hyuga", InteractionMenus.forPlayer("Ren_Hyuga"), 0);
             case 157 -> shot(mc, "monnaie_04_menu_tendre");
             // 05 à 10 — le guichet : chaque onglet
             case 158 -> {
                 InteractionMode.INSTANCE.debugClose();
-                InteractionMode.INSTANCE.toggle();
+                InteractionMode.INSTANCE.debugBascule();
                 MonnaieClient.recevoir("{\"t\":\"bourse\",\"n\":1240}");
                 GuichetScreen.debutMontant = "500";
                 MonnaieClient.recevoirBanque(guichet(0, false));

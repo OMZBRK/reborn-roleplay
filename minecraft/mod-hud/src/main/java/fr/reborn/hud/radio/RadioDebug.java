@@ -185,20 +185,20 @@ public final class RadioDebug {
             case 246 -> {
                 mc.setScreenAndShow(null);
                 RadioClient.debugReceive(etat(mc, true, false, ""));
-                im.toggle();
+                im.debugBascule();
             }
             case 248 -> im.debugOpen("Ren_Hyuga", InteractionMenus.forPlayer("Ren_Hyuga"), indexDe(InteractionMenus.forPlayer("Ren_Hyuga"), "Radio"));
             case 258 -> shot(mc, "radio_14_menu_r_ajouter");
             case 260 -> {
                 im.debugClose();
                 RadioClient.debugReceive("{\"t\":\"etat\",\"ore\":\"neuve\",\"num\":12}");
-                im.toggle();
+                im.debugBascule();
             }
             case 262 -> im.debugOpen("Ren_Hyuga", InteractionMenus.forPlayer("Ren_Hyuga"), indexDe(InteractionMenus.forPlayer("Ren_Hyuga"), "Radio"));
             case 272 -> shot(mc, "radio_15_menu_r_creer");
             case 274 -> {
                 im.debugClose();
-                im.toggle();
+                im.debugBascule();
             }
             case 276 -> {
                 var items = InteractionMenus.forBody("Ren_Hyuga", new fr.reborn.hud.ko.CorpsClient.Body(1, 0));

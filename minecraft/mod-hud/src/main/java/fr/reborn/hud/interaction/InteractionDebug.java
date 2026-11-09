@@ -79,7 +79,7 @@ public final class InteractionDebug {
             }
             case 100 -> {
                 VoiceState.DEBUG_VOLUMES.put(uuid(), 0.75);
-                im.toggle();
+                im.debugBascule();
             }
             case 102 -> im.debugOpen(NOM, InteractionMenus.forPlayer(NOM), indexDe("Porter (avec"));
             case 112 -> shot(mc, "interaction_01_menu_porter_fouiller");

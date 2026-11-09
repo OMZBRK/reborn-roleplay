@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * Entrées du menu d'interaction live ({@link InteractionMode}), moteur de la Concentration. Quand le mode
  * est actif : la souris déplace le <b>curseur</b> et la caméra est <b>figée</b>
  * (elle ne tourne plus, sauf clic droit maintenu en concentration). Le <b>clic gauche</b> valide l'item survolé. Le
- * déplacement (touches) reste libre. Fermeture via Échap ou la touche Concentration.
+ * déplacement (touches) reste libre. Fermeture via Échap ou en relâchant la touche Concentration.
  */
 @Mixin(MouseHandler.class)
 public abstract class MouseInteractionMixin {
@@ -61,6 +61,7 @@ public abstract class MouseInteractionMixin {
     // le n° de bouton et les mods sont portés par le record MouseButtonInfo.
     @Inject(method = "onButton", at = @At("HEAD"), cancellable = true)
     private void reborn$onMouseButton(long window, MouseButtonInfo button, int action, CallbackInfo ci) {
+        if (action == GLFW.GLFW_PRESS) fr.reborn.hud.concentration.ModeConcentration.boutonPresse(button.button());
         // EN PARADE ON NE TAPE PAS : tant que la garde (touche C) est maintenue en jeu,
         // on annule le clic gauche (attaque). Le serveur refuse aussi le coup, mais on
         // coupe ici le swing/anim pour un feel propre. Uniquement hors écran (sinon on

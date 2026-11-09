@@ -143,16 +143,6 @@ public final class Lot4c7Debug {
             for (int id = 0; id < 5; id++) {
                 verifie(Traces.colonneBanc(0.60f, id) == 0 && Traces.colonneBanc(0.80f, id) >= 2 && Traces.colonneBanc(0.99f, id) == 5, "effritement du pas " + id);
             }
-            // la poussée : chaque préréglage, à l'écran passé l'effet (hors vignette), et sans effet quand le filtre n'est pas là
-            for (int i = 0; i < Traces.PRESETS.length; i++) {
-                int c = Traces.PRESETS[i], p = Traces.poussee(c, 1f);
-                int[] e = ecran(p), brut = ecran(c);
-                System.out.printf("[lot4c7] %s %06X : posé %06X, à l'écran (%d,%d,%d), écart %d (sans poussée %d)%n", Traces.PRESETS_NOMS[i], c, p,
-                    e[0], e[1], e[2], ecart(e), ecart(brut));
-                verifie(Traces.poussee(c, 0f) == c, Traces.PRESETS_NOMS[i] + " : hors effet, la couleur telle quelle");
-                // l'écart plafonne à 51 passé l'effet (20 % de 255) : une couleur saturée doit s'en approcher, et gagner sur la couleur brute
-                if (i >= 2) verifie(ecart(e) >= 40 && ecart(e) > ecart(brut), Traces.PRESETS_NOMS[i] + " : la poussée renforce la teinte (écart " + ecart(e) + ")");
-            }
         }, "horloges figées, serveur simulé");
 
         if (c8) {
@@ -166,6 +156,7 @@ public final class Lot4c7Debug {
 
         pas(10, mc -> {
             ModeConcentration.reinitialiser();
+            ClavierBanc.retirer();
             ModeConcentration.horloge = Util::getMillis;
             Plaques.horloge = Util::getMillis;
             Recit.horloge = Util::getMillis;
@@ -440,15 +431,6 @@ public final class Lot4c7Debug {
 
     /* ================================================================ la série de captures */
 
-    /** Le rendu de {@code concentration_ecran.fsh} à plein effet, sans vignette ni nuance froide. */
-    private static int[] ecran(int rgb) {
-        int r = rgb >> 16 & 255, g = rgb >> 8 & 255, b = rgb & 255;
-        double l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-        return new int[] {(int) Math.round(l + (r - l) * 0.2), (int) Math.round(l + (g - l) * 0.2), (int) Math.round(l + (b - l) * 0.2)};
-    }
-
-    private static int ecart(int[] c) { return Math.max(c[0], Math.max(c[1], c[2])) - Math.min(c[0], Math.min(c[1], c[2])); }
-
     private static void serie(String res) {
         String pre = "lot4c7_" + res + "_";
         // ── pistes, de jour puis de nuit ──
@@ -464,7 +446,7 @@ public final class Lot4c7Debug {
         }, "bilan des pistes");
         pas(4, mc -> shot(mc, pre + "jour_pistes"), "capture pistes de jour");
         // ── sortie : fondu puis rien ──
-        pas(1, mc -> ModeConcentration.sortir(ModeConcentration.Raison.TOUCHE), "sortie");
+        pas(1, mc -> { ClavierBanc.tenir(false); ModeConcentration.sortir(ModeConcentration.Raison.TOUCHE); }, "sortie");
         pas(1, mc -> avance(75), "sortie à 75 ms");
         pas(4, mc -> shot(mc, pre + "sortie_75ms"), "capture sortie à 75 ms");
         pas(1, mc -> avance(600), "sortie finie");
@@ -560,7 +542,7 @@ public final class Lot4c7Debug {
         for (int[] coul : new int[][] {{Traces.IVOIRE}, {0x6FB4FF}, {0xD9443F}, {0xFF9A3C}}) {
             String nom = coul[0] == Traces.IVOIRE ? "ivoire" : coul[0] == 0x6FB4FF ? "chakra" : coul[0] == 0xD9443F ? "sang" : "ambre";
             pas(1, mc -> RebornPrefs.INSTANCE.tracesCouleur = coul[0], "couleur " + nom);
-            pas(4, mc -> shot(mc, pre + "couleur_" + nom), "capture couleur " + nom);
+            pas(20, mc -> shot(mc, pre + "couleur_" + nom), "capture couleur " + nom);   // fenêtre en arrière-plan : la dernière image rendue date parfois de plus de 300 ms
         }
         // sous le Byakugan : plus de traces ni d'étiquette (son filtre négatif les inverserait), elles reviennent ensuite
         pas(1, mc -> { RebornPrefs.INSTANCE.tracesCouleur = Traces.IVOIRE; ByakuganClient.update(true, 0f); }, "Byakugan");
@@ -828,11 +810,13 @@ public final class Lot4c7Debug {
 
     private static void entrer(Minecraft mc) {
         avance(300);
+        ClavierBanc.tenir(true);   // la touche est maintenue tant que le mode doit rester
         boolean ok = ModeConcentration.entrer();
         verifie(ok, "entrée en concentration (refus : " + ModeConcentration.dernierRefus() + ")");
     }
 
     private static void sortir() {
+        ClavierBanc.tenir(false);
         ModeConcentration.sortir(ModeConcentration.Raison.TOUCHE);
         avance(600);
     }

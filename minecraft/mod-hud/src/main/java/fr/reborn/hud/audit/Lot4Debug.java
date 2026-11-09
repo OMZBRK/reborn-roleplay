@@ -1,7 +1,6 @@
 package fr.reborn.hud.audit;
 
 import com.google.gson.JsonObject;
-import com.mojang.blaze3d.platform.InputConstants;
 import fr.reborn.hud.combat.CombatState;
 import fr.reborn.hud.concentration.ModeConcentration;
 import fr.reborn.hud.interaction.InteractionMenus;
@@ -11,7 +10,6 @@ import fr.reborn.hud.keybind.RappelsTouches;
 import fr.reborn.hud.parchemin.ParcheminClient;
 import fr.reborn.hud.runtime.RebornSession;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.ChatScreen;
@@ -37,7 +35,8 @@ import java.util.function.Consumer;
  *   <li>Nuit : avant, concentré, curseur sur le mannequin.</li>
  *   <li>Blocages : entrée refusée pendant le Malaxage du chakra (capture), puis sortie quand il démarre ; entrée refusée
  *       5 s après un coup ; sortie au coup ; écran ouvert = sortie ; tchat = le mode reste ; Échap (vrai chemin du
- *       clavier) = sortie sans pause ; touche Concentration (vrai chemin) = entrée puis sortie.</li>
+ *       clavier) = sortie sans pause ; touche Concentration tenue = entrée, relâchée = sortie (le détail du maintien :
+ *       {@link Lot4dDebug}).</li>
  *   <li>Les captures clés à nouveau en 1366 × 768.</li>
  * </ol>
  * → {@code run/screenshots/lot4_*.png}, bilans « [lot4] OK / ECHEC » au journal ; le jeu se ferme (« [lot4] FIN »).
@@ -112,7 +111,7 @@ public final class Lot4Debug {
             shot(mc, "lot4_1080_nuit_04_invisible");
         }, "vérif + capture");
         pas(1, mc -> mc.player.connection.sendCommand("effect clear @e[type=minecraft:mannequin,distance=..12]"), "visible");
-        pas(1, mc -> { ModeConcentration.sortir(ModeConcentration.Raison.TOUCHE); avance(200); }, "sortie");
+        pas(1, mc -> { ClavierBanc.tenir(false); ModeConcentration.sortir(ModeConcentration.Raison.TOUCHE); avance(200); }, "sortie");
         pas(2, mc -> mc.player.connection.sendCommand("time set 6000"), "jour");
 
         // ───────── blocages
@@ -125,7 +124,7 @@ public final class Lot4Debug {
         }, "entrée pendant le Malaxage");
         pas(4, mc -> { malaxage(); shot(mc, "lot4_1080_refus_malaxage"); }, "capture");
         pas(1, mc -> stopMalaxage(), "fin du Malaxage");
-        pas(3, mc -> verifie(ModeConcentration.entrer(), "entrée permise après le Malaxage"), "entrée");
+        pas(3, mc -> verifie(entre(), "entrée permise après le Malaxage"), "entrée");
         pas(2, mc -> malaxage(), "le Malaxage démarre");
         pas(3, mc -> {
             verifie(!ModeConcentration.actif() && String.valueOf(ModeConcentration.derniereSortie()).contains("malaxage"),
@@ -137,7 +136,7 @@ public final class Lot4Debug {
         // à terre (phase 1) : refusée
         pas(1, mc -> fr.reborn.hud.ko.KoClient.update(ko(0, 1)), "ATA reçue");
         pas(20, mc -> {
-            boolean ok = ModeConcentration.entrer();
+            boolean ok = entre();
             verifie(ok, "ATA : entrée permise (refus : " + ModeConcentration.dernierRefus() + ")");
             avance(250);
         }, "entrée en ATA");
@@ -158,7 +157,7 @@ public final class Lot4Debug {
         }, "vérif à terre");
         pas(20, mc -> { }, "filtre du KO retombé");
         // combat : un coup donné ferme le mode, puis refus 5 s
-        pas(3, mc -> verifie(ModeConcentration.entrer(), "entrée (avant le coup)"), "entrée");
+        pas(3, mc -> verifie(entre(), "entrée (avant le coup)"), "entrée");
         pas(3, mc -> CombatState.INSTANCE.onHit(mc.player.getId(), 2f, System.currentTimeMillis()), "coup donné");
         pas(3, mc -> {
             verifie(!ModeConcentration.actif() && String.valueOf(ModeConcentration.derniereSortie()).contains("coup"),
@@ -169,7 +168,7 @@ public final class Lot4Debug {
                 "entrée refusée juste après un coup (refus : " + ModeConcentration.dernierRefus() + ")");
         }, "vérif + refus 5 s");
         pas(110, mc -> {
-            verifie(ModeConcentration.entrer(), "entrée permise 5 s après le coup");
+            verifie(entre(), "entrée permise 5 s après le coup");
             avance(250);   // horloge figée : fondu d'entrée fini pour la capture du tchat
         }, "entrée après 5,5 s");
         // tchat : le mode reste ; autre écran : sortie
@@ -190,31 +189,28 @@ public final class Lot4Debug {
             avance(200);
         }, "vérif");
         // Échap, par le vrai chemin du clavier : sortie, pas de pause
-        pas(3, mc -> verifie(ModeConcentration.entrer(), "entrée (avant Échap)"), "entrée");
+        pas(3, mc -> verifie(entre(), "entrée (avant Échap)"), "entrée");
         pas(3, mc -> { touche(mc, GLFW.GLFW_KEY_ESCAPE, true); touche(mc, GLFW.GLFW_KEY_ESCAPE, false); }, "Échap");
         pas(3, mc -> {
             verifie(!ModeConcentration.actif() && "ECHAP".equals(ModeConcentration.derniereSortie())
                 && mc.gui.screen() == null, "Échap : sortie sans pause (écran : " + mc.gui.screen() + ")");
             avance(300);
         }, "vérif");
-        // touche Concentration, par le vrai chemin du clavier
+        // touche Concentration tenue, puis relâchée (lecture physique simulée, ClavierBanc)
         pas(3, mc -> {
-            int k = cle();
+            ClavierBanc.tenir(false);
             System.out.println("[lot4] touche Concentration : " + HudKeybinds.nom(HudKeybinds.CONCENTRATION, "aucune")
                 + " · ancienne touche Interaction : " + HudKeybinds.nom(HudKeybinds.INTERACTION, "aucune"));
-            touche(mc, k, true);
-            touche(mc, k, false);
-        }, "appui Concentration");
+        }, "touche relâchée");
+        pas(3, mc -> { avance(400); ClavierBanc.tenir(true); }, "touche Concentration tenue");
         pas(4, mc -> {
-            verifie(ModeConcentration.actif(), "touche Concentration : entrée");
+            verifie(ModeConcentration.actif(), "touche Concentration tenue : entrée");
             avance(300);
-            int k = cle();
-            touche(mc, k, true);
-            touche(mc, k, false);
-        }, "second appui");
+            ClavierBanc.tenir(false);
+        }, "relâchement");
         pas(4, mc -> {
             verifie(!ModeConcentration.actif() && "TOUCHE".equals(ModeConcentration.derniereSortie()),
-                "touche Concentration : sortie (" + ModeConcentration.derniereSortie() + ")");
+                "touche Concentration relâchée : sortie (" + ModeConcentration.derniereSortie() + ")");
             avance(300);
         }, "vérif");
 
@@ -227,6 +223,7 @@ public final class Lot4Debug {
 
         pas(10, mc -> {
             ModeConcentration.reinitialiser();
+            ClavierBanc.retirer();
             ModeConcentration.horloge = Util::getMillis;
             InteractionMode.INSTANCE.debugClose();
             var c = mc.player.connection;
@@ -296,6 +293,7 @@ public final class Lot4Debug {
             pas(8, mc -> shot(mc, p + "07_menu_joueur"), "capture menu joueur");
         }
         pas(1, mc -> {
+            ClavierBanc.tenir(false);
             ModeConcentration.sortir(ModeConcentration.Raison.TOUCHE);
             avance(0);
         }, "sortie");
@@ -318,8 +316,14 @@ public final class Lot4Debug {
 
     private static void entrer(Minecraft mc) {
         avance(300);   // anti-rebond
-        boolean ok = ModeConcentration.entrer();
+        boolean ok = entre();
         verifie(ok, "entrée en concentration (refus : " + ModeConcentration.dernierRefus() + ")");
+    }
+
+    /** Entrée, touche tenue tant que le mode doit rester (une entrée attendue refusée ne la laisse pas tenue). */
+    private static boolean entre() {
+        ClavierBanc.tenir(true);
+        return ModeConcentration.entrer();
     }
 
     /** État KO factice : phase (0 aucune, 1 à terre, 2 inconscient) et ATA (0, 1, 2). */
@@ -375,11 +379,6 @@ public final class Lot4Debug {
 
     private static void stopMalaxage() {
         ParcheminClient.debugReceive("{\"t\":\"conc\",\"st\":\"stop\"}");
-    }
-
-    private static int cle() {
-        InputConstants.Key k = KeyMappingHelper.getBoundKeyOf(HudKeybinds.CONCENTRATION);
-        return k.getType() == InputConstants.Type.KEYSYM ? k.getValue() : -1;
     }
 
     /** Une touche par le vrai chemin du clavier (comme {@code TouchesDebug}). */

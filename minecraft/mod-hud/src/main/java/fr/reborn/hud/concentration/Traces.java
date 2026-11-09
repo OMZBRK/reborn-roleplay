@@ -53,10 +53,11 @@ import java.util.function.LongSupplier;
  *       n'est plus qu'à 10 % de luminance : un <b>contour</b> pâle d'un texel autour de la semelle sombre la fait lire. De jour il
  *       se verrait et élargirait le pied : il n'existe que <b>la nuit</b> ({@link #contourNuit}, ciel lu une fois par tick ;
  *       {@link #TEX_CONTOUR}, jamais sur la semelle : ni ordre de dessin ni forme changée). Sinon la couleur
- *       choisie ({@link RebornPrefs#tracesCouleur}), la même pour toutes : l'anonymat reste entier. Le pas est sous l'effet
- *       d'écran : {@link #poussee}.</li>
- *   <li><b>Autres filtres</b> : le KO et le Byakugan prennent l'unique emplacement de {@code FiltresEcran}. Sous le KO, la
- *       couleur est posée telle quelle ; sous le Byakugan, rien (son filtre négatif inverserait le pas ; comme le contour de
+ *       choisie ({@link RebornPrefs#tracesCouleur}), la même pour toutes : l'anonymat reste entier. Posée telle quelle : l'effet d'écran
+ *       en garde 60 % de l'écart à la luminance (recette K+), assez pour la reconnaître ; une compensation n'aurait presque pas
+ *       de marge sur un canal déjà au maximum (bleu chakra, ambre) et devrait baisser sa luminance.</li>
+ *   <li><b>Autres filtres</b> : le KO et le Byakugan prennent l'unique emplacement de {@code FiltresEcran}. Sous le
+ *       Byakugan, rien (son filtre négatif inverserait le pas ; comme le contour de
  *       {@link ModeConcentration#halo}).</li>
  *   <li><b>Temps écoulé</b>, comme chez Ketto : le curseur sur un pas à {@value #PORTEE_SURVOL} blocs au plus, petite étiquette
  *       « à l'instant » / « il y a 7 min » / « il y a 1 h 20 » à côté, ivoire (sombre sur un sol clair, de jour), <b>sans fond</b>, sans nom,
@@ -109,9 +110,6 @@ public final class Traces {
     private static final int RANGEE_SANG = 3, ORDRES = 3;
     private static final int CHAMPS = 10;
     private static final float PRECISION = 32f;
-    private static final float DESAT_EFFET = 0.80f;
-    /** {@link #poussee} : la luminance ne descend pas sous 70 % de celle de la couleur (sous 100 % pour une couleur pâle). */
-    private static final float LUMINANCE_MIN = 0.70f, ECART_SATURE = 120f;
 
     public static final float PORTEE_SURVOL = 8f;
     public static final long LIBELLE_MS = 120, LIBELLE_SORTIE_MS = 90;
@@ -345,41 +343,13 @@ public final class Traces {
         joueurZ = mc.player.getZ();
         maintenant = horloge.getAsLong();
         niveauImage = niveau;
-        // sous le filtre du KO, l'effet ne désature rien : la couleur du joueur, telle quelle
         autoImage = RebornPrefs.INSTANCE.tracesAuto;
-        rgbImage = poussee(autoImage ? IVOIRE : RebornPrefs.INSTANCE.tracesCouleur & 0xFFFFFF, ModeConcentration.filtreAffiche() ? niveau : 0f);
+        rgbImage = autoImage ? IVOIRE : RebornPrefs.INSTANCE.tracesCouleur & 0xFFFFFF;
         if (autoImage && dessinSurClair && contourNuit > 0f) {
             ctx.submitNodeCollector().submitCustomGeometry(ctx.poseStack(), RenderTypes.entityTranslucentEmissive(TEX_CONTOUR), GEOMETRIE_CONTOUR);
         }
         ctx.submitNodeCollector().submitCustomGeometry(ctx.poseStack(), RenderTypes.entityTranslucentEmissive(TEX), GEOMETRIE);
     }
-
-    /**
-     * La couleur à poser dans le monde pour que celle du joueur survive à l'effet d'écran, qui ne garde que 20 % de l'écart à
-     * la luminance ({@code DESAT} de {@code concentration_ecran.fsh}) : cet écart est multiplié d'autant, sans sortir de 0 à 255.
-     * Une couleur dont un canal est déjà au maximum (ambre, bleu chakra) n'a aucune marge à sa luminance : on baisse la
-     * luminance pour lui en donner, jusqu'à 70 % (une couleur pâle garde la sienne : un blanc ne devient pas gris). Limite
-     * physique : passé l'effet, l'écart entre deux canaux ne dépasse jamais 51 sur 255 ; il faudrait composer les traces après
-     * l'effet pour afficher la teinte exacte. Suit le niveau de l'effet (0 : la couleur telle quelle). Aucune allocation.
-     */
-    public static int poussee(int rgb, float niveau) {
-        int r = rgb >> 16 & 255, g = rgb >> 8 & 255, b = rgb & 255;
-        float l = 0.2126f * r + 0.7152f * g + 0.0722f * b;
-        float dMax = Math.max(r, Math.max(g, b)) - l, dMin = Math.min(r, Math.min(g, b)) - l, ecart = dMax - dMin;
-        if (ecart < 1f) return rgb & 0xFFFFFF;
-        float voulu = 1f / (1f - DESAT_EFFET * niveau);
-        float haut = 255f - voulu * dMax, bas = voulu * -dMin;
-        // assez de place : la luminance la plus proche ; sinon, celle qui laisse le plus d'écart aux deux bouts
-        float cible = bas <= haut ? Math.max(bas, Math.min(haut, l)) : 255f * -dMin / ecart;
-        float plancher = l * (1f - (1f - LUMINANCE_MIN) * Math.min(1f, ecart / ECART_SATURE));
-        cible = Math.max(plancher, Math.min(l, cible));
-        float gain = voulu;
-        if (dMax > 0f) gain = Math.min(gain, (255f - cible) / dMax);
-        if (dMin < 0f) gain = Math.min(gain, cible / -dMin);
-        return clamp8(cible + (r - l) * gain) << 16 | clamp8(cible + (g - l) * gain) << 8 | clamp8(cible + (b - l) * gain);
-    }
-
-    private static int clamp8(float v) { return Math.max(0, Math.min(255, Math.round(v))); }
 
     /** Dessine la sélection (sans rien capturer : aucune allocation par image). */
     private static final net.minecraft.client.renderer.SubmitNodeCollector.CustomGeometryRenderer GEOMETRIE = Traces::dessiner;

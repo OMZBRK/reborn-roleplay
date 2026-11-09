@@ -235,7 +235,7 @@ public final class KoDebug {
             }
             case 105 -> {
                 var im = fr.reborn.hud.interaction.InteractionMode.INSTANCE;
-                im.toggle();
+                im.debugBascule();
                 System.out.println("[etat-banc] à terre : menu R ouvert=" + im.isActive()
                         + " · saut refusé=" + fr.reborn.hud.etat.EtatClient.refuse("sau")
                         + " · ramper=" + fr.reborn.hud.etat.EtatClient.niveau("bou")
@@ -262,7 +262,7 @@ public final class KoDebug {
                 KoClient.update(null);
                 fr.reborn.hud.etat.EtatClient.clear();
                 var im = fr.reborn.hud.interaction.InteractionMode.INSTANCE;
-                im.toggle();
+                im.debugBascule();
                 System.out.println("[etat-banc] libre : menu R ouvert=" + im.isActive()
                         + " · saut refusé=" + fr.reborn.hud.etat.EtatClient.refuse("sau"));
                 if (im.isActive()) im.deactivate();
@@ -303,7 +303,7 @@ public final class KoDebug {
             case 172 -> { if (mc.gui.screen() instanceof DeathScreen d) { d.debugHover = -1; d.debugAnswer(true); } }
             case 250 -> named(mc, "mort_5_cinema");
             case 255 -> { if (mc.gui.screen() instanceof DeathScreen d) d.restore(); mc.setScreenAndShow(null); }
-            case 275 -> { im.toggle(); }
+            case 275 -> { im.debugBascule(); }
             case 285 -> named(mc, "interaction_1_curseur");
             case 287 -> im.debugOpen("Kazuki_Uchiha", fr.reborn.hud.interaction.InteractionMenus.forPlayer("Kazuki_Uchiha"), 8);
             case 297 -> named(mc, "interaction_2_joueur_sous_menu");

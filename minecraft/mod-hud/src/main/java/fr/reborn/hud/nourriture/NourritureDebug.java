@@ -104,7 +104,7 @@ public final class NourritureDebug {
             case 94 -> {
                 NourritureHud.debugCible = null;
                 NotifHud.message("info", null, "+120 ryo", "de Ren Hyūga", "ryo");
-                im.toggle();
+                im.debugBascule();
             }
             case 96 -> im.debugOpen("Ren_Hyuga", InteractionMenus.forPlayer("Ren_Hyuga"), 0);
             case 106 -> shot(mc, "nourriture_04_menu_tendre");

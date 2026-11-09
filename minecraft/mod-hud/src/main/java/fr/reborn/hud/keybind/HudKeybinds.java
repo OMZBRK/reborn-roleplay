@@ -103,8 +103,8 @@ public final class HudKeybinds {
      * Concentration (lot 3, 05/11 ; comportement au lot 4 : traces de pas, plaques, menu d'interaction). Défaut : la
      * touche <b>gravée Y</b> (TOUCHES_LIBRES.md) : libre dans Minecraft 26.2, Plasmo Voice, Emotecraft, mod-ost et le
      * modpack, en AZERTY, QWERTY et QWERTZ ; l'index gauche l'atteint en avançant. En QWERTZ, la gravée Y est la position
-     * US Z : {@link TouchesMigration} l'y pose (échange avec Dégainer). Catégorie Monde. Aucun effet avant le lot 4,
-     * qui branche la bascule dans la boucle de fin de tick ({@link #registerClient()}).
+     * US Z : {@link TouchesMigration} l'y pose (échange avec Dégainer). Catégorie Monde. Touche <b>maintenue</b> : son
+     * état physique est relu par {@link fr.reborn.hud.concentration.ModeConcentration} à chaque tick.
      */
     public static KeyMapping CONCENTRATION;
 
@@ -375,12 +375,8 @@ public final class HudKeybinds {
             // wasPressed() drain le queue d'events — false sur les frames
             // sans transition pressed.
             // Ancienne touche du menu d'interaction : déliée par la migration 5 chez presque tous ; gardée, elle reste un
-            // alias de la Concentration (Concentration sans touche, ou touche personnalisée). Jamais InteractionMode.toggle().
-            if (INTERACTION.isUnbound()) {
-                while (INTERACTION.consumeClick()) { }
-            } else {
-                while (INTERACTION.consumeClick()) fr.reborn.hud.concentration.ModeConcentration.basculer();
-            }
+            // alias de la Concentration, maintenu comme elle (ModeConcentration lit l'état physique) : file vidée, rien de plus.
+            while (INTERACTION.consumeClick()) { }
             while (CINEMA.consumeClick()) {
                 fr.reborn.hud.immersion.CinemaBars.INSTANCE.toggle();
             }
@@ -418,9 +414,9 @@ public final class HudKeybinds {
                 }
             }
             while (FACTION.consumeClick()) fr.reborn.hud.faction.FactionClient.appuiJ();
-            // Concentration (lot 4) : un appui entre, un autre sort ; voix : Plasmo agit sur la même touche
-            // (voice/PlasmoTouches), on ne fait que vider la file.
-            while (CONCENTRATION.consumeClick()) fr.reborn.hud.concentration.ModeConcentration.basculer();
+            // Concentration : maintenue, lue par ModeConcentration ; voix : Plasmo agit sur la même touche
+            // (voice/PlasmoTouches). On ne fait que vider les files.
+            while (CONCENTRATION.consumeClick()) { }
             while (MICRO.consumeClick()) { }
             while (SON.consumeClick()) { }
             while (PARLER.consumeClick()) { }

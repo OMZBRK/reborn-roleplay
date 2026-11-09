@@ -138,6 +138,7 @@ public final class Lot4bDebug {
 
         pas(10, mc -> {
             ModeConcentration.reinitialiser();
+            ClavierBanc.retirer();
             ModeConcentration.horloge = Util::getMillis;
             Plaques.horloge = Util::getMillis;
             Recit.horloge = Util::getMillis;
@@ -299,7 +300,7 @@ public final class Lot4bDebug {
         }, "capture 250 ms");
         // le joueur recule hors de portée : grâce de 150 ms, puis fondu de sortie de 350 ms
         pas(1, mc -> devant(mc, "P1A", 8.5, 0f), "recul hors de portée");
-        pas(4, mc -> avance(160), "grâce passée");
+        pas(10, mc -> avance(160), "grâce passée");   // le /tp passe par le serveur intégré : 4 ticks ne suffisent pas toujours
         pas(2, mc -> avance(175), "175 ms de sortie");
         pas(8, mc -> {
             float a = RecitHud.opacite();
@@ -581,11 +582,13 @@ public final class Lot4bDebug {
 
     private static void entrer(Minecraft mc) {
         avance(300);   // anti-rebond
+        ClavierBanc.tenir(true);   // la touche est maintenue tant que le mode doit rester
         boolean ok = ModeConcentration.entrer();
         verifie(ok, "entrée en concentration (refus : " + ModeConcentration.dernierRefus() + ")");
     }
 
     private static void sortir() {
+        ClavierBanc.tenir(false);
         ModeConcentration.sortir(ModeConcentration.Raison.TOUCHE);
         avance(600);
     }

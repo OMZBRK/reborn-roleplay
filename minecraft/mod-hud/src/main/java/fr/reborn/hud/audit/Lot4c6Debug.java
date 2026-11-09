@@ -127,6 +127,7 @@ public final class Lot4c6Debug {
 
         pas(10, mc -> {
             ModeConcentration.reinitialiser();
+            ClavierBanc.retirer();
             ModeConcentration.horloge = Util::getMillis;
             Plaques.horloge = Util::getMillis;
             Recit.horloge = Util::getMillis;
@@ -399,11 +400,13 @@ public final class Lot4c6Debug {
 
     private static void entrer(Minecraft mc) {
         avance(300);
+        ClavierBanc.tenir(true);   // la touche est maintenue tant que le mode doit rester
         boolean ok = ModeConcentration.entrer();
         verifie(ok, "entrée en concentration (refus : " + ModeConcentration.dernierRefus() + ")");
     }
 
     private static void sortir() {
+        ClavierBanc.tenir(false);
         ModeConcentration.sortir(ModeConcentration.Raison.TOUCHE);
         avance(600);
     }

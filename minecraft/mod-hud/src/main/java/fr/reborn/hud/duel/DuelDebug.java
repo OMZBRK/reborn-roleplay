@@ -77,14 +77,14 @@ public final class DuelDebug {
             case 284 -> shot(mc, "duel_12_fin_annule");
             case 288 -> {
                 DuelClient.clear();
-                im.toggle();
+                im.debugBascule();
             }
             case 290 -> im.debugOpen("Kazuki_Uchiha", InteractionMenus.forPlayer("Kazuki_Uchiha"), 8);
             case 300 -> shot(mc, "duel_13_menu_proposer");
             case 302 -> {
                 im.debugClose();
                 DuelClient.debugReceive("{\"t\":\"invit\",\"de\":\"Kazuki_Uchiha\",\"nom\":\"Kazuki Uchiha\",\"s\":30}");
-                im.toggle();
+                im.debugBascule();
             }
             case 304 -> im.debugOpen("Kazuki_Uchiha", InteractionMenus.forPlayer("Kazuki_Uchiha"), 8);
             case 314 -> shot(mc, "duel_14_menu_invite_recue");

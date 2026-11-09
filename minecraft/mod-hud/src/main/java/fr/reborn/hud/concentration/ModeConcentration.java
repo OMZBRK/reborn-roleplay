@@ -1,5 +1,6 @@
 package fr.reborn.hud.concentration;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.NativeImage;
 import fr.reborn.hud.allure.Allure;
 import fr.reborn.hud.animation.NarutoRun;
@@ -12,16 +13,20 @@ import fr.reborn.hud.duel.DuelClient;
 import fr.reborn.hud.etat.EtatClient;
 import fr.reborn.hud.interaction.CursorRaycast;
 import fr.reborn.hud.interaction.InteractionMode;
+import fr.reborn.hud.keybind.HudKeybinds;
 import fr.reborn.hud.keybind.RappelsTouches;
 import fr.reborn.hud.ko.KoClient;
 import fr.reborn.hud.parchemin.ConcentrationHud;
 import fr.reborn.hud.recit.Recit;
 import fr.reborn.hud.staff.EffetsStaff;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
@@ -44,11 +49,17 @@ import java.util.function.LongSupplier;
  * rappels de concentration.
  *
  * <ul>
- *   <li><b>Bascule</b> : {@link fr.reborn.hud.keybind.HudKeybinds#CONCENTRATION} (Y), ou l'ancienne touche R tant
- *       qu'elle est liée (alias de transition) ; Échap sort aussi, sans ouvrir la pause. Quatre bascules par seconde au
- *       plus.</li>
- *   <li><b>Effet d'écran</b> : la recette la plus forte, précisée le 07/11 (désaturation 80 %, « presque noir et
- *       blanc mais un peu de couleur », nuance froide légère, centre −20 %, bords −45 %, coins −72 %), un post-effet ({@code shaders/post/concentration_ecran.fsh}) posé dans l'unique
+ *   <li><b>Touche maintenue</b> (décision du 08/11, {@link #maintien}) : on est concentré tant qu'on tient
+ *       {@link HudKeybinds#CONCENTRATION} (Y), ou l'ancienne touche R si elle est restée liée ; relâcher sort. L'état
+ *       physique est relu à GLFW à chaque tick ({@link Clavier}), celui de {@code KeyMapping} étant vidé sous un écran.
+ *       Un refus d'entrée ou une sortie imposée par le jeu demandent un <b>nouvel appui</b> (rien ne clignote en combat) ;
+ *       le menu ouvert au clic reste après le relâchement et le mode finit à sa fermeture ; Échap sort aussi, sans ouvrir la
+ *       pause. {@link #ANTI_REBOND_MS} entre deux entrées (le serveur en refuse au-delà de quatre par seconde).
+ *       Un écran qui s'ouvre touche tenue (« Action RP (/me)… » du menu) ne reçoit pas sa répétition ({@link #evenementClavier}).</li>
+ *   <li><b>Effet d'écran</b> (décisions des 08 et 09/11, recette K+, un cran plus sombre que les mesures de Ketto) : les coins, l'effet plus sombre et
+ *       « ce petit effet de noir et blanc », moins prononcés qu'en 0.4.200 : désaturation de 40 %, nuance froide très légère,
+ *       assombrissement elliptique (centre −12 %, bords −35 %, coins −60 %), un post-effet
+ *       ({@code shaders/post/concentration_ecran.fsh}) posé dans l'unique
  *       emplacement de {@link fr.reborn.hud.effets.FiltresEcran} : KO &gt; Byakugan &gt; concentration &gt; météo (le
  *       filtre de la météo est suspendu le temps de la concentration). Entrée 250 ms (courbe douce), sortie 150 ms, un souffle
  *       à chaque passage (V1).
@@ -63,10 +74,10 @@ import java.util.function.LongSupplier;
  *       donné ou reçu, sortie au coup, à la garde, au dash ; sprint et course de chakra : sortie ; narration, méditation,
  *       cécité : le mode reste ; porté ou entravé : le mode reste, le menu est refusé ; le tchat ne ferme pas le mode ;
  *       tout autre écran le ferme ; une demande d'un autre joueur (porter, fouiller) passe devant et le ferme.</li>
- *   <li><b>Sortie propre par tous les chemins</b> : touche, Échap, écran, blocage, action choisie dans le menu,
+ *   <li><b>Sortie propre par tous les chemins</b> : relâchement, Échap, écran, blocage, fermeture du menu touche relâchée,
  *       déconnexion ou changement de joueur (remise à zéro sans fondu).</li>
  * </ul>
- * Hors concentration, le mode ne coûte rien : aucun rayon, aucun filtre, texture jamais réécrite.
+ * Hors concentration, le mode ne coûte que la lecture de la touche à chaque tick : aucun rayon, aucun filtre, texture jamais réécrite.
  */
 public final class ModeConcentration {
 
@@ -76,7 +87,15 @@ public final class ModeConcentration {
     /** Lue par le filtre (entrée « texture » reborn-hud:concentration_params → textures/effect/concentration_params.png). */
     public static final Identifier PARAMS = Identifier.fromNamespaceAndPath("reborn-hud", "textures/effect/concentration_params.png");
 
-    public static final long ENTREE_MS = 250, SORTIE_MS = 150, ANTI_REBOND_MS = 250, COMBAT_REFUS_MS = 5000;
+    public static final long ENTREE_MS = 250, SORTIE_MS = 150, COMBAT_REFUS_MS = 5000;
+    /**
+     * Deux entrées à au moins cet intervalle : le serveur refuse le cinquième {@code on} d'une seconde glissante
+     * ({@code PlaqueRegles.BASCULES_S}), et une marge couvre deux paquets rapprochés par le réseau. Une touche pressée trop tôt
+     * attend, et n'entre que si elle est encore tenue : taper vite ne provoque ni refus ni clignotement.
+     */
+    public static final long ANTI_REBOND_MS = 300;
+    /** Le même souffle pas plus d'une fois sur cette durée ; pas de souffle de sortie pour un appui plus court que le fondu d'entrée. */
+    public static final long SON_INTERVALLE_MS = 600, SON_SORTIE_TENUE_MS = ENTREE_MS;
     /** Portée du contour lumineux au survol (blocs). */
     public static final double HALO_PORTEE = 16.0;
     /**
@@ -89,18 +108,52 @@ public final class ModeConcentration {
     /** Volume des souffles d'entrée et de sortie (variante V1 « souffle », retenue le 07/11 ; la sortie est déjà plus douce). */
     public static final float SON_VOLUME = 0.8f;
 
-    /** Pourquoi le mode s'arrête (journal, banc). */
+    /** Pourquoi le mode s'arrête (journal, banc). {@code TOUCHE} : touche relâchée, ou menu refermé après le relâchement. */
     public enum Raison { TOUCHE, ECHAP, ECRAN, BLOCAGE, FERME, DECONNEXION }
 
     /** Horloge du fondu (le banc la fige). */
     public static volatile LongSupplier horloge = Util::getMillis;
+
+    /** L'état physique lu à chaque tick ; le banc remplace cette lecture, et rien d'autre. */
+    public interface Clavier {
+        boolean touche(int glfw);
+        boolean bouton(int glfw);
+        boolean fenetreActive();
+    }
+
+    public static final Clavier CLAVIER_REEL = new Clavier() {
+        @Override
+        public boolean touche(int glfw) {
+            return GLFW.glfwGetKey(Minecraft.getInstance().getWindow().handle(), glfw) == GLFW.GLFW_PRESS;
+        }
+
+        @Override
+        public boolean bouton(int glfw) {
+            return GLFW.glfwGetMouseButton(Minecraft.getInstance().getWindow().handle(), glfw) == GLFW.GLFW_PRESS;
+        }
+
+        @Override
+        public boolean fenetreActive() {
+            return Minecraft.getInstance().isWindowActive();
+        }
+    };
+
+    public static volatile Clavier clavier = CLAVIER_REEL;
 
     private static boolean actif;
     private static long depuis;
     /** Fondu : avancement linéaire (0 à 1) au dernier changement, et son instant. */
     private static float p0;
     private static long changeA = Long.MIN_VALUE / 4;
-    private static long derniereBascule = Long.MIN_VALUE / 4;
+    private static long derniereEntree = Long.MIN_VALUE / 4;
+    /** Touche à relâcher avant de pouvoir entrer : entrée refusée, sortie imposée, appui sous un écran, fenêtre quittée. */
+    private static boolean attendRelache;
+    /** Dernière touche pressée, si c'était hors de tout écran et qu'elle n'est pas relâchée : c'est elle que le système répète. */
+    private static boolean repetee;
+    private static int repeteeTouche, repeteeCode;
+    private static long sonEntreeA = Long.MIN_VALUE / 4, sonSortieA = Long.MIN_VALUE / 4;
+    /** Banc : souffles joués depuis le lancement. */
+    private static int sonsEntree, sonsSortie;
     /** Repères du combat à l'entrée : un coup, un dash ou une blessure plus récents ferment le mode. */
     private static long coupVu, dashVu;
     private static long blessureA, entreeReel;
@@ -149,13 +202,13 @@ public final class ModeConcentration {
     /** Id de l'entité survolée (contour), -1 sinon. */
     public static int survol() { return survolId; }
 
-    /** Touche Concentration (ou l'ancienne touche R) : entre ou sort. */
-    public static void basculer() {
-        long now = horloge.getAsLong();
-        if (now - derniereBascule < ANTI_REBOND_MS) return;
-        if (actif) sortir(Raison.TOUCHE);
-        else entrer();
-    }
+    /** Banc : souffles d'entrée et de sortie joués depuis le lancement. */
+    public static int sonsEntree() { return sonsEntree; }
+
+    public static int sonsSortie() { return sonsSortie; }
+
+    /** Banc : la touche doit-elle être relâchée avant une nouvelle entrée ? */
+    public static boolean attendRelache() { return attendRelache; }
 
     /** Entre en concentration ; faux si un blocage la refuse (rien ne se passe, aucun message). */
     public static boolean entrer() {
@@ -173,7 +226,7 @@ public final class ModeConcentration {
         if (!InteractionMode.INSTANCE.isActive()) return false;
         p0 = avancement(now);
         changeA = now;
-        derniereBascule = now;
+        derniereEntree = now;
         actif = true;
         depuis = now;
         joueur = mc.player;
@@ -187,7 +240,11 @@ public final class ModeConcentration {
         mc.options.keyUse.setDown(false);
         mc.options.keyAttack.setDown(false);
         Recit.concentration(true);
-        fr.reborn.hud.menu.RebornSounds.playReborn("concentration.entree", 1.0f, SON_VOLUME);
+        if (now - sonEntreeA >= SON_INTERVALLE_MS) {
+            sonEntreeA = now;
+            sonsEntree++;
+            fr.reborn.hud.menu.RebornSounds.playReborn("concentration.entree", 1.0f, SON_VOLUME);
+        }
         preparerParams(mc);
         fr.reborn.hud.effets.FiltresEcran.tick();
         Traces.entree();    // étape C : plus rien de l'entrée précédente, le serveur renvoie la liste complète
@@ -201,8 +258,8 @@ public final class ModeConcentration {
         long now = horloge.getAsLong();
         p0 = avancement(now);
         changeA = now;
-        derniereBascule = now;
         actif = false;
+        attendRelache = true;   // sortie imposée, touche encore tenue : un nouvel appui ; relâchée, maintien() le remet
         derniereSortie = raison.name();
         survolId = -1;
         interactif = false;
@@ -211,8 +268,11 @@ public final class ModeConcentration {
         Recit.concentration(false);
         Plaques.sortie();   // étape B : « off », texte de la plaque effacé en 350 ms
         Traces.sortie();    // étape C : fondu avec l'effet, puis oubliées
-        // son de sortie seulement quand le joueur sort lui-même (un coup, un écran : pas de souffle par-dessus)
-        if (raison == Raison.TOUCHE || raison == Raison.ECHAP) {
+        // son de sortie seulement quand le joueur sort lui-même (un coup, un écran : pas de souffle par-dessus), et pas pour un appui bref
+        if ((raison == Raison.TOUCHE || raison == Raison.ECHAP) && now - depuis >= SON_SORTIE_TENUE_MS
+            && now - sonSortieA >= SON_INTERVALLE_MS) {
+            sonSortieA = now;
+            sonsSortie++;
             fr.reborn.hud.menu.RebornSounds.playReborn("concentration.sortie", 1.0f, SON_VOLUME);
         }
         LOG.debug("concentration finie : {}", raison);
@@ -222,6 +282,7 @@ public final class ModeConcentration {
     public static void reinitialiser() {
         boolean etait = actif;
         actif = false;
+        attendRelache = true;
         p0 = 0f;
         changeA = Long.MIN_VALUE / 4;
         survolId = -1;
@@ -315,13 +376,104 @@ public final class ModeConcentration {
             if (p.hurtTime > blessureAvant) blessureA = reel;
             blessureAvant = p.hurtTime;
         }
-        if (!actif) return;
+        if (actif) surveiller(mc, p, reel);
+        maintien(mc);
+    }
+
+    /**
+     * La touche, relue à chaque tick (fenêtre quittée = relâchée) : appui = entrée, relâchement = sortie. Sans suite tant
+     * qu'elle n'a pas été relâchée après un refus, une sortie imposée ou un appui sous un écran (la lettre tapée dans le tchat).
+     */
+    private static void maintien(Minecraft mc) {
+        boolean focus = clavier.fenetreActive();
+        if (!focus || !(tenue(HudKeybinds.CONCENTRATION) || tenue(HudKeybinds.INTERACTION))) {
+            // le menu ouvert au clic reste : le mode finit à sa fermeture ; le tchat, lui, reste ouvert
+            if (actif && !InteractionMode.INSTANCE.menuOuvert()) sortir(Raison.TOUCHE);
+            // revenir dans la fenêtre touche enfoncée n'est pas un appui
+            attendRelache = !focus;
+            return;
+        }
+        if (actif || attendRelache) return;
+        if (mc.gui.screen() != null) {
+            attendRelache = true;
+            return;
+        }
+        if (horloge.getAsLong() - derniereEntree < ANTI_REBOND_MS) return;
+        if (!entrer()) attendRelache = true;
+    }
+
+    /** Cette touche est-elle physiquement tenue (clavier ou bouton de souris) ? Non liée : jamais. Aucune allocation. */
+    private static boolean tenue(KeyMapping km) {
+        if (km == null || km.isUnbound()) return false;
+        InputConstants.Key k = KeyMappingHelper.getBoundKeyOf(km);
+        return switch (k.getType()) {
+            case KEYSYM -> clavier.touche(k.getValue());
+            case MOUSE -> clavier.bouton(k.getValue());
+            case SCANCODE -> km.isDown();   // touche sans code GLFW : GLFW ne sait pas la relire
+        };
+    }
+
+    /**
+     * Chaque événement du clavier, avant le jeu (mixin du clavier : l'appui lui-même, pas un relevé au tick).
+     * <ul>
+     *   <li>La touche du mode pressée sous un écran est une lettre tapée : elle n'ouvrira rien, même si l'écran se ferme
+     *       avant le tick suivant (« y » puis Entrée en roulement).</li>
+     *   <li>Le système ne répète que la dernière touche pressée. Pressée hors de tout écran, puis un écran s'ouvre doigt
+     *       dessus (Y tenue, ou Z en marchant, et « Action RP (/me)… » du menu) : sa répétition n'est pas de la saisie, sinon
+     *       « /me yyyyyy ». Une autre touche pressée lui prend la répétition, et se tape normalement. Aucune allocation.</li>
+     * </ul>
+     * @return vrai si l'événement est une telle répétition, à ignorer
+     */
+    public static boolean evenementClavier(int action, KeyEvent ev) {
+        boolean ecran = ecranOuvert();
+        if (action == GLFW.GLFW_PRESS) {
+            repetee = !ecran;
+            repeteeTouche = ev.key();
+            repeteeCode = ev.scancode();
+            if (ecran && (estTouche(HudKeybinds.CONCENTRATION, ev) || estTouche(HudKeybinds.INTERACTION, ev))) attendRelache = true;
+            return false;
+        }
+        boolean meme = repetee && ev.key() == repeteeTouche && ev.scancode() == repeteeCode;
+        if (action == GLFW.GLFW_RELEASE) {
+            if (meme) repetee = false;
+            return false;
+        }
+        return meme && ecran;
+    }
+
+    /** Ce caractère vient-il d'une répétition à ignorer ({@link #evenementClavier}) ? Tout autre appui l'aurait annulée. */
+    public static boolean caractereRepete() {
+        return repetee && ecranOuvert();
+    }
+
+    /** Bouton de souris pressé (mixin de la souris) : la touche du mode, sous un écran, n'ouvrira rien (comme une lettre tapée). */
+    public static void boutonPresse(int bouton) {
+        if (ecranOuvert() && (estBouton(HudKeybinds.CONCENTRATION, bouton) || estBouton(HudKeybinds.INTERACTION, bouton))) attendRelache = true;
+    }
+
+    private static boolean ecranOuvert() {
+        Minecraft mc = Minecraft.getInstance();
+        return mc.gui != null && mc.gui.screen() != null;   // le clavier est branché avant que l'interface existe
+    }
+
+    private static boolean estTouche(KeyMapping km, KeyEvent ev) {
+        return km != null && km.matches(ev);
+    }
+
+    private static boolean estBouton(KeyMapping km, int bouton) {
+        if (km == null || km.isUnbound()) return false;
+        InputConstants.Key k = KeyMappingHelper.getBoundKeyOf(km);
+        return k.getType() == InputConstants.Type.MOUSE && k.getValue() == bouton;
+    }
+
+    /** Mode actif : blocages relus, survol. */
+    private static void surveiller(Minecraft mc, LocalPlayer p, long reel) {
         if (p == null || mc.level == null || p != joueur) {
             reinitialiser();
             return;
         }
         if (!InteractionMode.INSTANCE.isActive()) {
-            // fermé ailleurs : action choisie dans le menu, refus serveur, écran
+            // fermé ailleurs : plaque du duel cliquée, écran
             sortir(Raison.FERME);
             return;
         }
@@ -337,10 +489,7 @@ public final class ModeConcentration {
             return;
         }
         // clic droit relâché hors de la fenêtre ou pendant le tchat : la rotation s'arrête
-        if (rotation && (ecran != null
-            || GLFW.glfwGetMouseButton(mc.getWindow().handle(), GLFW.GLFW_MOUSE_BUTTON_RIGHT) != GLFW.GLFW_PRESS)) {
-            rotation = false;
-        }
+        if (rotation && (ecran != null || !clavier.bouton(GLFW.GLFW_MOUSE_BUTTON_RIGHT))) rotation = false;
         survoler(mc);
     }
 

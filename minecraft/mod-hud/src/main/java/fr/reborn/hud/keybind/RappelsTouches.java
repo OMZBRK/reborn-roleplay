@@ -147,7 +147,7 @@ public final class RappelsTouches {
     };
 
     /**
-     * En concentration ? Branché par le lot 4 (la bascule de {@link HudKeybinds#CONCENTRATION}) ; d'ici là, jamais.
+     * En concentration ? Branché par le lot 4 (la touche maintenue {@link HudKeybinds#CONCENTRATION}) ; d'ici là, jamais.
      * Lu une fois par tick, sur le fil client.
      */
     public static volatile BooleanSupplier concentration = () -> false;

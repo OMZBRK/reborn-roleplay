@@ -70,7 +70,7 @@ public final class YeuxDebug {
         if (j == 1 && k == 0) CeciteHud.set(false, true, true);
         if (j == 1 && k == 20) shot(mc, "yeux_12_cecite_droite_bandage");
         var im = fr.reborn.hud.interaction.InteractionMode.INSTANCE;
-        if (j == 2 && k == 0) { CeciteHud.set(false, false, false); im.toggle(); }
+        if (j == 2 && k == 0) { CeciteHud.set(false, false, false); im.debugBascule(); }
         if (j == 2 && k == 2) im.debugOpen("Itachi_Uchiha", fr.reborn.hud.interaction.InteractionMenus.forBody("Itachi_Uchiha",
                 new fr.reborn.hud.ko.CorpsClient.Body(3, 0)), 3);
         if (j == 2 && k == 20) shot(mc, "yeux_13_menu_corps_prelever");

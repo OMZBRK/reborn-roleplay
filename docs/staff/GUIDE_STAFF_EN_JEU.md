@@ -164,8 +164,8 @@ texte façon Ketto est réservé aux stèles et plaques lues en concentration (p
     tienne (Modérateur : sur toutes), « Tout arrêter » (Modérateur) ou « Arrêter les miennes ».
 
 ### Plaques lues en concentration (lot 4, 07/11, pas encore publiées : ShinobiCore + reborn-hud 0.4.199)
-Un texte posé sur un objet du monde (stèle, pancarte, meuble Nexo, objet), que seul un joueur **concentré (Y) face à
-l'objet** lit : le texte apparaît tout seul devant l'objet, avec une petite lueur ivoire-or, et s'efface quand il se
+Un texte posé sur un objet du monde (stèle, pancarte, meuble Nexo, objet), que seul un joueur **concentré (touche Y maintenue) face
+à l'objet** lit : le texte apparaît tout seul devant l'objet, avec une petite lueur ivoire-or, et s'efface quand il se
 détourne. Rien n'apparaît à travers un mur ni au-delà de la portée. Hors concentration, personne ne voit rien.
 - **Qui peut quoi** : Helper voit la liste, la fiche, l'aperçu et peut aller devant ; **Modérateur** pose, modifie,
   déplace, supprime ; **Admin** restaure depuis la corbeille ; **animateur en mode animation** (sans grade) : seulement
@@ -201,7 +201,7 @@ détourne. Rien n'apparaît à travers un mur ni au-delà de la portée. Hors co
   (`PLAQUE_CREEE`, `PLAQUE_TEXTE`, `PLAQUE_SUPPRIMEE`, `PLAQUE_TP`…) ; « lue N fois » sur la fiche.
 
 ### Traces de pas en concentration (lot 4, 08/11, pas encore publiées : ShinobiCore + reborn-hud 0.4.200)
-Tout joueur concentré voit, au sol, les traces de pas des **autres** joueurs : semelles blanches, sombres sur un sol clair (sable,
+Tout joueur concentré (touche Y maintenue) voit, au sol, les traces de pas des **autres** joueurs : semelles blanches, sombres sur un sol clair (sable,
 neige, béton blanc, quartz, bouleau), jusqu'à 16 blocs puis en fondu jusqu'à 24, jamais de nom. Curseur dessus (8 blocs au plus) :
 « à l'instant », « il y a 7 min », « il y a 1 h 20 ».
 - **Combien de temps** : une trace reste, elle sert à savoir si quelqu'un est passé : **2 h** ; × 2 sur sable, neige, boue (4 h) ;

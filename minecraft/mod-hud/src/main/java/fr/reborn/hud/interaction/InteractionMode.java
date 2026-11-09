@@ -27,7 +27,7 @@ import java.util.List;
  *       correspondant, à l'emplacement du clic.</li>
  * </ol>
  * Dans le menu : survol + clic gauche pour choisir. Clic en dehors → referme le
- * menu (retour au curseur). Échap ou la touche Concentration → sort complètement.
+ * menu (retour au curseur, ou fin du mode si la touche Concentration n'est plus tenue). Échap → sort complètement.
  */
 public final class InteractionMode {
 
@@ -87,9 +87,9 @@ public final class InteractionMode {
     }
 
     /**
-     * Concentration (lot 4) : le curseur seul, posé au centre (viser puis appuyer sur la touche agit tout de suite sur ce
-     * qu'on vise). Sans les refus de {@link #toggle} : c'est {@code ModeConcentration} qui décide (porté ou entravé, le
-     * mode reste permis, seul le menu est refusé).
+     * Concentration (lot 4) : le curseur seul, posé au centre (viser puis tenir la touche agit tout de suite sur ce
+     * qu'on vise). C'est {@code ModeConcentration} qui décide des refus (porté ou entravé, le mode reste permis, seul le
+     * menu est refusé).
      */
     public void ouvrirCurseur() {
         Minecraft mc = Minecraft.getInstance();
@@ -135,22 +135,6 @@ public final class InteractionMode {
             return false;
         }
         return true;
-    }
-
-    /** Toggle : entre/sort du mode curseur. */
-    public void toggle() {
-        if (active) {
-            deactivate();
-            return;
-        }
-        Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.player == null || mc.gui.screen() != null) return;
-        // À terre, inconscient, étourdi, porté… : pas de menu R (il restait ouvrable, souris figée derrière).
-        if (fr.reborn.hud.etat.EtatClient.enJeu() && fr.reborn.hud.etat.EtatClient.refuse("int")) return;
-        active = true;
-        menuOpen = false;
-        cursorX = mc.getWindow().getGuiScaledWidth() / 2.0;
-        cursorY = mc.getWindow().getGuiScaledHeight() / 2.0;
     }
 
     public void deactivate() {
@@ -276,6 +260,12 @@ public final class InteractionMode {
         updateHover();
     }
 
+    /** Banc d'essai (hors concentration) : curseur seul, ou referme tout. */
+    public void debugBascule() {
+        if (active) deactivate();
+        else ouvrirCurseur();
+    }
+
     /** Banc d'essai : referme tout. */
     public void debugClose() { if (active) deactivate(); }
 
@@ -348,7 +338,9 @@ public final class InteractionMode {
             updateHover();
             return;
         }
-        deactivate();
+        // Concentration : seul le menu se ferme, le mode suit la touche (tenue, il continue ; relâchée, il finit)
+        if (fr.reborn.hud.concentration.ModeConcentration.actif()) menuOpen = false;
+        else deactivate();
     }
 
     /**
