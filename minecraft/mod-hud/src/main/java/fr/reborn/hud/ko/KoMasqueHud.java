@@ -23,7 +23,7 @@ import java.util.List;
 public final class KoMasqueHud {
 
     private static final String[] REBORN = {"vitals", "combat", "combat-endurance", "cooldowns", "concentration",
-        "allure", "notifs", "ramasser", "interaction", "duel", "byakugan_activation", "ost", "rappels"};
+        "allure", "saut", "notifs", "ramasser", "interaction", "duel", "ost", "rappels"};
 
     private KoMasqueHud() {}
 

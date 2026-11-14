@@ -9,6 +9,8 @@ import fr.reborn.hud.anchor.ProjectionMonde;
 import fr.reborn.hud.byakugan.ByakuganClient;
 import fr.reborn.hud.menu.settings.RebornPrefs;
 import fr.reborn.hud.ui.DaKit;
+import fr.reborn.hud.ui.TexteCache;
+import fr.reborn.hud.ui.TexteRaster;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
@@ -19,7 +21,6 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.util.Mth;
@@ -57,11 +58,15 @@ import java.util.function.LongSupplier;
  *       en garde 60 % de l'écart à la luminance (recette K+), assez pour la reconnaître ; une compensation n'aurait presque pas
  *       de marge sur un canal déjà au maximum (bleu chakra, ambre) et devrait baisser sa luminance.</li>
  *   <li><b>Autres filtres</b> : le KO et le Byakugan prennent l'unique emplacement de {@code FiltresEcran}. Sous le
- *       Byakugan, rien (son filtre négatif inverserait le pas ; comme le contour de
+ *       Byakugan, rien (son filtre fondrait le pas dans le sol pâle ; comme le contour de
  *       {@link ModeConcentration#halo}).</li>
- *   <li><b>Temps écoulé</b>, comme chez Ketto : le curseur sur un pas à {@value #PORTEE_SURVOL} blocs au plus, petite étiquette
- *       « à l'instant » / « il y a 7 min » / « il y a 1 h 20 » à côté, ivoire (sombre sur un sol clair, de jour), <b>sans fond</b>, sans nom,
- *       fondu de {@value #LIBELLE_MS} ms.</li>
+ *   <li><b>Petit panneau</b>, comme chez Ketto (retour du 10/11) : le curseur sur un pas à {@value #PORTEE_SURVOL} blocs au
+ *       plus ; au-dessus du pas, un cartouche de nuit translucide (filet pâle d'un pixel, clous d'or aux coins), « Trace de
+ *       pas » en or (police du récit) et l'âge <b>estimé</b> ({@link TracesAge} : « Laissée il y a environ 10 min »…) en
+ *       ivoire, centrés ; un fil vertical bleu chakra pâle jusqu'à un point posé sur le pas (sombre cerné de pâle sur un sol
+ *       clair, de jour). Jamais de nom. Gardé à l'écran, jamais sur le réticule ; glisse d'un pas à l'autre en
+ *       {@value #GLISSE_MS} ms ; fondu {@value #ENTREE_MS} ms à l'entrée, {@value #SORTIE_MS} ms à la sortie. Textes rendus
+ *       une fois par {@link TexteCache} (rien de recalculé tant que le palier ne change pas).</li>
  * </ul>
  * Hors concentration : rien (ni tableau parcouru, ni quad, ni rayon). En concentration : une sélection par tick et par
  * ~{@value #MAX_DESSINES} pas au plus, aucune allocation par image ({@link #GEOMETRIE} ne capture rien).
@@ -112,10 +117,26 @@ public final class Traces {
     private static final float PRECISION = 32f;
 
     public static final float PORTEE_SURVOL = 8f;
-    public static final long LIBELLE_MS = 120, LIBELLE_SORTIE_MS = 90;
-    private static final int COULEUR_LIBELLE = DaKit.CREME, COULEUR_LIBELLE_SOMBRE = 0xFF000000 | SEMELLE_SOMBRE;
+    public static final long ENTREE_MS = 120, SORTIE_MS = 150, GLISSE_MS = 90;
     /** Curseur à moins de ces pixels GUI du centre du pas, quelle que soit la distance (viser un petit pas lointain). */
     private static final float SURVOL_MIN_GUI = 5f;
+
+    /* Le panneau, en pixels 1080p (× k = kHud / 2, comme le bas-droite). */
+    private static final String TITRE = "Trace de pas";
+    private static final int CAP_TITRE = 9, CAP_AGE = 8, MARGE_X = 11, HAUT = 40, Y_TITRE = 13, Y_AGE = 27;
+    /** Fil : au moins cette longueur sous le panneau ; au moins ce jour entre le panneau et le bord du pas vu à l'écran. */
+    private static final int FIL = 30, FIL_JOUR = 10;
+    /** Marge aux bords de l'écran ; demi-côté de la zone du réticule que le panneau ne couvre jamais. */
+    private static final int MARGE_ECRAN = 8, RETICULE = 10;
+    private static final int NUIT = 0x110B0D, OR_TITRE = 0xE8C27A, CHAKRA_PALE = 0xB4D2F2;
+    private static final float ALPHA_FOND = 0.78f, ALPHA_FILET = 0.26f, ALPHA_CLOU = 0.80f, ALPHA_FIL = 0.70f;
+    /** Texte sur un fond à nous : ni contour ni ombre (ils l'épaissiraient sans rien gagner). Une instance : comparée par référence. */
+    private static final TexteRaster.Preset NET = new TexteRaster.Preset("PANNEAU", 0f, 0f, 0.85f);
+    private static final TexteCache.Style STYLE_TITRE = new TexteCache.Style(TexteRaster.Police.RECIT, NET,
+        TexteRaster.cleRgb(OR_TITRE), TexteRaster.Ancre.CENTRE, true, false);
+    private static final TexteCache.Style STYLE_AGE = new TexteCache.Style(TexteRaster.Police.INTER_MEDIUM, NET, "hud",
+        TexteRaster.Ancre.CENTRE, true, false);
+    private static final TexteCache.Texte TEXTE_TITRE = new TexteCache.Texte(), TEXTE_AGE = new TexteCache.Texte();
 
     /** Horloge de l'âge et du libellé (le banc la fige). */
     public static volatile LongSupplier horloge = Util::getMillis;
@@ -146,14 +167,19 @@ public final class Traces {
     private static boolean autoImage;
 
     /* Survol. */
-    private static int survolId = -1, libelleMinutes;
+    private static int survolId = -1, palier;
     private static double survolX, survolY, survolZ;
     private static float survolK = 1f;
-    private static long survolA = Long.MIN_VALUE / 4, finSurvolA = Long.MIN_VALUE / 4;
-    private static boolean libelleVisible, survolClair;
-    /** Le dernier texte construit : aucune allocation tant que la durée affichée ne change pas. */
-    private static int libelleConstruit = -1;
-    private static Component libelleTexte;
+    private static long survolA = Long.MIN_VALUE / 4, finSurvolA = Long.MIN_VALUE / 4, glisseA = Long.MIN_VALUE / 4;
+    private static boolean panneauVisible, survolClair;
+    /** Point du pas où le panneau était à la dernière image, et départ du glissement vers un autre pas. */
+    private static double affX, affY, affZ, departX, departY, departZ;
+    private static float alphaAffiche;
+    /** Largeur du panneau (px) pour ce palier et ce k : recalculée seulement quand l'un change. */
+    private static int largeurPanneau, largeurPalier = -1;
+    private static double largeurK;
+    /** Dernier panneau dessiné (banc) : x, y, largeur, hauteur, puis le point du pas, en pixels de la fenêtre. */
+    private static int pnX, pnY, pnW, pnH, pnPointX, pnPointY;
     private static final Vector3f V = new Vector3f();
 
     private Traces() {}
@@ -166,7 +192,7 @@ public final class Traces {
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.attachElementBefore(
             fr.reborn.hud.recit.RecitHud.ID,
             Identifier.fromNamespaceAndPath("reborn-hud", "traces-temps"),
-            (ctx, tc) -> libelle(ctx));
+            (ctx, tc) -> panneau(ctx));
     }
 
     /* ================================================================ messages */
@@ -272,7 +298,7 @@ public final class Traces {
         n = 0;
         nDessin = 0;
         survolId = -1;
-        libelleVisible = false;
+        panneauVisible = false;
         monde = null;
     }
 
@@ -485,71 +511,117 @@ public final class Traces {
         }
         long now = horloge.getAsLong();
         if (ID[choisi] != survolId) {
-            if (survolId < 0 && now - finSurvolA > LIBELLE_SORTIE_MS) survolA = now;
-            else if (survolId < 0) survolA = now - LIBELLE_MS / 2;   // du pas voisin au suivant : pas de clignotement
+            if (panneauVisible && alphaAffiche > 0f) {
+                // d'un pas à l'autre, ou repris pendant le fondu de sortie : le panneau glisse d'où il est, l'opacité continue
+                departX = affX;
+                departY = affY;
+                departZ = affZ;
+                glisseA = now;
+                if (survolId < 0) survolA = now - Math.round(alphaAffiche * ENTREE_MS);
+            } else {
+                survolA = now;
+                glisseA = Long.MIN_VALUE / 4;
+            }
             survolId = ID[choisi];
         }
         survolX = XD[choisi];
         survolY = Y[choisi];
         survolZ = ZD[choisi];
         survolK = K[choisi];
-        libelleMinutes = minutes((now - NEE[choisi]) / 1000L);
+        palier = TracesAge.palier((now - NEE[choisi]) / 1000L);
         survolClair = SOL[choisi] == SOL_CLAIR;
-        libelleVisible = true;
+        panneauVisible = true;
     }
 
-    /** Âge arrondi à la minute : 0 = « à l'instant ». */
-    public static int minutes(long ageSecondes) {
-        return (int) Math.max(0L, Math.round(ageSecondes / 60.0));
-    }
-
-    /** Le texte de l'étiquette : « à l'instant », « il y a 7 min », « il y a 1 h », « il y a 1 h 20 », « il y a 1 h 05 ». */
-    public static String texteDuree(int minutes) {
-        if (minutes <= 0) return "à l'instant";
-        if (minutes < 60) return "il y a " + minutes + " min";
-        int h = minutes / 60, m = minutes % 60;
-        return "il y a " + h + " h" + (m == 0 ? "" : m < 10 ? " 0" + m : " " + m);
-    }
-
-    /** Couche du HUD : l'étiquette, à côté du pas, sans fond. */
-    private static void libelle(GuiGraphicsExtractor ctx) {
-        if (!libelleVisible) return;
+    /** Couche du HUD : le petit panneau au-dessus du pas survolé, son fil et son point. Aucune allocation par image. */
+    private static void panneau(GuiGraphicsExtractor ctx) {
+        if (!panneauVisible) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.gui.hud.isHidden()) return;
         long now = horloge.getAsLong();
         float a;
         if (survolId >= 0) {
-            a = Math.min(1f, (now - survolA) / (float) LIBELLE_MS);
+            a = Math.min(1f, (now - survolA) / (float) ENTREE_MS);
         } else {
-            a = 1f - (now - finSurvolA) / (float) LIBELLE_SORTIE_MS;
+            a = 1f - (now - finSurvolA) / (float) SORTIE_MS;
             if (a <= 0f) {
-                libelleVisible = false;
+                panneauVisible = false;
+                alphaAffiche = 0f;
                 return;
             }
         }
+        alphaAffiche = a;
+        float t = Math.min(1f, Math.max(0f, (now - glisseA) / (float) GLISSE_MS)), g = 1f - (1f - t) * (1f - t) * (1f - t);
+        affX = departX + (survolX - departX) * g;
+        affY = departY + (survolY - departY) * g;
+        affZ = departZ + (survolZ - departZ) * g;
         a *= ModeConcentration.niveau();
-        if (a <= 0.01f || !ProjectionMonde.versGui(survolX, survolY + LEVE, survolZ, V)) return;
-        Vec3 cam = mc.gameRenderer.mainCamera().position();
-        double dx = survolX - cam.x, dy = survolY - cam.y, dz = survolZ - cam.z;
-        double tan = Math.tan(Math.toRadians(mc.gameRenderer.mainCamera().getFov() / 2.0));
-        float rayon = (float) Math.max(3.0, 0.12 * survolK * mc.getWindow().getGuiScaledHeight()
-            / (2.0 * tan * Math.max(0.5, Math.sqrt(dx * dx + dy * dy + dz * dz))));
-        if (libelleMinutes != libelleConstruit) {
-            libelleConstruit = libelleMinutes;
-            // à cette taille, une espace simple se lit à peine plus large que l'écart entre deux lettres
-            libelleTexte = DaKit.inter(texteDuree(libelleMinutes).replace(" ", "  "));
+        if (a <= 0.01f || !ProjectionMonde.versPx(affX, affY + LEVE, affZ, V)) return;
+
+        double k = TexteRaster.kHud() / 2.0;
+        int p = Math.max(1, TexteRaster.arrondi(k));
+        if (palier != largeurPalier || k != largeurK) {
+            double wt = TexteRaster.largeur(TITRE, TexteRaster.Police.RECIT, CAP_TITRE * k, 0, true);
+            double wa = TexteRaster.largeur(TracesAge.texte(palier), TexteRaster.Police.INTER_MEDIUM, CAP_AGE * k, 0, true);
+            if (Double.isNaN(wt) || Double.isNaN(wa)) return;   // polices pas encore ouvertes
+            largeurPanneau = (int) Math.ceil(Math.max(wt, wa)) + 2 * TexteRaster.arrondi(MARGE_X * k);
+            largeurPalier = palier;
+            largeurK = k;
         }
-        float x = V.x + rayon + 5f, y = V.y;
-        // sur un sol clair, de jour : sombre, cerné d'un pixel pâle ; la nuit ce sol ne l'est plus : ivoire, comme ailleurs. Jamais de fond
-        if (survolClair && contourNuit < 0.5f) {
-            float px = DaKit.pxEcran() * Math.max(1, Math.round(DaKit.echelleGui() / 2f));
-            int pale = DaKit.alpha(COULEUR_LIBELLE, a * 0.55f);
-            DaKit.inter7(ctx, mc.font, libelleTexte, x - px, y, pale, 0);
-            DaKit.inter7(ctx, mc.font, libelleTexte, x + px, y, pale, 0);
-            DaKit.inter7(ctx, mc.font, libelleTexte, x, y - px, pale, 0);
-            DaKit.inter7(ctx, mc.font, libelleTexte, x, y + px, pale, 0);
-            DaKit.inter7(ctx, mc.font, libelleTexte, x, y, DaKit.alpha(COULEUR_LIBELLE_SOMBRE, a), 0);
-        } else DaKit.inter7o(ctx, mc.font, libelleTexte, x, y, DaKit.alpha(COULEUR_LIBELLE, a), 0);
+        int w = largeurPanneau, h = TexteRaster.arrondi(HAUT * k);
+        int sw = mc.getWindow().getWidth(), sh = mc.getWindow().getHeight();
+        int px = (int) V.x, py = (int) V.y, marge = TexteRaster.arrondi(MARGE_ECRAN * k);
+        // demi-longueur du pas à l'écran : le panneau ne le couvre pas, même de près
+        double tan = Math.tan(Math.toRadians(mc.gameRenderer.mainCamera().getFov() / 2.0));
+        int rayon = (int) Math.ceil(0.19 * survolK * sh / (2.0 * tan * Math.max(0.5, V.z)));
+        int fil = Math.max(TexteRaster.arrondi(FIL * k), rayon + TexteRaster.arrondi(FIL_JOUR * k));
+        int x = Mth.clamp(px - w / 2, marge, sw - marge - w);
+        boolean dessus = py - fil - h >= marge;
+        int y = Mth.clamp(dessus ? py - fil - h : py + fil, marge, sh - marge - h);
+        // jamais sur le réticule : au-dessus de lui (ou dessous s'il n'y a pas la place)
+        int cx = sw / 2, cy = sh / 2, r = TexteRaster.arrondi(RETICULE * k);
+        if (x < cx + r && x + w > cx - r && y < cy + r && y + h > cy - r) {
+            y = cy - r - h >= marge ? cy - r - h : cy + r;
+        }
+        pnX = x;
+        pnY = y;
+        pnW = w;
+        pnH = h;
+        pnPointX = px;
+        pnPointY = py;
+
+        // sur un sol clair, de jour, le point et le fil sont sombres (le contraste automatique des traces) ; sinon bleu chakra pâle
+        boolean clairJour = survolClair && contourNuit < 0.5f;
+        int coeur = DaKit.argb(clairJour ? SEMELLE_SOMBRE : CHAKRA_PALE, a);
+        int anneau = DaKit.argb(clairJour ? IVOIRE : NUIT, (clairJour ? 0.70f : 0.55f) * a);
+        int filCol = DaKit.argb(clairJour ? SEMELLE_SOMBRE : CHAKRA_PALE, (clairJour ? 0.60f : ALPHA_FIL) * a);
+        int fond = DaKit.argb(NUIT, ALPHA_FOND * a), filet = DaKit.argb(IVOIRE, ALPHA_FILET * a);
+        int clou = DaKit.alpha(DaKit.OR_MOYEN, ALPHA_CLOU * a);
+        DaKit.debutPx(ctx);
+        // le fil, du bord du panneau au point (vertical, calé sur le point tant qu'il reste sous le panneau)
+        int fx = Mth.clamp(px, x + 3 * p, x + w - 4 * p);
+        if (y + h <= py - 2 * p) ctx.fill(fx, y + h, fx + p, py - 2 * p, filCol);
+        else if (y >= py + 3 * p) ctx.fill(fx, py + 3 * p, fx + p, y, filCol);
+        // le point : 3 × 3 cerné d'un pixel, coins coupés
+        ctx.fill(px - p, py - 2 * p, px + 2 * p, py - p, anneau);
+        ctx.fill(px - p, py + 2 * p, px + 2 * p, py + 3 * p, anneau);
+        ctx.fill(px - 2 * p, py - p, px - p, py + 2 * p, anneau);
+        ctx.fill(px + 2 * p, py - p, px + 3 * p, py + 2 * p, anneau);
+        ctx.fill(px - p, py - p, px + 2 * p, py + 2 * p, coeur);
+        // le cartouche : fond, filet d'un pixel, un clou d'or de 2 × 2 à chaque coin
+        ctx.fill(x + p, y + p, x + w - p, y + h - p, fond);
+        ctx.fill(x + 2 * p, y, x + w - 2 * p, y + p, filet);
+        ctx.fill(x + 2 * p, y + h - p, x + w - 2 * p, y + h, filet);
+        ctx.fill(x, y + 2 * p, x + p, y + h - 2 * p, filet);
+        ctx.fill(x + w - p, y + 2 * p, x + w, y + h - 2 * p, filet);
+        ctx.fill(x, y, x + 2 * p, y + 2 * p, clou);
+        ctx.fill(x + w - 2 * p, y, x + w, y + 2 * p, clou);
+        ctx.fill(x, y + h - 2 * p, x + 2 * p, y + h, clou);
+        ctx.fill(x + w - 2 * p, y + h - 2 * p, x + w, y + h, clou);
+        int mx = x + w / 2;
+        TEXTE_TITRE.ligne(TITRE, STYLE_TITRE, CAP_TITRE * k, k, 0, mx, y + TexteRaster.arrondi(Y_TITRE * k)).dessinerPx(ctx, a);
+        TEXTE_AGE.ligne(TracesAge.texte(palier), STYLE_AGE, CAP_AGE * k, k, 0, mx, y + TexteRaster.arrondi(Y_AGE * k)).dessinerPx(ctx, a);
+        DaKit.finPx(ctx);
     }
 
     /* ================================================================ banc */
@@ -564,7 +636,11 @@ public final class Traces {
     /** Id du pas survolé, -1 sinon. */
     public static int survolId() { return survolId; }
 
-    public static int minutesLibelle() { return libelleMinutes; }
+    /** Palier d'âge du pas survolé ({@link TracesAge#palier}). */
+    public static int palierPanneau() { return palier; }
+
+    /** Dernier panneau dessiné, en pixels de la fenêtre : x, y, largeur, hauteur, point du pas (x, y). */
+    public static int[] panneauBanc() { return new int[] {pnX, pnY, pnW, pnH, pnPointX, pnPointY}; }
 
     /** Le sol sous le pas {@code id} : 0 inconnu, 1 sombre, 2 clair, -1 s'il n'est pas là. */
     public static int solDe(int id) {

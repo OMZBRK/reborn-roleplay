@@ -19,7 +19,7 @@ import net.minecraft.resources.Identifier;
  * Miroir du format écrit par {@code com.reborn.shinobicombat.net.CombatChannel}.
  */
 public record CombatPayload(byte msgType, int victimEntityId, float damage,
-                            float staminaCurrent, float staminaMax, int animId)
+                            float staminaCurrent, float staminaMax, int animId, byte[] corps)
         implements CustomPacketPayload {
 
     public static final byte TYPE_HIT = 1;
@@ -33,6 +33,11 @@ public record CombatPayload(byte msgType, int victimEntityId, float damage,
     /** S2C : regard vers le sol ({@code /lookdown}). Corps = juste le type. En vue
      *  épaule le client incline sa caméra orbite plein bas. */
     public static final byte TYPE_LOOK_DOWN = 6;
+    /** S2C : saut chargé, GO ou NON (lot 5). Corps brut dans {@link #corps}, lu par {@link ChakraJump#recevoir}. */
+    public static final byte TYPE_SAUT = 7;
+    /** S2C : réglages du saut chargé, à la connexion. Corps brut dans {@link #corps}. */
+    public static final byte TYPE_SAUT_REGLES = 8;
+    private static final byte[] VIDE = new byte[0];
 
     public static final Identifier IDENTIFIER = Identifier.fromNamespaceAndPath("reborn", "combat");
     public static final CustomPacketPayload.Type<CombatPayload> ID = new CustomPacketPayload.Type<>(IDENTIFIER);
@@ -44,20 +49,25 @@ public record CombatPayload(byte msgType, int victimEntityId, float damage,
             if (type == TYPE_HIT) {
                 int vid = buf.readInt();
                 float dmg = buf.readFloat();
-                return new CombatPayload(type, vid, dmg, 0f, 0f, 0);
+                return new CombatPayload(type, vid, dmg, 0f, 0f, 0, VIDE);
             } else if (type == TYPE_STAMINA) {
                 float cur = buf.readFloat();
                 float max = buf.readFloat();
-                return new CombatPayload(type, 0, 0f, cur, max, 0);
+                return new CombatPayload(type, 0, 0f, cur, max, 0, VIDE);
             } else if (type == TYPE_ANIM) {
                 int aid = buf.readInt();
                 int anim = buf.readByte();
-                return new CombatPayload(type, aid, 0f, 0f, 0f, anim);
+                return new CombatPayload(type, aid, 0f, 0f, 0f, anim, VIDE);
             } else if (type == TYPE_PARRY) {
                 int role = buf.readByte();   // 0 = paré / 1 = fait parer → dans animId
-                return new CombatPayload(type, 0, 0f, 0f, 0f, role);
+                return new CombatPayload(type, 0, 0f, 0f, 0f, role, VIDE);
+            } else if (type == TYPE_SAUT || type == TYPE_SAUT_REGLES) {
+                byte[] b = new byte[Math.min(256, buf.readableBytes())];
+                buf.readBytes(b);
+                buf.skipBytes(buf.readableBytes());
+                return new CombatPayload(type, 0, 0f, 0f, 0f, 0, b);
             }
-            return new CombatPayload(type, 0, 0f, 0f, 0f, 0);
+            return new CombatPayload(type, 0, 0f, 0f, 0f, 0, VIDE);
         }
 
         @Override
@@ -74,6 +84,8 @@ public record CombatPayload(byte msgType, int victimEntityId, float damage,
                 buf.writeByte(v.animId);
             } else if (v.msgType == TYPE_PARRY) {
                 buf.writeByte(v.animId);   // rôle
+            } else if ((v.msgType == TYPE_SAUT || v.msgType == TYPE_SAUT_REGLES) && v.corps != null) {
+                buf.writeBytes(v.corps);
             }
         }
     };

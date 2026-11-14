@@ -78,8 +78,8 @@ public final class Lot4v5Debug {
             versionAvant = RebornPrefs.INSTANCE.touchesVersion;
             System.out.println("[lot4v5] au démarrage : touchesVersion=" + versionAvant + " · Interaction="
                 + interactionAvant.getName() + " · Concentration=" + concentrationAvant.getName());
-            verifie(versionAvant == TouchesMigration.VERSION && TouchesMigration.VERSION == 5,
-                "démarrage : drapeau à la version 5 (" + versionAvant + ")");
+            verifie(versionAvant == TouchesMigration.VERSION && TouchesMigration.VERSION >= 5,
+                "démarrage : drapeau à la dernière version (" + versionAvant + ")");
             verifie(concentrationAvant.equals(AUCUNE) || !interactionAvant.equals(R),
                 "démarrage : Interaction plus sur R quand Concentration a une touche (" + interactionAvant.getName() + ")");
             verifie(disque().contains("\"touchesVersion\": 5"), "démarrage : drapeau 5 écrit dans reborn_prefs.json");
@@ -111,8 +111,8 @@ public final class Lot4v5Debug {
             RebornPrefs.INSTANCE.touchesVersion = 4;
             TouchesMigration.debugMigrer(mc);
             verifie(HudKeybinds.INTERACTION.isUnbound(), "options neuves : R déliée (" + nom(HudKeybinds.INTERACTION) + ")");
-            verifie(RebornPrefs.INSTANCE.touchesVersion == 5 && disque().contains("\"touchesVersion\": 5"),
-                "options neuves : drapeau à 5, écrit sur le disque");
+            verifie(RebornPrefs.INSTANCE.touchesVersion == TouchesMigration.VERSION && disque().contains("\"touchesVersion\": " + TouchesMigration.VERSION),
+                "options neuves : drapeau à la dernière version, écrit sur le disque");
             verifie(HudKeybinds.concentrationEffective() == HudKeybinds.CONCENTRATION, "options neuves : invites sur Concentration");
         }, "migration : options neuves");
         pas(2, mc -> {

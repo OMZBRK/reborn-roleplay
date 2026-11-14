@@ -67,6 +67,12 @@ public abstract class KeyboardInputMixin {
         if (mc.options.keyAttack.isDown() || mc.options.keyUse.isDown()) {
             reborn$aimHold = 10;
         }
+        // Saut chargé (lot 5) : pendant la charge et l'attente de la réponse, le corps suit la caméra, pour que le
+        // regard connu du serveur reste dans le cône de 25° autour de la visée envoyée.
+        var saut = fr.reborn.hud.combat.ChakraJump.INSTANCE.phase();
+        if (saut == fr.reborn.hud.combat.ChakraJump.Phase.CHARGE || saut == fr.reborn.hud.combat.ChakraJump.Phase.ATTENTE) {
+            reborn$aimHold = Math.max(reborn$aimHold, 2);
+        }
         if (reborn$aimHold > 0) {
             reborn$aimHold--;
             float cpitch = (float) cam.camPitch();

@@ -31,6 +31,8 @@ public final class MobilityInput {
         if (p == null || mc.level == null || mc.gui.screen() != null) { wasSpace = false; return; }
         // Pas de double saut sous garde/parade : le joueur est immobilisé.
         if (CombatInput.INSTANCE.isBlocking()) { wasSpace = mc.options.keyJump.isDown(); return; }
+        // Saut chargé en vol : aucune poussée en l'air, sinon l'aperçu d'arrivée mentirait (lot 5).
+        if (ChakraJump.INSTANCE.enVol()) { wasSpace = mc.options.keyJump.isDown(); return; }
         long now = System.currentTimeMillis();
         boolean sneaking = mc.options.keyShift.isDown();
 

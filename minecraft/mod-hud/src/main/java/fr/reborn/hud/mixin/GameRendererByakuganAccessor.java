@@ -5,7 +5,7 @@ import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-/** Accès au filtre plein écran (post effect) du jeu, privé en 26.2 : sert au négatif du Byakugan. */
+/** Accès au filtre plein écran (post effect) du jeu, privé en 26.2 : {@code FiltresEcran} y pose KO, Byakugan, concentration, météo. */
 @Mixin(GameRenderer.class)
 public interface GameRendererByakuganAccessor {
 

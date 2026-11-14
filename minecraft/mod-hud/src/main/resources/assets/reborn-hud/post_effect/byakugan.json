@@ -1,15 +1,52 @@
 {
     "targets": {
+        "traits": {},
         "swap": {}
     },
     "passes": [
         {
-            "vertex_shader": "minecraft:core/screenquad",
+            "vertex_shader": "reborn-hud:post/byakugan",
+            "fragment_shader": "reborn-hud:post/byakugan_traits",
+            "inputs": [
+                {
+                    "sampler_name": "Depth",
+                    "target": "minecraft:main",
+                    "use_depth_buffer": true
+                },
+                {
+                    "sampler_name": "Params",
+                    "location": "reborn-hud:byakugan_params",
+                    "width": 21,
+                    "height": 1,
+                    "bilinear": false
+                }
+            ],
+            "output": "traits"
+        },
+        {
+            "vertex_shader": "reborn-hud:post/byakugan",
             "fragment_shader": "reborn-hud:post/byakugan",
             "inputs": [
                 {
                     "sampler_name": "In",
                     "target": "minecraft:main"
+                },
+                {
+                    "sampler_name": "Traits",
+                    "target": "traits",
+                    "bilinear": true
+                },
+                {
+                    "sampler_name": "Depth",
+                    "target": "minecraft:main",
+                    "use_depth_buffer": true
+                },
+                {
+                    "sampler_name": "Params",
+                    "location": "reborn-hud:byakugan_params",
+                    "width": 21,
+                    "height": 1,
+                    "bilinear": false
                 }
             ],
             "output": "swap"
@@ -28,7 +65,12 @@
                     {
                         "name": "ColorModulate",
                         "type": "vec4",
-                        "value": [ 1.0, 1.0, 1.0, 1.0 ]
+                        "value": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ]
                     }
                 ]
             },

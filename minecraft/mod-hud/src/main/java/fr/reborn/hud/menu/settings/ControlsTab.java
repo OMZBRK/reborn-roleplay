@@ -212,7 +212,7 @@ public class ControlsTab extends SectionedTab implements SousListe {
                 add(l, o.keyDown, "Reculer", null);
                 add(l, o.keyLeft, "Gauche", null);
                 add(l, o.keyRight, "Droite", null);
-                add(l, o.keyJump, "Sauter", "Maintenir avec S'accroupir : saut de chakra.");
+                add(l, o.keyJump, "Sauter", "Maintenir avec S'accroupir : saut chargé (1,2 s pour la pleine charge).");
                 add(l, o.keyShift, "S'accroupir", null);
                 add(l, o.keySprint, "Allures", "Maintenir : trot. Deux appuis : sprint.");
                 add(l, HudKeybinds.COURSE_CHAKRA, "Course de chakra", "Un appui la lance, un autre l'arrête.");
@@ -228,6 +228,7 @@ public class ControlsTab extends SectionedTab implements SousListe {
             }
             case MONDE -> {
                 add(l, HudKeybinds.CONCENTRATION, "Concentration", "Maintenir : lire les plaques, viser un joueur ou un objet et cliquer pour agir. Relâcher pour revenir.");
+                add(l, HudKeybinds.BYAKUGAN, "Byakugan", "Un appui ouvre la vision, un autre la ferme. Seulement pour les clans qui l'ont (Hyūga, Ōtsutsuki).");
                 add(l, HudKeybinds.PICKUP, "Contextuel", "Ramasser, prendre ce qu'on te tend : seulement s'il y a quelque chose à faire.");
                 // Ancienne touche du menu d'interaction : montrée seulement si elle a encore une touche (gardée par la
                 // migration 5 : Concentration sans touche, ou touche personnalisée) ; elle ouvre la Concentration.

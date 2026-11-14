@@ -16,5 +16,6 @@ public abstract class GameRendererKoMixin {
     private void reborn$koFrame(DeltaTracker delta, boolean renderLevel, CallbackInfo ci) {
         KoClient.frame();
         fr.reborn.hud.concentration.ModeConcentration.frame();   // avancement de l'effet de la concentration
+        fr.reborn.hud.byakugan.ByakuganClient.frame();           // fondu du Byakugan (lot 5 ; sa texture : GameRendererByakuganDepthMixin)
     }
 }

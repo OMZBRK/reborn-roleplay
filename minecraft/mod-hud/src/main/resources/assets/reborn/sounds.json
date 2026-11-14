@@ -404,5 +404,19 @@
         "name": "reborn:concentration/sortie"
       }
     ]
+  },
+  "byakugan.ouverture": {
+    "sounds": [
+      {
+        "name": "reborn:byakugan/ouverture"
+      }
+    ]
+  },
+  "byakugan.fermeture": {
+    "sounds": [
+      {
+        "name": "reborn:byakugan/fermeture"
+      }
+    ]
   }
 }

@@ -6,8 +6,10 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 
 /**
- * Canal {@code reborn:byakugan} (S2C, ShinobiSense → client) : état du Byakugan du joueur local.
- * Format (big-endian, {@code DataOutputStream} côté Paper) : {@code boolean actif, float portée en blocs}.
+ * <b>Ancien</b> canal {@code reborn:byakugan} (S2C, ShinobiSense {@code /sense dojutsu} → client) : {@code boolean actif,
+ * float portée en blocs}, big-endian. Toujours écouté : ShinobiSense regarde si le client l'écoute pour se taire (ni armure
+ * de chakra, ni barre de boss). Suivi seulement tant que ShinobiCore ne parle pas {@code reborn:dojutsu}
+ * ({@link DojutsuCanal}) ; ensuite ignoré ({@link ByakuganClient#ancienCanal}).
  */
 public record ByakuganPayload(boolean active, float range) implements CustomPacketPayload {
 

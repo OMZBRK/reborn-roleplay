@@ -1,7 +1,6 @@
 package fr.reborn.hud.runtime;
 
 import fr.reborn.hud.combat.CombatState;
-import fr.reborn.hud.combat.CooldownState;
 import fr.reborn.hud.menu.settings.RebornPrefs;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -53,6 +52,8 @@ public final class VitalsMode {
     private static long coupPrec, paradePrec, depensePrec;
     /** Chakra dépensé d'un coup (unités) qui vaut une technique, quelle que soit la réserve. */
     private static final int SEUIL_CK_ABSOLU = 300;
+    /** Dépense du Byakugan tolérée sur la fenêtre d'1 s, en millièmes de la réserve (0,1 %/s, deux paiements au plus). */
+    private static final int BYAK_MILLE = 2;
 
     /** Progression du morph (rendu) : barres, tête, textes, de 0 (compact) à 1 (bloc). */
     private static float tb, th, tt;
@@ -180,11 +181,15 @@ public final class VitalsMode {
         if (vie - vMin >= seuilSoin) { bref(now); ecart = true; }
         if (vMax - vie >= 30) { bref(now); ecart = true; }
         // Chakra : 3 % de la réserve, ou 300 unités (une technique E en coûte 400) ; hors serveur, pas d'unités.
-        if (cMax - ck >= 30 || (src != 0 && caMax - cka >= SEUIL_CK_ABSOLU)) {
+        // Lot 5 : la vision du Byakugan (0,1 %/s, payée par le serveur chaque seconde) est retirée de l'écart, pas toutes
+        // les dépenses : seule, elle n'ouvre rien ; une technique lancée vision ouverte ouvre bien le combat.
+        boolean byak = fr.reborn.hud.byakugan.ByakuganClient.actif();
+        int baisseCk = cMax - ck - (byak ? BYAK_MILLE : 0);
+        int baisseCka = caMax - cka - (byak ? (int) Math.ceil(ckMax * BYAK_MILLE / 1000.0) : 0);
+        if (baisseCk >= 30 || (src != 0 && baisseCka >= SEUIL_CK_ABSOLU)) {
             // Chakra dépensé en se déplaçant (course, saut de chakra) : 2,5 s ; sinon une technique : combat.
             boolean deplacement = fr.reborn.hud.animation.NarutoRun.INSTANCE.isActive()
-                || CooldownState.INSTANCE.remainingMs(CooldownState.Ability.CHAKRA_JUMP, System.currentTimeMillis())
-                    > CooldownState.CHAKRA_JUMP_CD_MS - 1500L;
+                || fr.reborn.hud.combat.ChakraJump.INSTANCE.depenseRecente(now);
             if (deplacement) bref(now);
             else combat(now);
             ecart = true;
@@ -200,6 +205,12 @@ public final class VitalsMode {
 
         hysteresis();
         avancer(mc, now);
+    }
+
+    /** Part de chakra du personnage (0 à 1), ou −1 si on ne la connaît pas (hors serveur Reborn). Lue par le filet du saut chargé. */
+    public static float chakraPart() {
+        if (VitalsHud.source() == 0) return -1f;
+        return VitalsHud.chakraMille() / 1000f;
     }
 
     /** Vie basse et faim : apparaissent à 25 %, s'en vont au-dessus de 30 %. */

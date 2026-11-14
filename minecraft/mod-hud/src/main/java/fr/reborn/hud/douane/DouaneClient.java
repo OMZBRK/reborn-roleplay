@@ -365,7 +365,7 @@ public final class DouaneClient {
     /* ================================================================ HUD masqué pendant la douane */
 
     private static final String[] REBORN = {"vitals", "combat", "combat-endurance", "cooldowns", "concentration",
-            "allure", "notifs", "ramasser", "interaction", "duel", "escouade", "nourriture", "boussole", "ost", "rappels"};
+            "allure", "saut", "notifs", "ramasser", "interaction", "duel", "escouade", "nourriture", "boussole", "ost", "rappels"};
 
     /**
      * Candidat dans la douane, ou écran opaque de la douane (attente neutre, Bienvenue, résultat) : aucun HUD de jeu

@@ -41,7 +41,8 @@ public final class VitalsHud {
 
     private static final int GOLD     = 0xFFE8C34A;
     private static final int HP_COLOR = 0xFFDC3B3B;
-    private static final int CK_COLOR = 0xFF3E8FE0;
+    /** Bleu de la barre de chakra (repris par la barre de charge du saut, {@code SautApercu}). */
+    public static final int CK_COLOR = 0xFF3E8FE0;
     private static final int ST_COLOR = 0xFFD9A95E;
     private static final int BAR_BG   = 0xE0140D0A;
     private static final int WHITE    = 0xFFF2F2F2;

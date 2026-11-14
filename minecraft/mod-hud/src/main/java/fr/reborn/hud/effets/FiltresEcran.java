@@ -21,7 +21,7 @@ public final class FiltresEcran {
         Minecraft mc = Minecraft.getInstance();
         if (mc.gameRenderer == null || mc.player == null) return;
         Identifier voulu = fr.reborn.hud.ko.KoClient.actif() ? fr.reborn.hud.ko.KoClient.FILTRE
-                : ByakuganClient.active() ? ByakuganClient.FILTRE
+                : ByakuganClient.filtreVoulu() ? ByakuganClient.FILTRE
                 : ModeConcentration.filtreVoulu() ? ModeConcentration.FILTRE
                 : MeteoClient.actif() ? MeteoClient.FILTRE : null;
         Identifier courant = mc.gameRenderer.currentPostEffect();

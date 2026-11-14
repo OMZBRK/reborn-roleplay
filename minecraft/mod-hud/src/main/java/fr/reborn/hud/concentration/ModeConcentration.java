@@ -66,7 +66,7 @@ import java.util.function.LongSupplier;
  *       L'avancement passe au filtre par une texture 4×1 ({@link #PARAMS}), mise à jour seulement quand il change.</li>
  *   <li><b>Survol</b> : un rayon par tick (pas par image) au point du curseur ; l'entité vivante survolée à
  *       {@link #HALO_PORTEE} blocs prend le <b>contour lumineux vanilla</b> (« glowing », blanc), côté client seulement
- *       (aucun effet serveur) ; jamais sous le Byakugan (son filtre négatif l'inverserait, il garde la priorité), jamais
+ *       (aucun effet serveur) ; jamais sous le Byakugan (son filtre le traduirait comme le décor, il garde la priorité), jamais
  *       menu ouvert.</li>
  *   <li><b>Caméra</b> : figée ; <b>clic droit maintenu</b> = la caméra tourne (le curseur se cache, puis revient).</li>
  *   <li><b>Blocages</b> relus à chaque tick ({@link #refusEntree}, {@link #blocage}) : à terre, inconscient, mort (pas l'ATA ni la douleur), duel, Malaxage du
@@ -550,6 +550,8 @@ public final class ModeConcentration {
         if (CombatInput.INSTANCE.isBlocking()) return "garde";
         if (Allure.INSTANCE.sprinte()) return "sprint";
         if (NarutoRun.INSTANCE.isActive()) return "course de chakra";
+        // saut chargé : la charge et le vol ferment le mode (lot 5, comme le dash)
+        if (fr.reborn.hud.combat.ChakraJump.INSTANCE.phase() != fr.reborn.hud.combat.ChakraJump.Phase.REPOS) return "saut chargé";
         return null;
     }
 

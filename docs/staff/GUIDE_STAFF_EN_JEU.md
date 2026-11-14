@@ -203,7 +203,9 @@ détourne. Rien n'apparaît à travers un mur ni au-delà de la portée. Hors co
 ### Traces de pas en concentration (lot 4, 08/11, pas encore publiées : ShinobiCore + reborn-hud 0.4.200)
 Tout joueur concentré (touche Y maintenue) voit, au sol, les traces de pas des **autres** joueurs : semelles blanches, sombres sur un sol clair (sable,
 neige, béton blanc, quartz, bouleau), jusqu'à 16 blocs puis en fondu jusqu'à 24, jamais de nom. Curseur dessus (8 blocs au plus) :
-« à l'instant », « il y a 7 min », « il y a 1 h 20 ».
+un petit panneau « Trace de pas » relié au pas par un fil, avec l'âge **estimé**, comme un pisteur : « Laissée à l'instant »,
+« … il y a quelques minutes », « … environ 10 min », « … une demi-heure », « … environ une heure », « … environ 1 h 30 »,
+« … plus de deux heures » (plus flou à mesure que la trace vieillit ; jamais l'heure exacte).
 - **Combien de temps** : une trace reste, elle sert à savoir si quelqu'un est passé : **2 h** ; × 2 sur sable, neige, boue (4 h) ;
   × 0,4 sur pierre, bois, chemin (48 min) ; × 0,5 sous la pluie ; × 0,3 en tempête ; × 0,5 accroupi (et plus pâles). Bien lisibles
   jusqu'à 60 % de leur vie, puis elles s'effritent et pâlissent. Perdues au redémarrage du serveur.

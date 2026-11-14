@@ -27,7 +27,7 @@
 | `interaction/` | Mode interaction (touche R) : curseur, menus contextuels (joueur, corps, entité, bloc, soi) |
 | `camera/`, `screenshot/` | Caméra 3ᵉ personne (touche Vue = F5 ; réglages dans Réglages → Caméra), mode photo (filtres, cadres), galerie (ouverte depuis le mode photo) |
 | `nametag/` | Nametags : les noms au-dessus des têtes (4 styles au choix), affichés **au regard** depuis le 31/10 (`Nametags`) ; `CalqueTete` : la pile commune au-dessus de la tête (nametag, bulle, /me, nametag staff, invite) ; banc `NametagsDebug` — §9. Package `nameplate/` et « plaques » dans le code jusqu'au 02/11 |
-| `byakugan/`, `meteo/`, `effets/` | Vision Byakugan, météo client (pluie, vent de sable, brume, **blizzard, tempête de sable** — 15/10), filtres plein écran |
+| `byakugan/`, `meteo/`, `effets/` | Byakugan (lot 5 : touche O, canal `reborn:dojutsu`, papier et encre, traits en fin de volume, §1 quinquies), météo client (pluie, vent de sable, brume, **blizzard, tempête de sable** — 15/10), filtres plein écran |
 | `eau/` | **Marche sur l'eau** (15/10) : `MarcheEauClient` (permis `reborn:eau`, surface solide pour le joueur local via `mixin/BlockStateEauMixin`, accroupi = s'enfoncer, Saut = remonter), `Ondes` (marcheurs détectés sur chaque client ; à chaque pas un **pli de la texture d'eau** autour du pied, gouttelettes, bruit de pas dans l'eau ; **réglages = constantes en tête de la classe**), `EauRendu` (patch de la texture d'eau aux UV déplacés autour d'un contour irrégulier, après l'eau translucide ; l'eau du jeu n'est pas modifiée), `EauDebug` (banc) |
 | `meditation/` | **Halo de méditation** (v2 du 18/10, refait sur la vidéo de référence) : `Aura` (forme et teintes mesurées sur la vidéo : disque sombre r 0,48, couronne jusqu'à r 1,1, une couleur d'aura → teinte + lumière de la couronne, voile du disque, étincelles), `MeditationClient` (canal `reborn:meditation` dans les deux sens : méditants à portée + couleur, couleur du personnage actif, choix envoyé au serveur ; fondus ; relevé du sol et de la lumière du lieu sous chacun à chaque tick), `MeditationRendu` (après le terrain translucide, quatre passes sans écriture de profondeur : **disque** translucide éclairé par la lightmap, **couronne** en deux passes émissives qui respirent (teinte translucide puis lumière additive), **étincelles** additives face caméra halo + cœur ; textures fabriquées au premier usage, 512² / 256² / 32², filtrage linéaire — rond et lisse ; un quad par bloc couvert posé sur la forme de collision, décalage de couche de l'ombre du jeu), `MeditationAnimation` (pose **v4** `animations/meditation.json`, faite dans Blender sur le rig Emotecraft et **calée automatiquement sur 8 images de la vidéo** (`tools/emotes/`, voir son README) — assis bas en tailleur, jambes repliées en masse devant le buste, bras croisés haut sur la poitrine, dos rond, tête baissée ; respiration 4 s + balancement 8 s, boucle de 8 s — sur un layer PlayerAnimationLib dédié, priorité 2050, jouée en boucle sur chaque méditant de la liste du halo — soi et les autres, sans synchro de plus —, fondu d'entrée 8 ticks, `meditation_fin.json` en sortie ; les plis genoux/coudes demandent BendableCuboids, présent dans le pack du launcher), `MeditationDebug` (banc ; `REBORN_MEDITATION_DEBUG=pose` : essais `run/med_essai_<k>.json` aux 4 angles calés de la vidéo, corps tenu au sud, + `REBORN_MEDITATION_FILM=1` : film de 8 s de l'essai 0). Choix de la couleur : `menu/character/perso/PersoAura` (Réglages › Interface › Méditation ; réutilise `PersoCouleur` tel quel, « Par défaut » + 5 auras toutes faites, aperçu herbe / pierre / nuit calculé avec les formules d'`Aura`, monde visible derrière : le halo du joueur qui médite change en direct) |
 | `skin/` | Compositeur de skins Reborn (`RebornSkins`, `SkinSpec`) |
@@ -174,12 +174,237 @@ Client seul ; plaques et traces de pas viendront avec ShinobiCore (étapes B et 
   ouvrir « Personnalisée » ne change rien tant qu'on n'a pas touché au sélecteur (depuis « Automatique », curseurs, champ et aperçu partent de la dernière personnalisée) ; « Réinitialiser » revient à « Automatique ». La couleur est posée telle quelle, sans compensation : l'effet en garde 60 % (recette K) et l'assombrit
   comme le reste de l'image ; sur la pierre, l'écart entre canaux reste de 75 (rouge sang) à 95 (ambre) sur 255. Une compensation n'aurait presque pas de marge
   sur un canal déjà au maximum (bleu chakra, ambre), et devrait baisser sa luminance. Sous le Byakugan, ni traces ni étiquette (comme le contour
-  de `ModeConcentration.halo`). **Temps écoulé** : curseur sur un pas à 8 blocs du joueur au plus (projection une fois par tick, un rayon vers
-  le pas retenu : un mur le cache), couche HUD `traces-temps` (avant `RecitHud`) : « à l'instant », « il y a 7 min », « il y a 1 h »,
-  « il y a 1 h 20 » (arrondi à la minute, `Traces.texteDuree`, espaces doublées à l'affichage), Inter 7, ivoire avec ombre d'un pixel, ou
-  sombre cerné d'un pixel pâle sur un sol clair de jour (la nuit ce sol ne l'est plus : ivoire), aucun fond, fondu 120 ms. Cécité : rien. Hors concentration : rien.
+  de `ModeConcentration.halo`). **Petit panneau au survol** (retour du 10/11, comme chez Ketto) : curseur sur un pas à 8 blocs du joueur
+  au plus (projection une fois par tick, un rayon vers le pas retenu : un mur le cache), couche HUD `traces-temps` (avant `RecitHud`).
+  Au-dessus du pas, un cartouche de nuit (`#110B0D` à 78 %), filet ivoire d'un pixel à 26 %, un clou d'or 2 × 2 à chaque coin ;
+  « Trace de pas » en or `#E8C27A` (police du récit, capitales 9 px), puis l'**âge estimé** en ivoire (Inter Medium, capitales 8 px),
+  centrés, sans contour ni ombre (préréglage `PANNEAU` de `TexteRaster`) ; 40 px de haut, largeur = texte + 2 × 11 px (de 116 à
+  198 px en 1080p ; Ketto ≈ 168 × 69), le tout × kHud / 2 comme le bas-droite. Un **fil** vertical bleu chakra pâle (`#B4D2F2`, 70 %) descend jusqu'à
+  un **point** 3 × 3 cerné de nuit posé sur le pas : le bleu ne se confond ni avec la semelle ivoire ni avec l'or du panneau, et
+  c'est le fil du sens du chakra ; sur un sol clair de jour (le contraste automatique), point et fil sont sombres, le point cerné
+  d'ivoire. Fil d'au moins 30 px, et 10 px au-delà de la moitié du pas vu à l'écran ; panneau gardé à 8 px des bords (dessous
+  s'il n'a pas la place au-dessus), jamais sur le réticule (± 10 px) ; d'un pas à l'autre il glisse en 90 ms (le point du pas
+  interpolé dans le monde, la caméra peut tourner) ; fondu 120 ms à l'entrée, 150 ms à la sortie, repris là où il en est.
+  **Âge estimé** (`concentration/TracesAge`, règle pure, test `TracesAgeTest`) : un pisteur estime, plus flou à mesure que la trace
+  vieillit ; le texte ne change qu'aux bornes d'un palier (minutes entières) : 0 « Laissée à l'instant », 1-4 « … il y a quelques
+  minutes », 5-7 / 8-12 / 13-17 / 18-24 « … environ 5 / 10 / 15 / 20 min », 25-34 « … une demi-heure », 35-44 / 45-54 « … environ
+  40 / 50 min », 55-74 « … environ une heure », 75-119 « … environ 1 h 30 », 120 et plus « … plus de deux heures ». Textes rendus par
+  `TexteCache` (deux poignées), largeur recalculée seulement au changement de palier : aucune allocation par image. Jamais de nom.
+  Cécité : rien. Hors concentration : rien.
 - **Banc** `REBORN_LOT4_DEBUG=b` (`audit/Lot4bDebug`, serveur simulé côté client) : §5 ; couleur du halo :
-  `REBORN_LOT4_DEBUG=c6` (`audit/Lot4c6Debug`) ; traces : `REBORN_LOT4_DEBUG=c7` et `c8` (`audit/Lot4c7Debug`).
+  `REBORN_LOT4_DEBUG=c6` (`audit/Lot4c6Debug`) ; traces : `REBORN_LOT4_DEBUG=c7`, `c8` et `c9` (panneau, `audit/Lot4c7Debug`).
+
+## 1 quater. Saut chargé (lot 5, étape A, 0.4.202, 09/11)
+
+Maj + Espace tenues au sol : la charge monte en 1,2 s ; relâcher fait partir le bond. **Le serveur décide**
+(ShinobiCombat `SautCharge`, protocole et réglages : [`PLUGINS_REFERENCE.md`](./PLUGINS_REFERENCE.md) §5.1 bis, loi et
+chiffres : [`../gameplay/DEPLACEMENTS.md`](../gameplay/DEPLACEMENTS.md) §11).
+
+- **`combat/ChakraJump`** (réécrit) : phases `REPOS`, `CHARGE`, `ATTENTE`, `VOL`. Début → `reborn:combatin` kind 8 ; relâche →
+  kind 9 (lacet, tangage de la visée caméra) ; annulation (quitté le sol, écran, garde, état) → kind 10. Réponse sur
+  `reborn:combat` type 7 : `GO` (vitesse, charge, recharge, drapeaux) ou `NON` (raison). **La recharge ne part qu'au `GO`** :
+  plus de recharge fantôme. Sans réponse en 1,5 s : « Pas de réponse du serveur ». Un `GO` arrivé hors de sa fenêtre (plus
+  de 3 s après la relâche, ou pendant une nouvelle charge) n'est pas joué : aucune recharge, kind 11 au serveur, qui
+  rembourse. Réglages reçus à la connexion (type 8) ; **serveur d'avant le lot 5** (aucun réglage reçu après 5 s de jeu) :
+  l'ancien saut (kind 5, 35 s), sans ligne de visée ; avant 5 s, « Un instant… » sans recharge. Horloge injectable
+  (`ChakraJump.horloge`), touches et serveur simulables (`debugTouches`, `debugServeur`) pour le banc.
+- **Gardes du mod** : garde, KO, état du serveur (`mob`, `sau` : la raison du serveur s'affiche), eau et marche sur l'eau,
+  recharge. Après un refus, une nouvelle charge attend que les touches soient relâchées. La charge **ferme la concentration**
+  (`ModeConcentration.commun`). Pendant la charge, le corps suit la caméra (`KeyboardInputMixin`) : le regard du serveur reste
+  dans son cône de 25°.
+- **`combat/SautChargeLoi`** : la loi pure (charge, vitesse, coût, recharge, vol, portée à plat, **vraie arrivée sur le
+  relief et son bornage** `bornerArrivee`, contrôle du décollage du serveur), **copie exacte** de
+  `com.reborn.shinobicombat.saut.SautChargeLoi` ; deux suites de tests jumelles vérifient le même tableau. La suite du mod
+  (`src/test/…/combat/SautChargeLoiTest`) ne passe pas par Gradle (les tests du mod ne compilent plus : JUnit absent du
+  classpath de test, défaut ancien) ; on la lance avec le lanceur JUnit de `~/.m2` (14 sur 14 au 09/11 au soir, comme le
+  plugin). L'aperçu borne l'arrivée sur la carte des hauteurs du client (`SautArc.relief`, `MOTION_BLOCKING`), comme le
+  serveur.
+- **Vol** : `mixin/SautVolMixin` (sur `LivingEntity.travel`, joueur local, pendant le bond seulement) appelle
+  `ChakraJump.volEtape` : déplacement avec la collision du jeu, gravité vanilla, frottement horizontal × 0,98, **aucune poussée
+  des touches**. Un mur annule la vitesse sur son axe (on glisse, on tombe à son pied). Réception : vitesse horizontale à zéro
+  (on ne glisse pas hors du cercle). Une autre force (coup, technique, double saut du serveur : écart > 0,05 avec la vitesse
+  laissée au tick d'avant), l'eau, une échelle ou un coup reçu rendent la main au jeu. `MobilityInput` (double saut) se tait
+  pendant le bond.
+- **`combat/SautArc`** : l'arc dans le vrai monde, par `Entity.collideBoundingBox` tick par tick (le même déplacement que le
+  vol) : arrivée sur le sol, un toit, au pied d'un mur, sur l'eau ; chunk non chargé = arrivée inconnue (aucun aperçu). Recalculé tous les 2 ticks au plus, seulement si la charge, la visée ou la position bougent ; recalculé au `GO`
+  avec la vraie vitesse et tenu jusqu'à la réception.
+- **`combat/SautApercu`** (10/11, 6e tour : **retour à la poussière violette de 0.4.64–0.4.68**, la seule version aimée ; la
+  zone bleue, les quatre aperçus sobres puis le ruban crème façon Ketto avec anneau fin et barre dans le monde sont
+  **refusés** et retirés). La trajectoire et l'anneau, en grains de poussière :
+  - **Grains dessinés, pas des particules** : le sprite de la poussière de redstone du jeu (`generic_7` à `generic_3` de
+    l'atlas des particules, relus à chaque image), teinté du violet chakra **#9B7FE0** (celui de 0.4.64), face à la caméra,
+    échantillonnage net. De vraies particules restaient à l'ancienne visée quand on tourne la tête (traînées), n'étaient pas
+    bornées sur 90 blocs et écrivent la profondeur. Ici les grains sont toujours sur l'arc du moment.
+  - **Vivants** sans hasard par image : chaque grain a sa période (0,55 à 1,35 s) et sa phase ; à chaque cycle il renaît avec
+    un petit écart et une luminosité tirés d'un hachage (grain, cycle), puis son sprite décroît du gros grain au petit en
+    dérivant à peine ; mêmes écarts de teinte que `DustParticle` (0,6 à 1, puis 0,8 à 1 par canal).
+  - **Sur l'arc exact** (`SautArc` garde désormais le chemin des pieds tick par tick, `points()` / `cheminX/Y/Z`), relevé
+    de 0,4 bloc (comme 0.4.64) qui redescend sur les 2 derniers blocs jusqu'au centre de l'anneau, où la ligne s'efface
+    (1,2 bloc) : le centre reste net.
+  - **Un fil, pas une colonne** (2e correction du 10/11 : les grains bornés à 6–20 px, écartés d'une taille, faisaient en
+    1re personne une « tornade » de 25 à 40 px) : grain de 0,2 bloc en **perspective vraie**, jamais moins de 5 px ni plus de
+    **9 px en 1re personne, 12 en 3e** (1080 p) ; écart à la naissance 0,18 × sa taille (× 1,5 en fin de vie) : il reste sur
+    l'arc ; luminosité 0,8 à 1 (plus de carrés lavande délavés sur le ciel). Espacement réglé **à l'écran** : 0,75 × la
+    taille vue (pas = taille × 0,75 / part de la tangente en travers du regard, au moins 0,3). Au plus **300 grains** sur
+    la ligne (au-delà l'espacement s'élargit d'autant) et **48 sur l'anneau** ; au banc : 44 à 46 grains en 1re personne,
+    77 à 120 en 3e, + 48.
+  - **1re personne** : un arc vu de dos se projette en ligne verticale, la montée proche par-dessus la descente lointaine.
+    La ligne n'y naît donc que sur les **2,5 blocs qui précèdent le sommet** (jamais avant 1,8 bloc d'arc, pleine au plus
+    tôt à 6 : saut à plat ou vers le bas) : on voit le fil qui descend du sommet à l'anneau, rien au bas de l'écran. En 3e,
+    elle naît entre 0,8 et 2,2 blocs (hors de la tête). Elle **s'efface autour du réticule** (nulle à 22 px, pleine à 50 px).
+  - **Anneau** : 48 grains d'au moins 5 px, pleins, posés au sol, un bloc de diamètre de près, **jamais moins de 90 px** au
+    loin (4 blocs de rayon au plus), allongé dans l'axe du regard quand on le voit en rasant (au plus × 8) ; il tourne d'un
+    tour en 14 s. Seconde passe à travers le décor à 35 %.
+  - **Sous le Byakugan** : aucune écriture de profondeur (types `reborn_saut_poussiere` et `_travers` : shader `core/entity`
+    du jeu, émissif, atlas des particules, translucide, créés une fois comme ceux de `MeditationRendu`) : le filtre ne cerne
+    pas les grains (capture `byakugan_050`). Le filtre ne gardant que la luminance, le violet virait au gris sale et l'anneau
+    disparaissait sur la route : sous le filtre posé (`ByakuganClient.filtreAffiche`, suivant son fondu `niveau`), la
+    poussière passe en **lavande presque blanche** (`#F0EAFF`) et se lit comme l'encre. Limite : sur un ciel pâle, le haut
+    de l'arc reste discret (le dessiner après le post-effet demanderait de toucher au filtre).
+  - **Nuit** : émissif, la poussière luit (pleine lumière, c'est un repère d'interface).
+  - **Temps** : la ligne apparaît **au seuil** seulement (sous lui, rien ne partirait), en 0,15 s ; elle s'efface en 0,15 s à
+    la relâche ou à l'annulation. Fondus en temps réel. Arrivée inconnue (chunk non chargé, vide) ou serveur d'avant le
+    lot 5 : rien.
+  - Aucune allocation par image (tableaux fixes, émetteurs sans capture) ; deux passes sur l'arc par image (compte puis
+    pose), au plus ~2 400 pas de calcul ; 396 quadrilatères au plus (348 + 48 de la passe à travers).
+- **`combat/SautHud`** : la **barre de charge**, à l'écran près du réticule, **la même en 1re et en 3e personne**, en pixels
+  d'interface entiers (une unité = `echelleGui` px), sans fond ni plaque : plein violet de la poussière (55 % sous le seuil),
+  crête claire au bout du plein, piste violette à 22 % (la lavande à 30 % virait au gris de plaque sur l'herbe), liseré
+  sombre d'un pixel à 26 %, repère crème au seuil **pris dans l'épaisseur** (rien ne dépasse). Apparaît en
+  0,1 s, s'efface en 0,15 s. **Jauge verticale 3 × 24 px à 10 px à droite du centre**, remplie du bas (à 36 px elle
+  couvrait l'anneau en 3e personne) : choisie par le propriétaire le 10/11 (« a c'est mieux ») contre un croissant à
+  droite du réticule et une règle horizontale dessous, retirés avec leur réglage. Élément HUD `reborn-hud:saut` (masqué au KO, en douane et
+  par `FpsDebug`) ; le filet V1 au-dessus de la barre d'action reste **retiré**. Il garde une ligne de texte fine,
+  centrée au-dessus de la barre d'action (à la place du filet de sprint, qui la lui cède, `AllureHud`) : raison d'un refus en
+  vermillon (« Pas assez de chakra », « Étourdi »…), « Portée bornée : N blocs (distance de vue) », « Charge bornée par le
+  chakra » (`VitalsMode.chakraPart`) ; textes mis en cache : aucune chaîne ni aucun `Component` créés par image.
+- `runtime/VitalsMode` : le chakra dépensé par un saut compte comme un déplacement (bref), via `ChakraJump.depenseRecente`.
+  Le Byakugan ouvert retire sa seule dépense (2 millièmes de la réserve sur la fenêtre d'1 s) de l'écart : une technique
+  lancée vision ouverte ouvre bien le mode combat.
+
+## 1 quinquies. Byakugan (lot 5, étape B, 0.4.202, 09/11 ; 8e tour du 14/11)
+
+Refait le 09/11 : « l'encre ne donne rien, c'est pas beau » (l'encre de la maquette) ; `ByakuganVision.java`
+(ShinobiSense) ne sera pas commité. Puis, le même jour : « faut tout de même faire comme sur ketto avec les encre c'est
+bien » : l'encre revient, blanche et géométrique, tirée de la profondeur (étude Byakugan v2 §3.3 et §5.5).
+Un vrai Byakugan à nous : le serveur est ShinobiCore (`dojutsu/ByakuganService`, canal `reborn:dojutsu`,
+[`PLUGINS_REFERENCE.md`](./PLUGINS_REFERENCE.md) §4 duodecies), le rendu est ici. Fiche de jeu :
+[`../gameplay/DEPLACEMENTS.md`](../gameplay/DEPLACEMENTS.md) §12.
+
+- **Touche O** (`HudKeybinds.BYAKUGAN`, catégorie Monde, « Amis » de 26.2 déliée par la migration 4 ; migration 6 pour les
+  autres dispositions), en bascule. Sans droit (règles du serveur : clan, yeux), KO, mort ou capacité `tec` refusée : rien
+  n'est envoyé. Sinon `{"a":"byakugan","on":true}` ; le fondu part à la réponse `byakugan on:true`. Fermeture locale tout de
+  suite (fondu de sortie), puis `on:false` au serveur. **KO ou mort : coupure nette**, sans fondu (`KoClient.actif()`).
+- **`byakugan/ByakuganClient`** (réécrit) : état, fondu `1 − exp(−t / 160 ms)` fini à 600 ms (90 % à 0,35 s), sortie
+  linéaire en 270 ms, sans flash ; horloge injectable (`horloge`). Gain adaptatif lu à la position du joueur chaque tick :
+  obscurité (lumière ≤ 3 → 1, ≥ 12 → 0) et part « sous terre » (lumière du ciel brute ≤ 8), lissées sur ~0,6 s, posées d'un
+  coup à l'ouverture. `frame()` (début de l'image, `GameRendererKoMixin`) ne calcule que le fondu. **Texture de
+  paramètres 21 × 1** (`byakugan_params`, détail des pixels dans `shaders/post/byakugan.vsh`) écrite par `vue()` **pendant
+  le rendu du monde**, une fois la projection de l'image connue (`GameRendererByakuganDepthMixin`, sur
+  `ProjectionMatrixBuffer.getBuffer` dans `renderLevel`), seulement si elle change : fondu, obscurité, banc, distance de
+  rendu, sens du fondu, hauteur des nuages au-dessus de l'œil, distance de l'arrière du porteur (1 bloc en première
+  personne : la main) et **rectangle de l'écran qui le contient** (coins de sa boîte élargie de 0,3 bloc, projetés), fin et
+  **couleur du brouillard** (`FogRendererByakuganMixin`), et le **rayon exact de chaque pixel** : regard, pas horizontal et
+  vertical de l'écran, tirés de `(projection pure)⁻¹ × projection du monde × rotation de la vue`
+  (balancement de la marche et nausée compris, sans image de retard), neuf flottants (l'œil dans son bloc, qui ne servait
+  qu'à la grille, n'est plus envoyé depuis le 8e tour ; phase des boucles d'encre sur 16 bits). **Filtre compilé d'avance**
+  (`prechauffer`, dès que les règles du serveur donnent le droit) : la première ouverture ne paie plus la compilation.
+  Hors vision : rien (ni rayon, ni filtre, ni texture réécrite, aucune allocation).
+- **Filtre** `post_effect/byakugan.json`, **deux passes et la copie**, un sommet à nous (`shaders/post/byakugan.vsh` : lit
+  les paramètres trois fois par image et les passe en variables plates ; le rayon, linéaire à l'écran, est interpolé exact).
+  **8e tour, 14/11** : le 7e (une grille blanche sur chaque bloc) est rejeté — « le monde fait trop chargé avec des fils de
+  partout, fais en sorte de ne les mettre que sur la fin des volumes […] pour les contours de bâtiment, d'arbres », « il
+  manque l'effet d'encre » de la référence. **Plus de grille ni de trait de pli** : un seul trait, la fin d'un volume, et le
+  rendu papier et encre de l'étude `_etude_byakugan_v3_hd.md` (masses sombres cernées de blanc, sol pâle plus clair que le
+  ciel, lavis par la distance, boucles d'encre). Rappel des tours d'avant : **une feuille est une texture découpée**, chaque
+  texel transparent est un trou dans la profondeur ; d'où les feuilles pleines pendant la vision.
+  · **Feuilles pleines, plantes cachées** (`byakugan/FeuillagePlein`) : tant que le filtre est voulu (fondu de sortie
+  compris), le compilateur des chunks rend les feuilles **pleines** comme en graphismes rapides
+  (`mixin/ModelBlockRendererByakuganMixin` sur `forceOpaque`, plus le drapeau statique de `LeavesBlock` pour les faces entre
+  feuilles) et **ne maille pas les plantes basses** (`mixin/SectionCompilerByakuganMixin` : `VegetationBlock` — herbes,
+  fougères, fleurs, cultures, pousses, champignons, baies —, canne à sucre, plantes qui pendent ou montent ; le fluide d'un
+  bloc noyé reste). Pourquoi cacher plutôt que filtrer : aucun seuil ne sépare une touffe d'herbe d'une marche dans la
+  profondeur, une plante cachée ne fait aucun bruit et ne coûte rien au filtre, et le Byakugan voit au travers.
+  `mixin/LeavesBlockByakuganMixin` : pas de feuilles qui tombent (chacune était cernée). **L'option « Feuilles découpées »
+  du joueur et `options.txt` ne sont jamais touchés** (un plantage en pleine vision ne laisse rien de changé). Une feuille
+  qui tombait déjà à l'ouverture disparaît au tick suivant (`mixin/FallingLeavesParticleByakuganMixin`). Bascule une fois à
+  l'ouverture (tout d'un coup : l'encre en a besoin), une fois à la fin du fondu de sortie (coupure nette du KO,
+  déconnexion comprises ; un monde chargé pendant la vision est compilé d'emblée dans l'état en cours) : seules les sections
+  à portée qui portent une feuille ou une plante (palette de la section, `LevelChunkSection.maybeHas`, sans lire ses blocs)
+  sont marquées sales (`LevelExtractor.setSectionDirty`, recompilées en tâche de fond, l'ancien maillage reste affiché
+  jusque-là : aucun trou) ; **à la fermeture, par anneaux de chunks du plus proche au plus lointain, deux par tick**
+  (~0,35 s : la saccade ne tombe plus sur quelques images).
+  · **Passe 1** `byakugan_traits` (pleine résolution, cible `traits`) : sur chaque axe de l'écran, cinq profondeurs
+  inversées (± 1 et ± 2 px en 1080p, ± 2 et ± 4 en 2160p). Le plan du pixel est prolongé vers le voisin (pente prise du côté
+  opposé) ; **il y a trait si le voisin est derrière ce plan de plus de ~1,35 bloc (+ 2 % de la distance), l'écart compté
+  perpendiculairement au plan du pixel** (l'écart le long du regard, ramené par l'angle sous lequel le plan est vu : sa
+  variation de distance d'un pixel à l'autre devant l'angle d'un pixel). Un tronc, un mur, une personne devant un fond plus
+  loin : trait. Le dessus d'une marche d'un bloc vu en rasant, deux blocs d'un même mur, un coin dont on voit les deux
+  faces, un escalier vu de face, un bloc de feuilles qui dépasse d'un bloc : rien. **Bord sur le ciel** : toujours tracé.
+  Marqué du côté proche seulement, 2 px de près, ~1,5 px au-delà de 24 à 48 blocs. Sur le porteur (rectangle de l'écran et
+  distance), 0,35 bloc suffit : sa silhouette reste cernée près d'un mur, ses pieds posés ne font pas de pointillés.
+  **Lavis** : le trait s'éteint de 48 à 130 blocs, puis au bord du monde (95,5 à 100 % de la fin du brouillard du jeu,
+  distance cylindrique comme lui). Rien sur le ciel, les nuages (ils écrivent la profondeur en 26.2 : un point dont la
+  hauteur tombe dans leur couche est du ciel) ni au-delà de la distance de rendu. Sortie : R = trait pesé de son opacité.
+  9 lectures, plus aucune position dans le monde à reconstruire.
+  · **Passe 2** `byakugan.fsh` (pleine résolution) : trait lu en **tente 3 × 3** (quatre lectures bilinéaires) puis
+  resserré : net, anticrénelé, ~2 px en 1080p ; blanc froid `F5F9FF` à 95 %, bordé d'un liseré sombre très doux (deux
+  lectures à 2,5 px en diagonale) ; **sur un fond pâle (au-dessus de 0,6 à 0,7), il passe à l'encre sombre `3D404A`**, sans
+  liseré : blanc sur blanc ne se lisait pas (écart voulu avec la référence, à confirmer par le propriétaire). **À l'entrée,
+  plein dès 40 % du fondu (~80 ms), avant la couleur ; à la sortie, parti sous 55 % (~120 ms), avant elle.** **Tons de
+  jour, « papier et encre »** (`papier`) : sous 0,18 de luminance (feuillages pleins, troncs, ombre profonde) une masse
+  sombre presque unie (0,15 à 0,23 : le moucheté des feuilles s'efface) ; au-dessus de 0,5 (sol, mur, toit éclairés) le
+  papier (0,82 et plus) ; entre les deux, la pierre à l'ombre en gris de lavis ; 8 % de couleur ; **ciel gris moyen 0,46 à
+  0,66, plus sombre que le sol**. **Lavis** : brume claire `CCD1DB` jusqu'à 50 % avec la distance (moitié de l'effet vers
+  75 blocs) ; le bord du monde prend le ton que le ciel donne à l'horizon (couleur du brouillard). Nuit et sous terre :
+  exposition qui monte près de soi, lueur du proche, il ne reste presque que les traits et le cyan (inchangé).
+  **Boucles d'encre** (`boucles`, `ByakuganClient.anneaux`, activées) : quatre grands anneaux au pinceau, plus épais d'un
+  côté, centrés près des bords gauche et droit, qui grandissent lentement (~35 px/s en 1080p) puis s'effacent ; −17 % au
+  plus sur ce qu'ils couvrent, jamais au centre de l'écran ni sur le ciel ; sans texture ; rayon et présence calculés au
+  sommet (phase sur 16 bits, un tour en 64 s). Fonctions communes dans `shaders/include/byakugan.glsl`.
+  · **Brouillard** (`mixin/FogRendererByakuganMixin`, priorité 500 comme la météo, avant Sodium) : pendant la vision, le
+  voile de la distance de rendu ne commence qu'à 97 % (90 % en vanilla) et le brouillard de l'air part au-delà, avec le
+  fondu. Rien dans l'eau, la lave, la neige poudreuse, sous Cécité ou Ténèbres.
+  **Mesures du 14/11** (8e tour ; 1920 × 1080, Intel Iris Xe, `byak_fps`, quatre alternances, forêt du banc) : **coût
+  ~+1,2 ms** par image (4,98 à 5,02 ms sans → 6,15 à 6,23 ms avec, feuilles pleines comprises ; +1,5 ms tant que les boucles
+  étaient calculées à chaque pixel ; ~1,45 ms au 7e tour). **Bascule des feuilles** : à l'ouverture, image la plus longue
+  14,0 à 15,7 ms (médiane 6,5 à 6,7) ; à la fermeture, par anneaux, 11,2 à 13,6 ms, 58 à 71 ms d'excès cumulé sur 1,5 s.
+  Banc `byak` : 31 vérifications, 0 échec. Bancs : `debugProfondeur` (bandes de 8 blocs), `debugTraits` (traits seuls),
+  `debugBrut` (distance brute sur 24 bits, `_prof`).
+  Limites connues : un village clair vu de très haut reste pâle (bâtiments et sol au même ton, lavis de la distance) ;
+  quelques traits courts à l'intérieur d'un houppier (une touffe devant une autre, plus d'un bloc derrière) ; de près, les
+  feuilles gardent un léger moucheté ; pendant la vision, l'herbe haute, les fleurs, les cultures disparaissent ; les
+  particules (fumée, coups) sont cernées comme le reste ; avec Sodium, le compilateur des chunks est le sien : feuilles
+  pleines et plantes cachées **non vérifiées**.
+- **Profondeur et vue** : `mixin/GameRendererByakuganDepthMixin` saute le vidage de la profondeur de `renderLevel` (26.2)
+  tant que **notre** filtre est posé (`currentPostEffect()`, pas l'état) : encre, brume, lueur et ciel lisent la vraie
+  profondeur. KO, mode photo et autres filtres gardent le vidage vanilla. Main de la 1re personne testée contre le monde.
+  Au même endroit, la projection du monde de l'image part au filtre (`ByakuganClient.vue`).
+- **Personnes** (`mixin/LivingEntityRendererByakuganMixin`, `ChakraNetworkLayer`) : vivantes à portée (50 blocs), pas
+  soi, filtre réellement posé et fondu au-delà de 25 % (piège 8 : jamais de couleurs-clés sans le filtre). Corps en
+  silhouette pleine lumière, réseau de chakra animé (4 images) et **aucune autre couche** (vêtements de villageois,
+  armure, objets tenus : leurs textures passaient sur la silhouette), dans des **couleurs-clés à vert nul** que le filtre traduit :
+  corps `FF00FF` → cyan pâle, réseau `FF0066` → cyan vif, tenketsu `FF00A6` → presque blanc ; de loin, la personne devient
+  une tache cyan franche ; **l'encre blanche la cerne comme les blocs** (silhouette et plis de son modèle, nette). Ni la lave, ni le feu, ni un vêtement rouge n'y entrent
+  (l'orange d'avant si) ; le corps et le liseré exigent un vert sous la moitié du rouge : un cheveu ou un tissu violet, le
+  purpur restent ce qu'ils sont ; seul un béton magenta du décor peut prendre une teinte cyan pâle. **Derrière un mur** seulement (deux rayons, yeux et milieu du
+  corps, tous les 4 ticks) : le contour vanilla en `FF00FF` (`mixin/MinecraftByakuganGlowMixin`, côté client, ni drapeau
+  « glowing » du serveur ni équipe), liseré cyan pâle et doux vu au travers du mur ; jamais de contour vanilla sur ce qu'on
+  voit (l'encre s'en charge, sans doublon). Un liseré posé sur le porteur ou la main (pixel 6) n'en est pas un : le décor
+  voisin y revient. Identifiants lus par `mixin/EntityIdByakuganAccessor` (l'entité d'une cage à monstres n'a
+  pas d'identifiant en 26.2 : `getId()` lèverait à chaque image).
+- **Signe vu par les autres** (`byakugan/ByakuganSigneLayer`, texture `signe.png`) : porteurs à moins de 12 blocs (liste
+  `signes` du serveur) : quelques pixels de veines aux tempes, jamais sur les yeux (leur place change d'un skin à l'autre).
+- **Rappel** « Vision du Byakugan [O] » (`RappelsTouches.Rappel.BYAKUGAN`), action en cours, sous Concentration,
+  **pendant la vision seulement** (décision du 05/11). Aucune annonce, aucun texte au tchat. Sons locaux, à nous
+  (`reborn:byakugan.ouverture`, un tintement de cristal tenu puis une longue résonance, 2,25 s ; `byakugan.fermeture`,
+  une retombée sourde de 0,55 s ; synthèse `tools/ui-art/gen_byakugan_sfx.py`, contrôlés par mesure, pas à l'oreille).
+- **Priorité du filtre** (`effets/FiltresEcran`) : KO > Byakugan (fondu de sortie compris) > concentration > météo ; la
+  concentration reste active sous le Byakugan et reprend l'emplacement à sa fermeture. `runtime/VitalsMode` : la dépense
+  du Byakugan compte comme un déplacement (jamais le mode combat).
+- **Ancien canal** `reborn:byakugan` (ShinobiSense) : toujours écouté (ShinobiSense se tait), suivi seulement tant que
+  ShinobiCore n'a pas parlé `reborn:dojutsu`. `ByakuganActivation` (flash et lignes) et l'ancien banc `ByakuganDebug`
+  sont supprimés.
 
 ## 2. Touches
 
@@ -321,7 +546,7 @@ JAVA_HOME=/c/Users/omarb/dev-cache/jdk-25.0.4.1+1 REBORN_FEATURE_PREVIEW=1 \
 | `REBORN_INTERACTION_DEBUG=1` | Menu R du Game Plan §14 (24/10, `interaction/InteractionDebug`) : mannequin « autre joueur » décalé à droite (la caméra épaule cache ce qui est droit devant), 10 captures en 1920×1080 — menu d'une personne consciente (survol « Porter (avec son accord) »), « Volume de sa voix » (75 % actuel), sous-menu Staff (staff imposé : « Couper la voix… », puis `03b` « Rétablir la voix » sur une voix coupée, 31/10), demandes « veut te porter » / « veut te fouiller », porté de plein gré (« Espace · descendre »), fouille consentie en lecture seule (personne fouillée à gauche), nametag connu puis masque Hannya → « ??? » (vue à la 1ʳᵉ personne, pack `reborn_boutique_dev`) → `run/screenshots/interaction_*.png`, copies dans `Maquettes/gameplan/14_interaction/code/`. Mode de jeu, heure, météo, caméra et pack rendus à la fin |
 | `REBORN_DOUANE_DEBUG=1` | Douane, lot E (25/10, `douane/DouaneDebug` + `staff/GardeDouaneDebug`) : rejoue des messages `reborn:douane` au format du protocole v1 (PLUGINS_REFERENCE §4 decies.4 à .6, demandes C → S interceptées), mannequin « autre candidat » devant la caméra ; 21 captures en 1920×1080 à l'échelle GUI 2 puis en 1366×768 — hall (ligne, rappel des règles, nametag du pseudo), hall fermé, vérification de l'accès, appel et fondu, bureau (nametag « Examinateur »), question courte et longue, Bienvenue, À revoir, Refusé, résultat différé, Poste de garde › Douane (file, survol « Appeler »), dossier en volet élargi, questions et décision, envoi en attente, retrait, indicateur du mode examinateur → `run/screenshots/douane_*.png`, copies dans `Maquettes/gameplan/candidature/jeu_reel/`. Mode de jeu, heure, météo, échelle et fenêtre rendus à la fin |
 | `REBORN_RADIO_DEBUG=1` (+ `REBORN_RADIO_POS="x y z lacet tangage"`, jamais noté dans le dépôt) | Radio en escouades (14/10, `radio/RadioDebug`) : 17 captures en 1920×1080 à l'échelle GUI 2 (rendue à la fin) — écran de l'escouade (survol « Exclure », dissolution à confirmer, vu d'un membre, renommer, sans escouade), élément Escouade (silence, Sakura parle, j'émets, toute l'escouade, invitation, à terre « haché », écoute staff, oreillette volée), éditeur de HUD (élément sélectionné, case « Afficher toute l'escouade »), menu R (Ajouter à « Kagerō », Créer une escouade, Oreillette sur un joueur à terre) → `run/screenshots/radio_*.png`, copies dans `Maquettes/gameplan/18_radio/code/`. Têtes RP prêtées par `RebornSkins` (rendues à la fin) ; la voix n'est pas simulée |
-| `REBORN_METEO_DEBUG=1`, `REBORN_BYAKUGAN_DEBUG=1` | Météo ; Byakugan |
+| `REBORN_METEO_DEBUG=1` | Météo (l'ancien banc `REBORN_BYAKUGAN_DEBUG` est remplacé par `REBORN_LOT5_DEBUG=byak`) |
 | `REBORN_METEO_DEBUG=tempetes` | Blizzard et tempête de sable (15/10, `meteo/MeteoDebug`) : sol dégagé cherché par le serveur intégré près du point d'apparition, mannequins à 4, 8, 12 et 18 blocs ; clair, blizzard 75 % / 100 % / 3ᵉ personne / nuit / 40 %, tempête de sable 75 % / 100 % / 3ᵉ personne / soir, entrées et sorties en images de GIF → `run/screenshots/meteo_t*.png`, `metgif_*.png` ; copies et GIF dans `Maquettes/gameplan/eau_meteo/`. Remet position, heure et caméra |
 | `REBORN_EAU_DEBUG=1` | Marche sur l'eau (15/10, `eau/EauDebug`, permis forcé, allures simulées) : mer ouverte **profonde** cherchée par le serveur intégré (fond à 10 blocs, sinon 3), joueur tenu en l'air tant que l'eau n'est pas arrivée chez le client puis posé dessus ; immobile, marche, trot, sprint (dos), de face, 1ʳᵉ personne (regard vers le bas en avançant, puis à reculons pour voir la traînée de flaques, comme la référence Shinoda), saut et retombée, s'enfoncer (accroupi), remonter (Saut), un mannequin qui traverse (« autre joueur ») ; retour au large avant la 1ʳᵉ personne, le saut et l'autre joueur ; angles tenus à chaque tick et aucun écran (la souris ou une perte de focus ne dérangent pas le banc) ; **films « 60 i/s »** : pendant la marche, le sprint et la vue vers le bas, le monde passe à `/tick rate 1` et chaque image rendue est capturée (fin du rendu du monde, sans HUD, demi-définition) → `eaufilm_*` à remonter en MP4 60 i/s (l'horloge des ondes suit alors le temps du monde) → `run/screenshots/eau_*.png` + images de GIF `eaugif_*` ; coût CPU du rendu dans le log (`[eau-banc]`). Monde **« New World »** (Konoha n'a pas de mer). Flaques : `Maquettes/gameplan/eau_v8/` (v7 : `eau_v7/`, v6 : `eau_v6/`, v5 : `eau_v5/`, v4 : `eau_v4/`, v3 : `eau_v3/`, v1 : `eau_meteo/`) |
 | `REBORN_MEDITATION_DEBUG=1` | Halo de méditation (v2 du 18/10, `meditation/MeditationDebug`, halos allumés localement, sans plugin) : trois sols d'essai construits à 600 blocs à l'est (herbe, pierre, pente en escalier + dalle) passés en jungle clairsemée (l'herbe vive de la vidéo), joueur assis sur un support invisible (comme `MeditationManager`) et mannequin assis plus loin (« autre joueur », aura violette) ; aux angles de la vidéo (dessus ¾, dos ¾, face) : herbe, pierre, nuit, auras rouge / bleue / or (pierre, nuit), pente, disparition, puis l'écran de choix → `run/screenshots/med2_*.png` (fin du rendu du monde, sans HUD) ; **film de 8 s** : 240 images `medfilm_*` à 30 i/s, horloge de l'effet imposée, caméra qui tourne → MP4 ; coût CPU dans le log (`[med-banc]`). Monde « New World ». Captures, MP4 et planche vidéo / Reborn : `Maquettes/gameplan/meditation/v2/` |
@@ -342,8 +567,11 @@ JAVA_HOME=/c/Users/omarb/dev-cache/jdk-25.0.4.1+1 REBORN_FEATURE_PREVIEW=1 \
 | `REBORN_LOT4_DEBUG=c6` | Couleur du halo des plaques (08/11, `audit/Lot4c6Debug`, planche c6) : quatre stèles en rang (ivoire-or = halo absent, bleu chakra `6FB4FF`, rouge sang `D9443F`, aucun), serveur simulé qui envoie `halo` avec le texte, horloges figées ; vérifie les palettes dérivées (cœur du bleu chakra = `E9F4FF`), les codes du protocole et `Plaques.haloDe` ; 1920×1080 jour puis nuit, chaque stèle à 4 blocs sous l'effet ; outil Plaques : éditeur au repos, bleu chakra, aucun, « Personnalisée » ouverte (rose cerisier `F29CC2`, 4 récentes), plaque déjà en `123ABC` par le vrai chemin « Modifier le texte » puis « Personnalisée » (curseurs et champ sur sa couleur, rien de changé, clic sur la teinte), éditeur sans ancre (aperçu de repli : rouge sang, aucun), fiche bleu chakra ; 1366×768 : une stèle, éditeur, sélecteur, fiche → `run/screenshots/lot4c6_*.png` (copies dans `Maquettes/gameplan/17_lot4_concentration/code_c/`), « [lot4c6] FIN » |
 | `REBORN_LOT4_DEBUG=c7` | Traces de pas (08/11, `audit/Lot4c7Debug`, planche c7) : chemin de pierre, dalle, escalier, terrasse, sable, bâtis sur un sol à nous ; serveur simulé qui envoie le vrai message `traces` (hauteur lue dans la vraie collision), horloges figées ; 1920×1080 puis 1366×768 : pistes de jour et de nuit (marche, sprint qui croise, accroupi, vieille piste sur le sable), sortie à 75 ms puis plus rien (vérifié au journal), vue plongeante du frais au vieux (jour, nuit), gros plan (âges, sprint, accroupi, chargé, sang, marche vers le fond), survol (fondu à 60 ms, « à l'instant », « il y a 7 min », curseur ailleurs), quatre couleurs dans le monde (ivoire, bleu chakra, rouge sang, ambre), sous le Byakugan (ni traces ni étiquette, puis retour), Paramètres › Interface › Concentration (ivoire, bleu chakra, « Personnalisée » ouverte), parcours par les vrais événements de l'écran (ouvrir et refermer « Personnalisée » depuis l'ivoire sans rien changer, clic sur une pastille, sur le lien, dans le carré, saisie `#202020` relevée) → `run/screenshots/lot4c7_*.png` (copies dans `Maquettes/gameplan/17_lot4_concentration/code_c/`), `[lot4c7] OK / ECHEC`, couleur remise, puis ferme le jeu |
 | `REBORN_LOT4_DEBUG=c8` | Traces, retour du 08/11 (`audit/Lot4c7Debug`) : contraste automatique et « une trace reste ». Bandes d'herbe, de pierre, de sable, puis neige, béton blanc, quartz, calcite, bouleau ; table `Traces.solClair` sur les couleurs de carte réelles au journal, classement de chaque pas lu dans le monde, sol inconnu relu en moins de 2 s, jour et nuit, rangées à 10, 80 et 95 % de la vie, gros plan d'un sprint et d'une marche sur le sable (jour sans contour, nuit avec contour fermé au talon), « il y a 1 h 20 » sur l'herbe et sur le sable (nuit comprise), réglage « Automatique » par les vrais événements de l'écran (pastille, retour, « Personnalisée » sans le quitter, un geste le quitte, « Réinitialiser ») ; 1920×1080 et 1366×768 → `run/screenshots/lot4c8_*.png` (copies dans `Maquettes/gameplan/17_lot4_concentration/code_c/`), réglage et sol remis, puis ferme le jeu |
+| `REBORN_LOT4_DEBUG=c9` | Traces, retour du 10/11 (`audit/Lot4c7Debug`) : petit panneau au survol et âge estimé. Chemin de terre, sable à droite, neige à gauche, herbe ; paliers de `TracesAge` vérifiés au journal ; panneau sur le chemin de jour (fondu d'entrée à 60 ms), sur le sable (point sombre), vers la neige (glissement à 45 ms), à 7,8 blocs, sortie à 75 ms, de nuit (chemin, sable) ; un pas par palier (à l'instant, quelques minutes, 10 min, 40 min, 1 h 30, plus de deux heures) ; grille de pas : celui du bord gauche de l'écran (panneau gardé à l'écran) et celui dont le panneau tomberait sur le réticule ; chaque panneau vérifié au journal (dans l'écran à 8 px × k, hors du réticule) → `run/screenshots/traces_v6_*.png` (copies dans `Maquettes/gameplan/17_lot4_concentration/code_v6/`), sol remis, puis ferme le jeu. Le test `TracesAgeTest` ne passe pas par Gradle (pas de JUnit déclaré) : compilé et lancé à part avec les jars JUnit 5.10 du cache Gradle |
 | `REBORN_LOT4_DEBUG=v5` | Retrait de R (migration 5, 07/11, `audit/Lot4v5Debug`) : bilan de la migration réelle du démarrage (lancer avec `options.txt` sur `key_key.reborn-hud.open_interaction:key.keyboard.r` et `touchesVersion` à 4 dans `config/reborn_prefs.json`), règle pure `retraitR` (options neuves, R personnalisée, Concentration sans touche, R déliée, souris, Concentration sur R), migration rejouée sur les vraies liaisons (drapeau 4 → 5 écrit sur le disque, idempotence, R personnalisée gardée, Concentration sans touche = R gardée, « Réinitialiser la section »), claviers simulés (BÉPO, Dvorak, Colemak : Interaction posée par la version 2 sur la touche qui affiche « r » = défaut ; migration et « Réinitialiser la section » en BÉPO), captures Commandes › Monde (sans ligne Interaction, Interaction personnalisée, Concentration sans touche), parcours d'un vrai joueur dans le même écran par les cases (`KeybindButton`) : Concentration liée → aide d'Interaction à jour, Échap sur Interaction → ligne partie sans redémarrage, invite « Tendre » et rappel sur Y puis sur R gardée → `run/screenshots/lot4v5_*.png`, `[lot4v5] OK / ECHEC`, liaisons et drapeau remis, puis ferme le jeu. Client en `lang:fr_fr` |
 | `REBORN_LOT4_DEBUG=d` (lancer avec le même `--username` pour garder le même skin) | Touche maintenue et effet K+ (08-09/11, `audit/Lot4dDebug`, lecture physique simulée par `audit/ClavierBanc`, c'est-à-dire la seule lecture GLFW, serveur simulé avec la vraie limite de 4 `on` par seconde) : entrée à l'appui, sortie au relâchement, marche, accroupi, clic droit ; pas de nouvelle entrée touche tenue après un coup (même 5,5 s après), un Malaxage, Échap, un écran, un refus du serveur, ni après un refus d'entrée ; menu qui reste après le relâchement (clic dehors, action, Échap, touche reprise) ; fenêtre quittée ; lettre tapée dans le tchat, tchat ouvert puis relâchement ; répétition dans le « /me » du vrai menu (Y, marche, retour arrière, autre lettre, par `KeyboardHandler.keyPress` et `charTyped`), lettre ou bouton de souris suivis de la fermeture de l'écran sans tick entre les deux ; dix appuis à trois rythmes (aucun refus du serveur, souffles espacés, rien de coincé), fondu sans saut ; bouton de souris, touche non liée, ancienne touche ; captures 1920×1080 et 1366×768 : jour, nuit, traces sur l'herbe, le sable, la pierre et la neige (automatique, bleu chakra, rouge sang, ambre), plaque et son halo, joueur survolé, menu ouvert après le relâchement → `run/screenshots/lot4d_*.png`, puis ferme le jeu |
+| `REBORN_LOT5_DEBUG=saut` (`=saut_styles` : trajectoire et barre seulement, ~2 min de jeu ; lancer avec `--quickPlaySingleplayer "New World" --width 1920 --height 1080 --username BancReborn` : sans monde, le banc attend au menu) | **Saut chargé** (lot 5, étape A, 09/11, `audit/Lot5Debug`) : couloir de 11 × 118 blocs sur une herbe à nous (dégagé sur 46 de haut ; le terrain d'origine n'est pas rendu), serveur simulé avec la loi et les octets du plugin, horloge de la charge figée, touches simulées, **vol réel** par le mixin. Charge à 0, 25, 58 et 100 % ; départ, mi-vol, réception ; **justesse** : 11 sauts (135 ms à 1,2 s, visée de 0 à 60°, un mur à 10 blocs, un toit de 4 blocs) : arrivée réelle contre arrivée prédite (au 09/11 : écart 0,00 bloc partout), et à plat contre la loi pure ; **trajectoire en poussière et barre de charge** (10/11, 6e tour ; **vue imposée à chaque capture** et vérifiée — une capture du mur était sortie en 1re personne ; arrivée = loi pure à plat à 1 bloc près, ou 8 à 11 blocs au pied du mur ; ligne pleinement apparue ; grains posés comptés au journal, au 10/11 : 44 à 46 en 1re personne, 77 à 120 en 3e, + 48 sur l'anneau) : 1re personne à mi-charge (`1p_050`, ~39 blocs), épaule pleine charge (`3p_100`, ~60 blocs), 1re personne pleine charge (`1p_100`), épaule à mi-charge (`3p_050`), au pied d'un mur à 10 blocs (`mur_10`, regard à 18° : à 6°, l'arrivée tombe derrière la tête), sous le Byakugan (`byakugan_050`), de nuit (`nuit_100`) → `saut_v6_<scène>.png` (copiées dans `Maquettes/gameplan/17_lot5_mobilite/code_ab/`) ; écran ouvert = charge annulée (kind 10) ; refus « Pas assez de chakra » (sans recharge fantôme) et « Étourdi » (rien n'est envoyé), en 1920 × 1080 puis 1366 × 768 → `run/screenshots/saut_*.png`. Vraie lumière : le plateau du banc Byakugan, au-dessus de la même origine, ombrait le couloir — il est retiré et le banc attend la lumière du ciel à 15 sur huit points témoins ; l'herbe passée en terre sous le mur ou le toit est remise ; contour vanilla du bloc visé masqué (portée de visée nulle le temps du banc) ; chaque capture attend 3 images comptées par une couche HUD du banc (une capture pouvait reprendre l'image d'avant). Bilans `[lot5] OK / ECHEC` et tableau de justesse au journal, puis ferme le jeu |
+| `REBORN_LOT5_DEBUG=byak` (`=byak_vite` : les décors seulement ; `=byak_fps` : coût du filtre seul, forêt du banc sans personne, quatre alternances sans / avec, et la saccade des 1,5 s qui suivent chaque bascule (feuilles pleines : image la plus longue, médiane, images lentes, excès cumulé) ; `=byak_entites` : de vraies bêtes sans IA (villageois, zombie du désert, cochon) derrière le mur du champ, vues au travers (`byak_entites_mur`), puis à découvert de près et à ~20 blocs (villageois, zombie du désert, vache, mouton : `byak_entites_proche`), difficulté facile le temps du banc, objets au sol retirés et nuage de mort dissipé avant chaque capture ; `=byak_vues` + `REBORN_BYAK_VUES="nom:x,y,z,lacet,tangage[,heure];…"`, jamais noté dans le dépôt : vues d'un vrai monde, une copie de Konoha par exemple ; hauteur `sol` : posé sur le vrai sol, feuillages exclus ; en vol à chaque vue, 240 images d'attente et sans fondu d'apparition des chunks le temps du banc (option rendue à la fin) ; bêtes à moins de 16 blocs et fin du brouillard notées au journal ; lancer avec `--username BancReborn` pour garder le même skin ; la copie de Konoha est le monde `Konoha`) | **Byakugan** (lot 5, étape B, 09/11, `audit/Lot5ByakDebug`) : plateau à nous dans le ciel près de l'origine (le relief du monde de dev ne fait ni ombre ni trou) — champ, rue façon Konoha (chaussée de pierre, maisons de bois et d'enduit, toits sombres, lanternes, passants, une personne dans une maison), forêt (vrais arbres placés), mur avec deux personnes derrière ; grotte fermée sous terre ; serveur ShinobiCore simulé au format exact de `reborn:dojutsu` (règles, réponses), touche O par le vrai `ByakuganClient.basculer()`. Vérifie : règles reçues, touche O par défaut, ancien canal ignoré, sans droit rien n'est envoyé, deux personnes cachées sur deux, fondu image par image à horloge figée (90 % à 0,35 s, sortie linéaire finie à 0,27 s), concentration puis Byakugan (un seul filtre, la concentration reprend le sien), KO = coupure nette et fin envoyée ; profondeur vue par le filtre (`debugProfondeur`, bandes de 8 blocs) et capture des boucles d'encre ; encre : traits seuls (`debugTraits`, blanc sur noir : les fins de volume seulement depuis le 8e tour, plus de pli ni de grille) au champ, à la rue, en forêt, la nuit, en grotte et sur chaque vue `byak_vues`, puis après deux pas d'un quart de bloc (`_traits_p1`, `_traits_p2` : tenue du trait en marchant, mesurée hors du jeu contre la parallaxe attendue), particules sur le sol (`byak_particules`, sans écho), feuilles pleines pendant la vision seulement et option « Feuilles découpées » du joueur inchangée (forêt, puis coupure au KO) ; images par seconde sans et avec le filtre, même vue, alternées → `run/screenshots/byak_*.png` (sans / avec / `_traits` / `_prof` : distance brute sur 24 bits, pour régler le filtre hors du jeu avec `_sans` ; forêt aussi en 1366 × 768) ; chaque étape attend 3 images rendues (couche HUD du banc : fenêtre en arrière-plan, une capture sur les ticks seuls reprenait l'image d'avant), bilans `[byak] OK / ECHEC`, puis ferme le jeu |
 | `REBORN_LOT4_DEBUG=1` | Lot 4 « Concentration », étape A (07/11, `audit/Lot4Debug`) : mannequin « autre joueur » décalé à droite, horloge du fondu figée (`ModeConcentration.horloge`) ; de jour en 1920×1080 puis 1366×768 : avant, entrée à 0 et 125 ms, concentré (six rappels), curseur sur le mannequin (contour), clic (menu de l'entité), menu d'un joueur, sortie à 75 ms, après ; de nuit : avant, concentré, survol ; blocages vérifiés au journal (`[lot4] OK / ECHEC`) : Malaxage du chakra (refus, capture, puis sortie), coup donné (sortie, refus 5 s), tchat (le mode reste), écran (sortie), Échap par le vrai chemin du clavier, touche Concentration tenue puis relâchée → `run/screenshots/lot4_*.png`, puis ferme le jeu |
 | `REBORN_MOCKUPS` | Maquettes de scènes |
 

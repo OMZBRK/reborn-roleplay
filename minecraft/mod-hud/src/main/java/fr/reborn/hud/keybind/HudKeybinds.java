@@ -118,6 +118,13 @@ public final class HudKeybinds {
      */
     public static KeyMapping MICRO, SON, PARLER;
 
+    /**
+     * Byakugan (lot 5, étape B, 09/11) : <b>O</b>, en bascule. Vanilla 26.2 y met « Amis », déliée et cachée par la
+     * migration 4 ; même lettre au même endroit en AZERTY, QWERTY et QWERTZ (la migration 6 applique la règle du clavier aux
+     * autres dispositions). Sans le Byakugan (clan, yeux), elle ne fait rien. Lue par {@code ByakuganClient}.
+     */
+    public static KeyMapping BYAKUGAN;
+
     /** Appui plus court que ça sur la touche radio (sans la tenir) = écran de l'escouade. */
     public static final long RADIO_BREF_MS = 250L;
     private static long radioDepuis = -1L;
@@ -330,6 +337,8 @@ public final class HudKeybinds {
         MICRO = bind("key.reborn-hud.couper_micro", GLFW.GLFW_KEY_I);
         SON = bind("key.reborn-hud.couper_son", -1);
         PARLER = bind("key.reborn-hud.parler", -1);
+        // Lot 5 (09/11) : Byakugan sur O (« Amis » de 26.2, déliée par la migration 4), en bascule.
+        BYAKUGAN = bind("key.reborn-hud.byakugan", GLFW.GLFW_KEY_O);
 
         TouchesMigration.init();
         TouchesPlasmo.init();

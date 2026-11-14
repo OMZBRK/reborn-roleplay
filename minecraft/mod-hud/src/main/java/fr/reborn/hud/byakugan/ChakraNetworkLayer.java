@@ -12,8 +12,9 @@ import net.minecraft.util.LightCoordsUtil;
 
 /**
  * Réseau de chakra (foyer au cœur, canaux, colonne, tenketsu) peint sur la silhouette des joueurs et des mobs
- * humanoïdes vus au Byakugan (modèles à disposition de skin joueur). Texture découpée (fond transparent), lignes orange
- * pur que le filtre négatif rend cyan lumineux ; décalage en profondeur ({@code entityCutoutZOffset}) pour se poser
+ * humanoïdes vus au Byakugan (modèles à disposition de skin joueur). Texture découpée (fond transparent), lignes et
+ * tenketsu dans les couleurs-clés {@code FF0066} et {@code FF00A6} que le filtre rend cyan vif et presque blanc (lot 5) ;
+ * décalage en profondeur ({@code entityCutoutZOffset}) pour se poser
  * sur la silhouette sans scintiller. C'est le modèle de l'entité lui-même : le réseau suit toutes les animations.
  * 4 images (impulsions qui partent du cœur).
  */

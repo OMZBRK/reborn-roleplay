@@ -119,6 +119,8 @@ public final class RappelsTouches {
         SE_LEVER("Se lever"),
         GARDE("Poste de garde"),
         RADIO("Parler à la radio"),
+        /** Lot 5 : pendant la vision seulement (décision du 05/11), jamais en permanence. */
+        BYAKUGAN("Vision du Byakugan"),
         // la base : seule en temps normal
         CONCENTRATION("Concentration"),
         /** 2,5 s après un appui sur H (« Voix : chuchotée »), et en concentration. */
@@ -140,7 +142,7 @@ public final class RappelsTouches {
 
     /** Ordre d'affichage, du bas vers le haut. */
     private static final Rappel[] ORDRE = {
-        Rappel.ANIMATION, Rappel.COURSE, Rappel.DESCENDRE, Rappel.SE_LEVER, Rappel.GARDE, Rappel.RADIO,
+        Rappel.ANIMATION, Rappel.COURSE, Rappel.DESCENDRE, Rappel.SE_LEVER, Rappel.GARDE, Rappel.RADIO, Rappel.BYAKUGAN,
         Rappel.CONCENTRATION, Rappel.PORTEE,
         Rappel.DEGAINER, Rappel.DASH, Rappel.PARER,
         Rappel.VUE, Rappel.PHOTO, Rappel.MENU_ANIMATIONS, Rappel.SACOCHE,
@@ -286,6 +288,7 @@ public final class RappelsTouches {
             case SE_LEVER -> MeditationClient.jeMedite();
             case GARDE -> StaffClient.modeActif();
             case RADIO -> RadioClient.serveur() && RadioClient.escouade() != null && RadioClient.etat().refus() == null;
+            case BYAKUGAN -> fr.reborn.hud.byakugan.ByakuganClient.actif();
             // pendant le Malaxage du chakra, la touche ne fait rien (lot 4) : pas de rappel trompeur
             case CONCENTRATION -> (concentrationBranchee || m == Mode.CONCENTRATION || debugMode != null)
                 && !fr.reborn.hud.parchemin.ConcentrationHud.actif();
@@ -304,6 +307,7 @@ public final class RappelsTouches {
             case SE_LEVER -> mc.options.keyShift;
             case GARDE -> StaffClient.touche();
             case RADIO -> HudKeybinds.RADIO_PARLER;
+            case BYAKUGAN -> HudKeybinds.BYAKUGAN;
             case CONCENTRATION -> HudKeybinds.concentrationEffective();
             case PORTEE -> HudKeybinds.VOIX_PORTEE;
             case DEGAINER -> HudKeybinds.DEGAINER;

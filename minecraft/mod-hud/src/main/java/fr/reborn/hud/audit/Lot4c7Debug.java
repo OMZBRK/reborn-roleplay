@@ -8,6 +8,7 @@ import fr.reborn.hud.concentration.ConcentrationCanal;
 import fr.reborn.hud.concentration.ModeConcentration;
 import fr.reborn.hud.concentration.Plaques;
 import fr.reborn.hud.concentration.Traces;
+import fr.reborn.hud.concentration.TracesAge;
 import fr.reborn.hud.interaction.InteractionMode;
 import fr.reborn.hud.menu.screens.ConfigShellScreen;
 import fr.reborn.hud.menu.settings.CouleurTracesBanc;
@@ -54,6 +55,11 @@ import java.util.function.Consumer;
  * <p>{@code REBORN_LOT4_DEBUG=c8} (retour du 08/11, contraste automatique, une trace reste) : bandes d'herbe, de pierre, de sable,
  * de neige, de béton blanc, de quartz, de calcite, de bouleau ; jour et nuit, piste à 80 % de sa vie, étiquette « il y a 1 h 20 »
  * sur l'herbe et sur le sable, réglage « Automatique » → {@code run/screenshots/lot4c8_*.png}.
+ *
+ * <p>{@code REBORN_LOT4_DEBUG=c9} (retour du 10/11, petit panneau et âge estimé) : chemin de terre, sable, neige, herbe ; panneau
+ * de jour (fondu à 60 ms compris), sur le sable, sur la neige (glissement à 45 ms), à 7,8 blocs, de nuit ; un pas par palier
+ * d'âge ; grille de pas pour le bord de l'écran et le réticule ; chaque panneau vérifié (dans l'écran, hors du réticule)
+ * → {@code run/screenshots/traces_v6_*.png}.
  */
 public final class Lot4c7Debug {
 
@@ -68,7 +74,7 @@ public final class Lot4c7Debug {
     private static final ArrayDeque<String> FILE = new ArrayDeque<>();
     private static final Vector3f V = new Vector3f();
     private static int couleurAvant;
-    private static boolean autoAvant, c8;
+    private static boolean autoAvant, c8, c9;
     private static int[] recentesAvant;
     private static RebornCamera.Mode cameraAvant;
 
@@ -88,7 +94,8 @@ public final class Lot4c7Debug {
 
     public static void init() {
         c8 = "c8".equalsIgnoreCase(String.valueOf(System.getenv("REBORN_LOT4_DEBUG")));
-        if (!c8 && !"c7".equalsIgnoreCase(String.valueOf(System.getenv("REBORN_LOT4_DEBUG")))) return;
+        c9 = "c9".equalsIgnoreCase(String.valueOf(System.getenv("REBORN_LOT4_DEBUG")));
+        if (!c8 && !c9 && !"c7".equalsIgnoreCase(String.valueOf(System.getenv("REBORN_LOT4_DEBUG")))) return;
 
         pas(5, mc -> {
             var c = mc.player.connection;
@@ -114,21 +121,19 @@ public final class Lot4c7Debug {
             pr.tracesCouleur = Traces.IVOIRE;
             autoAvant = pr.tracesAuto;
             System.out.println("[lot4c7] réglage lu : automatique = " + autoAvant);
-            pr.tracesAuto = c8;
+            pr.tracesAuto = c8 || c9;
             cameraAvant = RebornCamera.INSTANCE.mode();
             c.sendCommand("kill @e[type=minecraft:item,distance=..60]");
         }, "préparation");
-        pas(10, c8 ? Lot4c7Debug::batirSols : Lot4c7Debug::batir, "scène");
+        pas(10, c9 ? Lot4c7Debug::batirPanneau : c8 ? Lot4c7Debug::batirSols : Lot4c7Debug::batir, "scène");
         pas(40, mc -> {
             figer(Util.getMillis());
             ConcentrationCanal.debugServeur = Lot4c7Debug::serveur;
             System.out.println("[lot4c7] origine " + ox + " " + oy + " " + oz);
             // règles pures du client
-            verifie(Traces.minutes(0) == 0 && Traces.minutes(29) == 0 && Traces.minutes(30) == 1 && Traces.minutes(240) == 4, "âge arrondi à la minute");
-            verifie(Traces.minutes(4800) == 80, "âge en heures");
-            verifie("à l'instant".equals(Traces.texteDuree(0)) && "il y a 7 min".equals(Traces.texteDuree(7)) && "il y a 59 min".equals(Traces.texteDuree(59)), "texte de l'étiquette en minutes");
-            verifie("il y a 1 h".equals(Traces.texteDuree(60)) && "il y a 1 h 05".equals(Traces.texteDuree(65))
-                && "il y a 1 h 20".equals(Traces.texteDuree(80)) && "il y a 4 h".equals(Traces.texteDuree(240)), "texte de l'étiquette en heures");
+            verifie(TracesAge.palier(0) == TracesAge.INSTANT && TracesAge.palier(299) == TracesAge.QUELQUES && TracesAge.palier(600) == 10
+                && TracesAge.palier(1800) == TracesAge.DEMI_HEURE, "âge estimé, paliers en minutes");
+            verifie(TracesAge.palier(4800) == TracesAge.HEURE_ET_DEMIE && TracesAge.palier(9000) == TracesAge.PLUS_DEUX_HEURES, "âge estimé, paliers en heures");
             // le contraste automatique : la couleur de carte du vrai bloc, seuil unique
             for (Block b : new Block[] {Blocks.SAND, Blocks.SNOW_BLOCK, Blocks.SNOW, Blocks.CONCRETE.pick(net.minecraft.world.item.DyeColor.WHITE), Blocks.QUARTZ_BLOCK, Blocks.CALCITE, Blocks.BIRCH_PLANKS, Blocks.SANDSTONE}) {
                 sol(mc, b, true);
@@ -145,7 +150,9 @@ public final class Lot4c7Debug {
             }
         }, "horloges figées, serveur simulé");
 
-        if (c8) {
+        if (c9) {
+            seriePanneau();
+        } else if (c8) {
             serieAuto();
         } else {
             serie("1080");
@@ -171,7 +178,7 @@ public final class Lot4c7Debug {
             RebornPrefs.INSTANCE.save();
             var c = mc.player.connection;
             c.sendCommand(String.format("fill %d %d %d %d %d %d minecraft:air", ox - 14, oy, oz - 8, ox + 14, oy + 24, oz + 26));
-            if (c8) c.sendCommand(String.format("fill %d %d %d %d %d %d minecraft:grass_block", ox - 14, oy - 1, oz - 8, ox + 14, oy - 1, oz + 28));
+            if (c8 || c9) c.sendCommand(String.format("fill %d %d %d %d %d %d minecraft:grass_block", ox - 14, oy - 1, oz - 8, ox + 14, oy - 1, oz + 28));
             c.sendCommand("kill @e[type=minecraft:item,distance=..60]");
             if (heure >= 0) c.sendCommand("time set " + heure);
             c.sendCommand(pluie ? "weather rain" : "weather clear");
@@ -356,13 +363,13 @@ public final class Lot4c7Debug {
         pas(16, mc -> avance(300), "fondu fini");
         pas(1, mc -> curseurSur(mc, pasHerbe), "curseur sur l'herbe");
         pas(3, mc -> {
-            verifie(Traces.survolId() == pasHerbe && Traces.minutesLibelle() == 80, "herbe : « il y a 1 h 20 » (" + Traces.survolId() + ", " + Traces.minutesLibelle() + ")");
+            verifie(Traces.survolId() == pasHerbe && Traces.palierPanneau() == TracesAge.HEURE_ET_DEMIE, "herbe : « environ 1 h 30 » (" + Traces.survolId() + ", " + Traces.palierPanneau() + ")");
             avance(200);
         }, "étiquette sur l'herbe");
         pas(4, mc -> shot(mc, pre + "label_herbe"), "capture étiquette sur l'herbe");
         pas(1, mc -> curseurSur(mc, pasSable), "curseur sur le sable");
         pas(3, mc -> {
-            verifie(Traces.survolId() == pasSable && Traces.minutesLibelle() == 80, "sable : « il y a 1 h 20 » (" + Traces.survolId() + ", " + Traces.minutesLibelle() + ")");
+            verifie(Traces.survolId() == pasSable && Traces.palierPanneau() == TracesAge.HEURE_ET_DEMIE, "sable : « environ 1 h 30 » (" + Traces.survolId() + ", " + Traces.palierPanneau() + ")");
             avance(200);
         }, "étiquette sur le sable");
         pas(4, mc -> shot(mc, pre + "label_sable"), "capture étiquette sur le sable");
@@ -427,6 +434,177 @@ public final class Lot4c7Debug {
         pas(10, mc -> shot(mc, pre + "reglage_auto_1366x768"), "capture réglage automatique");
         pas(1, mc -> mc.setScreenAndShow(null), "Paramètres fermés");
         pas(5, mc -> { }, "écran fermé");
+    }
+
+    /* ================================================================ petit panneau et âge estimé (c9) */
+
+    private static int pasChemin = -1, pasLoin = -1, pasNeige = -1;
+    private static final List<Integer> IDS_AGES = new ArrayList<>();
+    private static final double[] AGES_MIN = {0.3, 3.0, 10.0, 40.0, 90.0, 150.0};
+    private static final int[] AGES_PALIER = {TracesAge.INSTANT, TracesAge.QUELQUES, 10, 40, TracesAge.HEURE_ET_DEMIE, TracesAge.PLUS_DEUX_HEURES};
+    private static final String[] AGES_NOM = {"instant", "quelques", "10", "40", "1h30", "plus2h"};
+
+    /** Herbe partout, un chemin de terre au milieu, du sable à droite de l'écran, de la neige à gauche. */
+    private static void batirPanneau(Minecraft mc) {
+        var c = mc.player.connection;
+        c.sendCommand(String.format("fill %d %d %d %d %d %d minecraft:air", ox - 14, oy, oz - 8, ox + 14, oy + 24, oz + 28));
+        // de la terre dessous : le sable ne tombe pas dans une grotte
+        c.sendCommand(String.format("fill %d %d %d %d %d %d minecraft:dirt", ox - 14, oy - 3, oz - 8, ox + 14, oy - 2, oz + 28));
+        c.sendCommand(String.format("fill %d %d %d %d %d %d minecraft:grass_block", ox - 14, oy - 1, oz - 8, ox + 14, oy - 1, oz + 28));
+        c.sendCommand(String.format("fill %d %d %d %d %d %d minecraft:dirt_path", ox - 1, oy - 1, oz - 8, ox + 1, oy - 1, oz + 16));
+        c.sendCommand(String.format("fill %d %d %d %d %d %d minecraft:sand", ox - 6, oy - 1, oz - 8, ox - 3, oy - 1, oz + 16));
+        c.sendCommand(String.format("fill %d %d %d %d %d %d minecraft:snow_block", ox + 3, oy - 1, oz - 8, ox + 6, oy - 1, oz + 16));
+    }
+
+    /** Un pas seul, pointe au sud, âge en minutes. */
+    private static int unPas(Minecraft mc, double mx, double z, double ageMin, int vie) {
+        double x = wx(mx), zz = wz(z);
+        int id = prochainId++;
+        SCENE.add(new Pas(id, x, dessus(mc, x, zz, oy + 3.5), zz, 0, 0, (int) Math.round(ageMin * 60), vie));
+        return id;
+    }
+
+    private static void scenePanneau(Minecraft mc) {
+        pasChemin = piste(mc, new double[][] {{0.55, 1.2}, {0.55, 7.2}}, 1.2, 0, 10.0, 10.0, 1, 7200).get(3);
+        pasSable = piste(mc, new double[][] {{4.6, 1.2}, {4.6, 7.2}}, 1.2, 0, 40.0, 40.0, 1, 14400).get(3);
+        pasNeige = piste(mc, new double[][] {{-4.6, 1.2}, {-4.6, 7.2}}, 1.2, 0, 90.0, 90.0, 1, 14400).get(3);
+        pasLoin = unPas(mc, 0.9, 7.8, 10.0, 7200);
+    }
+
+    private static void sceneAges(Minecraft mc) {
+        IDS_AGES.clear();
+        // à droite du joueur (sa tête cache le milieu de l'écran) : chemin, herbe, sable
+        for (int i = 0; i < AGES_MIN.length; i++) IDS_AGES.add(unPas(mc, 1.2 + i * 1.0, 4.4, AGES_MIN[i], 14400));
+    }
+
+    /** Une grille de pas devant le joueur : on y choisit celui du bord de l'écran et celui sous le réticule. */
+    private static void sceneGrille(Minecraft mc) {
+        for (double z = 1.0; z <= 8.0; z += 0.7) {
+            for (double mx = -8.0; mx <= 8.0; mx += 1.0) unPas(mc, mx, z, 10.0, 7200);
+        }
+    }
+
+    /** Le pas de la grille à 8 blocs au plus dont le point tombe le plus à gauche de l'écran (sans en sortir). */
+    private static int pasDuBord(Minecraft mc) {
+        int choisi = -1;
+        float meilleur = Float.MAX_VALUE;
+        for (Pas p : SCENE) {
+            if (Math.hypot(p.x() - mc.player.getX(), p.z() - mc.player.getZ()) > Traces.PORTEE_SURVOL - 0.3) continue;
+            if (!ProjectionMonde.versPx(p.x(), p.y(), p.z(), V) || V.x < 6 || V.y > mc.getWindow().getHeight() - 30) continue;
+            if (V.x < meilleur) { meilleur = V.x; choisi = p.id(); }
+        }
+        return choisi;
+    }
+
+    /** Le pas de la grille dont le panneau, posé simplement au-dessus, couvrirait le réticule. */
+    private static int pasSousReticule(Minecraft mc) {
+        int sw = mc.getWindow().getWidth(), sh = mc.getWindow().getHeight();
+        double k = fr.reborn.hud.ui.TexteRaster.kHud() / 2.0, cibleY = sh / 2.0 + (30 + 40 / 2.0) * k;
+        int choisi = -1;
+        double meilleur = Double.MAX_VALUE;
+        for (Pas p : SCENE) {
+            if (Math.hypot(p.x() - mc.player.getX(), p.z() - mc.player.getZ()) > Traces.PORTEE_SURVOL - 0.3) continue;
+            if (!ProjectionMonde.versPx(p.x(), p.y(), p.z(), V)) continue;
+            double e = Math.abs(V.x - sw / 2.0) + Math.abs(V.y - cibleY);
+            if (e < meilleur) { meilleur = e; choisi = p.id(); }
+        }
+        return choisi;
+    }
+
+    /** Le panneau dessiné tient dans l'écran (marge de 8 px × k), ne couvre pas le réticule, et son point est sur le pas. */
+    private static void cadre(Minecraft mc, String nom) {
+        int[] b = Traces.panneauBanc();
+        int sw = mc.getWindow().getWidth(), sh = mc.getWindow().getHeight();
+        double k = fr.reborn.hud.ui.TexteRaster.kHud() / 2.0;
+        int marge = (int) Math.floor(8 * k + 0.5), r = (int) Math.floor(10 * k + 0.5);
+        boolean dedans = b[0] >= marge && b[1] >= marge && b[0] + b[2] <= sw - marge && b[1] + b[3] <= sh - marge;
+        boolean reticule = b[0] < sw / 2 + r && b[0] + b[2] > sw / 2 - r && b[1] < sh / 2 + r && b[1] + b[3] > sh / 2 - r;
+        verifie(dedans && !reticule && b[2] > 0, String.format(Locale.ROOT, "%s : panneau %d,%d %d×%d, point %d,%d (dans l'écran : %s, sur le réticule : %s)",
+            nom, b[0], b[1], b[2], b[3], b[4], b[5], dedans, reticule));
+    }
+
+    private static void survolPanneau(int[] id, int palier, String nom) {
+        pas(1, mc -> curseurSur(mc, id[0]), "curseur : " + nom);
+        pas(3, mc -> {
+            verifie(Traces.survolId() == id[0] && Traces.palierPanneau() == palier,
+                nom + " : pas " + id[0] + " survolé, palier " + palier + " (" + Traces.survolId() + ", " + Traces.palierPanneau() + ")");
+            avance(200);
+        }, "panneau : " + nom);
+        // fenêtre en arrière-plan : la dernière image rendue date parfois de plus de 300 ms
+        pas(12, mc -> {
+            cadre(mc, nom);
+            shot(mc, "traces_v6_" + nom);
+        }, "capture " + nom);
+    }
+
+    private static void seriePanneau() {
+        int[] chemin = new int[1], sable = new int[1], neige = new int[1], loin = new int[1];
+        scene(mc -> {
+            scenePanneau(mc);
+            chemin[0] = pasChemin;
+            sable[0] = pasSable;
+            neige[0] = pasNeige;
+            loin[0] = pasLoin;
+        }, "panneau");
+        pas(3, mc -> epaule(mc, -0.3, 0.0, 14f), "joueur sur le chemin");
+        pas(15, Lot4c7Debug::entrer, "entrée");
+        pas(16, mc -> avance(300), "fondu fini");
+        // de jour, sur le chemin : fondu d'entrée à mi-course, puis plein
+        pas(1, mc -> curseurSur(mc, chemin[0]), "curseur sur le chemin");
+        pas(3, mc -> avance(60), "fondu à 60 ms");
+        pas(12, mc -> shot(mc, "traces_v6_fondu_60ms"), "capture fondu à 60 ms");
+        survolPanneau(chemin, 10, "panneau_jour");
+        survolPanneau(sable, 40, "panneau_sol_clair");
+        // vers la neige : le panneau glisse
+        pas(1, mc -> curseurSur(mc, neige[0]), "curseur sur la neige");
+        pas(3, mc -> avance(45), "glissement à 45 ms");
+        pas(12, mc -> shot(mc, "traces_v6_glisse_45ms"), "capture glissement");
+        survolPanneau(neige, TracesAge.HEURE_ET_DEMIE, "panneau_neige");
+        survolPanneau(loin, 10, "panneau_loin");
+        pas(1, mc -> {
+            double[] p = Traces.position(loin[0]);
+            verifie(p != null && Math.hypot(p[0] - mc.player.getX(), p[2] - mc.player.getZ()) > 7.5,
+                "pas lointain à " + (p == null ? "?" : String.format(Locale.ROOT, "%.2f", Math.hypot(p[0] - mc.player.getX(), p[2] - mc.player.getZ()))) + " blocs");
+            InteractionMode.INSTANCE.debugCursor(mc.getWindow().getGuiScaledWidth() * 0.9, mc.getWindow().getGuiScaledHeight() * 0.15);
+        }, "curseur ailleurs");
+        pas(2, mc -> avance(75), "sortie du panneau à 75 ms");
+        pas(12, mc -> shot(mc, "traces_v6_sortie_75ms"), "capture sortie à 75 ms");
+        pas(1, mc -> avance(200), "panneau parti");
+        pas(3, mc -> verifie(Traces.survolId() < 0, "plus de panneau hors d'un pas"), "bilan sortie");
+        pas(1, mc -> sortir(), "sortie");
+        // de nuit
+        pas(2, mc -> mc.player.connection.sendCommand("time set 18000"), "nuit");
+        pas(20, mc -> { }, "nuit tombée");
+        pas(1, Lot4c7Debug::entrer, "entrée");
+        pas(16, mc -> avance(300), "fondu fini");
+        survolPanneau(chemin, 10, "panneau_nuit");
+        survolPanneau(sable, 40, "panneau_nuit_sable");
+        pas(1, mc -> sortir(), "sortie");
+        pas(2, mc -> mc.player.connection.sendCommand("time set 6000"), "jour");
+        pas(16, mc -> { }, "jour revenu");
+        // un pas par palier d'âge
+        int[][] ages = new int[AGES_MIN.length][1];
+        scene(mc -> {
+            sceneAges(mc);
+            for (int i = 0; i < ages.length; i++) ages[i][0] = IDS_AGES.get(i);
+        }, "âges");
+        pas(15, Lot4c7Debug::entrer, "entrée");
+        pas(16, mc -> avance(300), "fondu fini");
+        for (int i = 0; i < ages.length; i++) survolPanneau(ages[i], AGES_PALIER[i], "age_" + AGES_NOM[i]);
+        pas(1, mc -> sortir(), "sortie");
+        // grille : le bord de l'écran, le réticule
+        scene(Lot4c7Debug::sceneGrille, "grille");
+        pas(15, Lot4c7Debug::entrer, "entrée");
+        pas(16, mc -> avance(300), "fondu fini");
+        int[] bord = new int[1], reticule = new int[1];
+        pas(1, mc -> {
+            bord[0] = pasDuBord(mc);
+            reticule[0] = pasSousReticule(mc);
+            System.out.println("[lot4c7] bord : pas " + bord[0] + ", réticule : pas " + reticule[0]);
+        }, "choix des pas");
+        survolPanneau(bord, 10, "panneau_bord");
+        survolPanneau(reticule, 10, "panneau_reticule");
+        pas(1, mc -> sortir(), "sortie");
     }
 
     /* ================================================================ la série de captures */
@@ -513,7 +691,7 @@ public final class Lot4c7Debug {
         pas(1, mc -> curseurSur(mc, pasFrais), "curseur sur le pas frais");
         pas(3, mc -> {
             verifie(Traces.survolId() == pasFrais, res + " : pas frais survolé (" + Traces.survolId() + ")");
-            verifie(Traces.minutesLibelle() == 0, res + " : « à l'instant »");
+            verifie(Traces.palierPanneau() == TracesAge.INSTANT, res + " : « à l'instant »");
             avance(60);
         }, "fondu de l'étiquette, à moitié");
         pas(3, mc -> shot(mc, pre + "survol_fondu_60ms"), "capture étiquette à 60 ms");
@@ -522,7 +700,7 @@ public final class Lot4c7Debug {
         pas(1, mc -> curseurSur(mc, pasVieux), "curseur sur le vieux pas");
         pas(3, mc -> {
             verifie(Traces.survolId() == pasVieux, res + " : vieux pas survolé (" + Traces.survolId() + ")");
-            verifie(Traces.minutesLibelle() == 7, res + " : « il y a 7 min » (" + Traces.minutesLibelle() + ")");
+            verifie(Traces.palierPanneau() == 5, res + " : « environ 5 min » (" + Traces.palierPanneau() + ")");
             avance(200);
         }, "étiquette du vieux pas");
         pas(4, mc -> shot(mc, pre + "survol_7min"), "capture « il y a 7 min »");
@@ -544,7 +722,7 @@ public final class Lot4c7Debug {
             pas(1, mc -> RebornPrefs.INSTANCE.tracesCouleur = coul[0], "couleur " + nom);
             pas(20, mc -> shot(mc, pre + "couleur_" + nom), "capture couleur " + nom);   // fenêtre en arrière-plan : la dernière image rendue date parfois de plus de 300 ms
         }
-        // sous le Byakugan : plus de traces ni d'étiquette (son filtre négatif les inverserait), elles reviennent ensuite
+        // sous le Byakugan : plus de traces ni d'étiquette (son filtre pâle les laverait), elles reviennent ensuite
         pas(1, mc -> { RebornPrefs.INSTANCE.tracesCouleur = Traces.IVOIRE; ByakuganClient.update(true, 0f); }, "Byakugan");
         pas(4, mc -> {
             verifie(!ModeConcentration.filtreAffiche(), res + " : le Byakugan a pris l'emplacement du filtre");

@@ -176,6 +176,11 @@ public final class RebornHudClient implements ClientModInitializer {
             (handler, client) -> fr.reborn.hud.animation.NarutoRun.INSTANCE.reset());
         // Trois allures (14/10) : marche par défaut, trot (sprint maintenu), sprint (double appui) — canal reborn:allure.
         fr.reborn.hud.allure.AllureClient.init();
+        // Saut chargé (lot 5, étape A) : barre de charge près du réticule, trajectoire et anneau de poussière dans le monde.
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "saut"),
+            (ctx, tickCounter) -> fr.reborn.hud.combat.SautHud.render(ctx));
+        fr.reborn.hud.combat.SautApercu.init();
 
         // Synchro des démarches ENTRE JOUEURS (canal reborn:anim, bidirectionnel avec
         // ShinobiAbilities). C2S : {uuid,state,walk} quand notre état change (+ heartbeat).
@@ -513,6 +518,10 @@ public final class RebornHudClient implements ClientModInitializer {
                     // Parade timée : flash HUD (rôle dans animId : 0=paré / 1=fait parer).
                     // Le son de deflect est joué serveur-side à la position (audible à portée mêlée).
                     fr.reborn.hud.combat.CombatState.INSTANCE.onParry(payload.animId(), now);
+                } else if (payload.msgType() == fr.reborn.hud.combat.CombatPayload.TYPE_SAUT
+                        || payload.msgType() == fr.reborn.hud.combat.CombatPayload.TYPE_SAUT_REGLES) {
+                    // Saut chargé (lot 5) : GO / NON du serveur, ou ses réglages à la connexion.
+                    fr.reborn.hud.combat.ChakraJump.INSTANCE.recevoir(payload.msgType(), payload.corps());
                 } else if (payload.msgType() == fr.reborn.hud.combat.CombatPayload.TYPE_LOOK_DOWN) {
                     // Commande /lookdown : en vue épaule le regard est asservi à l'orbite
                     // caméra (le pitch de l'entité posé par le téléport est ignoré) → on
@@ -591,7 +600,7 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.combat.CombatInput.INSTANCE.reset());
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
-            (handler, client) -> fr.reborn.hud.combat.ChakraJump.INSTANCE.reset());
+            (handler, client) -> fr.reborn.hud.combat.ChakraJump.INSTANCE.oublierServeur());
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "combat"),
             (ctx, tickCounter) -> fr.reborn.hud.combat.CombatHud.render(ctx));
@@ -628,21 +637,18 @@ public final class RebornHudClient implements ClientModInitializer {
                 fr.reborn.hud.combat.CooldownHud.render(ctx, b.x(), b.y(), st.scale());
             });
 
-        // Byakugan (canal reborn:byakugan depuis ShinobiSense) : S2C {active, range}.
-        // Vue locale uniquement, « comme dans l'anime » — monde en négatif (filtre reborn-hud:byakugan),
-        // silhouettes + réseau de chakra (ChakraNetworkLayer), aura à travers les murs
-        // (mixins LivingEntityRenderer*Byakugan) et effet d'activation (flash + lignes radiales).
+        // Byakugan (lot 5, étape B, refait le 09/11) : touche O, canal reborn:dojutsu (ShinobiCore), monde pâle et froid
+        // cerné de l'encre blanche de Ketto (filtre reborn-hud:byakugan), personnes en cyan (ChakraNetworkLayer, mixins
+        // LivingEntityRenderer*Byakugan), liseré derrière les murs, fondu 0,35 / 0,27 s, yeux pâles des porteurs proches.
+        fr.reborn.hud.byakugan.ByakuganClient.init();
+        // Ancien canal reborn:byakugan (ShinobiSense, S2C {actif, portée}) : toujours écouté, pour que ShinobiSense voie le
+        // mod et ne pose ni armure de chakra ni barre de boss ; suivi seulement si ShinobiCore ne parle pas reborn:dojutsu.
         net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
             fr.reborn.hud.byakugan.ByakuganPayload.ID, fr.reborn.hud.byakugan.ByakuganPayload.CODEC);
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
             fr.reborn.hud.byakugan.ByakuganPayload.ID,
             (payload, context) -> context.client().execute(
-                () -> fr.reborn.hud.byakugan.ByakuganClient.update(payload.active(), payload.range())));
-        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
-            (handler, client) -> fr.reborn.hud.byakugan.ByakuganClient.clear());
-        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
-            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "byakugan_activation"),
-            (ctx, tickCounter) -> fr.reborn.hud.byakugan.ByakuganActivation.render(ctx));
+                () -> fr.reborn.hud.byakugan.ByakuganClient.ancienCanal(payload.active(), payload.range())));
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(
             client -> { fr.reborn.hud.effets.FiltresEcran.tick(); fr.reborn.hud.meteo.MeteoClient.tick(); });
 
@@ -781,6 +787,8 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.audit.Lot4c6Debug.init();  // banc de la couleur du halo, planche c6 (REBORN_LOT4_DEBUG=c6, dev)
         fr.reborn.hud.audit.Lot4c7Debug.init();  // banc des traces de pas, planche c7 (REBORN_LOT4_DEBUG=c7, dev)
         fr.reborn.hud.audit.Lot4dDebug.init();   // banc de la touche maintenue et de l'effet réduit (REBORN_LOT4_DEBUG=d, dev)
+        fr.reborn.hud.audit.Lot5Debug.init();    // banc du saut chargé (REBORN_LOT5_DEBUG=saut, dev)
+        fr.reborn.hud.audit.Lot5ByakDebug.init();   // banc du Byakugan (REBORN_LOT5_DEBUG=byak, dev)
         // Narration du staff (lot 2, étape 2d, canal reborn:narration, ShinobiCore Narrations) : type S2C enregistré (le
         // serveur sait que le joueur a le mod, sinon repli tchat), message passé au texte au centre ; oubli à la connexion.
         fr.reborn.hud.recit.NarrationClient.init();
@@ -806,9 +814,6 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.menu.character.scene.ScenePreview.init();
         fr.reborn.hud.menu.character.perso.PersoDebug.init();
         fr.reborn.hud.menu.character.perso.SlimDebug.init();   // banc carrure fine Homme (REBORN_SLIM_DEBUG, dev)
-        // Test local (dev uniquement, variable d'environnement REBORN_BYAKUGAN_DEBUG=1) : active le Byakugan
-        // dans un monde solo, fait apparaître des cibles et prend des captures dans run/screenshots/.
-        fr.reborn.hud.byakugan.ByakuganDebug.init();
         fr.reborn.hud.interaction.InteractionDebug.init();   // banc du menu R (REBORN_INTERACTION_DEBUG, dev)
         fr.reborn.hud.audit.FpsDebug.init();   // banc de FPS (REBORN_FPS_DEBUG, dev)
         // Moteur de texte du lot 2 (TexteRaster : FreeType sur le fil Reborn-Texte, couches posées à 1:1) : fermeture
@@ -842,12 +847,16 @@ public final class RebornHudClient implements ClientModInitializer {
                         new fr.reborn.hud.cosmetic.CosmeticFeatureRenderer(parent, context.getModelSet()));
                 }
                 // Byakugan : réseau de chakra sur la silhouette des joueurs et des mobs humanoïdes
-                // (même disposition de texture que le skin joueur).
+                // (même disposition de texture que le skin joueur) ; veines des tempes d'un porteur, vues de près.
                 if (entityRenderer.getModel() instanceof net.minecraft.client.model.HumanoidModel<?>) {
                     @SuppressWarnings({"unchecked", "rawtypes"})
                     net.minecraft.client.renderer.entity.layers.RenderLayer layer =
                         new fr.reborn.hud.byakugan.ChakraNetworkLayer(entityRenderer);
                     registrationHelper.register(layer);
+                    @SuppressWarnings({"unchecked", "rawtypes"})
+                    net.minecraft.client.renderer.entity.layers.RenderLayer signe =
+                        new fr.reborn.hud.byakugan.ByakuganSigneLayer(entityRenderer);
+                    registrationHelper.register(signe);
                 }
             });
 

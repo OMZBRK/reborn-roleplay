@@ -77,6 +77,10 @@ import java.util.function.IntFunction;
  * la Concentration. « Réinitialiser la section » applique la même règle après avoir remis les défauts, avant la règle
  * du clavier ({@link #reinitialiser}).
  *
+ * <p><b>Version 6 — Byakugan sur O</b> (lot 5, étape B, 09/11) : la règle de la version 2 est appliquée à cette seule
+ * touche chez les joueurs déjà migrés (en AZERTY, QWERTY et QWERTZ, O s'affiche « O » : rien ne bouge ; ailleurs, la
+ * touche qui affiche « o » si elle est libre). « Amis » (O en 26.2) a été déliée par la version 4.
+ *
  * Idempotente : chaque partie ne s'applique qu'aux versions antérieures, puis le drapeau passe à {@link #VERSION}.
  */
 public final class TouchesMigration {
@@ -84,7 +88,7 @@ public final class TouchesMigration {
     private static final Logger LOG = LoggerFactory.getLogger("reborn-hud/touches");
 
     /** Version de la carte des touches ; on la monte si une nouvelle migration s'ajoute. */
-    public static final int VERSION = 5;
+    public static final int VERSION = 6;
 
     /**
      * Touches de Minecraft cachées des Paramètres › Commandes (et déliées une fois par la version 4 si elles étaient sur
@@ -156,6 +160,7 @@ public final class TouchesMigration {
                 nouvelles.add(HudKeybinds.CONCENTRATION);
                 nouvelles.add(HudKeybinds.MICRO);
             }
+            if (v < 6 && HudKeybinds.BYAKUGAN != null) nouvelles.add(HudKeybinds.BYAKUGAN);
             if (!nouvelles.isEmpty()) changees += clavier(nom, nouvelles);
         }
         if (v < 3) changees += verifierPortee(mc);
