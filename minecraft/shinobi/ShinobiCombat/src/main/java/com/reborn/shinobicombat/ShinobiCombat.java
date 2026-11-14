@@ -32,6 +32,7 @@ public final class ShinobiCombat extends JavaPlugin {
 
     private StaminaManager stamina;
     private BukkitTask regenTask;
+    private com.reborn.shinobicombat.combat.SautCharge saut;
 
     @Override
     public void onEnable() {
@@ -71,6 +72,12 @@ public final class ShinobiCombat extends JavaPlugin {
 
         CombatListener combat = new CombatListener(this, characters, ko, stamina, stats, attribution);
         getServer().getPluginManager().registerEvents(combat, this);
+        // Saut chargé décidé par le serveur (lot 5, étape A) : config.yml, mobility.saut-charge.
+        saveDefaultConfig();
+        this.saut = new com.reborn.shinobicombat.combat.SautCharge(this, combat, characters, ko);
+        saut.charger(getConfig().getConfigurationSection("mobility.saut-charge"));
+        combat.lierSaut(saut);
+        getServer().getPluginManager().registerEvents(saut, this);
         // Étourdissement → ShinobiCore (sacoche en lecture seule, ramassage refusé).
         // + garde (lue par ShinobiCore : pas de technique ni de mobilité en garde, décision du 14/10).
         services.register(com.reborn.shinobicore.api.StunService.class,
@@ -126,12 +133,15 @@ public final class ShinobiCombat extends JavaPlugin {
             }
         }, REGEN_PERIOD_TICKS, REGEN_PERIOD_TICKS);
 
-        getLogger().info("ShinobiCombat activé — taïjutsu incrément 2 (combos M1 + M2 lourd).");
+        saut.demarrer();
+        getLogger().info("ShinobiCombat activé — taïjutsu incrément 2 (combos M1 + M2 lourd), saut chargé : "
+                + saut.regles().chargeMs() + " ms, portée au plus " + (int) saut.regles().porteeMax() + " blocs.");
     }
 
     @Override
     public void onDisable() {
         if (regenTask != null) regenTask.cancel();
+        if (saut != null) saut.arreter();
         CombatListener.libererTout(this);   // étourdi / garde : rien ne reste figé après un rechargement
         if (getServer().getMessenger().isOutgoingChannelRegistered(this, CombatChannel.CHANNEL)) {
             getServer().getMessenger().unregisterOutgoingPluginChannel(this, CombatChannel.CHANNEL);

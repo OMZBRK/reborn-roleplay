@@ -59,6 +59,22 @@ public final class CombatChannel {
      *  orbite plein bas (la 1ère personne/vanilla suit déjà le pitch de l'entité).
      *  Émis par la commande {@code /lookdown}. */
     public static final byte TYPE_LOOK_DOWN = 6;
+    /** Saut chargé (lot 5, étape A) : réponse à la relâche ou refus. Corps : {@code byte statut} ({@link #SAUT_GO} ou
+     *  {@link #SAUT_NON}). GO : {@code float vx, vy, vz, float charge, int rechargeMs, byte drapeaux
+     *  ({@link #SAUT_BRIDE_VUE}, {@link #SAUT_BRIDE_CHAKRA}), float porteeBorne}. NON : {@code byte raison
+     *  (SAUT_R_*), int resteMs} (recharge restante, sinon 0). Un mod plus ancien l'ignore. */
+    public static final byte TYPE_SAUT = 7;
+    /** Réglages du saut chargé, poussés à la connexion : le mod calcule le même cercle que le serveur. Corps :
+     *  {@code byte version (1), int chargeMs, float seuil, vitesseMin, vitessePente, elanMin, elanPente, vyMax,
+     *  trainee, coutMinPct, coutMaxPct, int rechargeMinMs, int rechargeMaxMs, float porteeMax, viseeMaxDeg}. */
+    public static final byte TYPE_SAUT_REGLES = 8;
+
+    public static final byte SAUT_NON = 0, SAUT_GO = 1;
+    public static final byte SAUT_BRIDE_VUE = 1, SAUT_BRIDE_CHAKRA = 2;
+    /** Raisons d'un refus du saut chargé (le mod les traduit). */
+    public static final byte SAUT_R_ETAT = 1, SAUT_R_RECHARGE = 2, SAUT_R_CHAKRA = 3, SAUT_R_SOL = 4,
+            SAUT_R_SEUIL = 5, SAUT_R_EAU = 6, SAUT_R_SURCHARGE = 7, SAUT_R_KO = 8, SAUT_R_PERSO = 9,
+            SAUT_R_SANS_DEBUT = 10, SAUT_R_GARDE = 11;
 
     /** Rôle porté par {@link #TYPE_PARRY} : la victime a paré avec succès (deflect). */
     public static final byte PARRY_ROLE_SUCCESS = 0;
@@ -87,6 +103,15 @@ public final class CombatChannel {
     public static final byte KIND_KERIOX_DASH = 6;
     /** Esquive latérale/arrière — suivi de {@code float vx}, {@code float vy}, {@code float vz}. */
     public static final byte KIND_DODGE = 7;
+    /** Saut chargé, début de charge (aucun corps) : le serveur note SON heure et vérifie les gardes. */
+    public static final byte KIND_SAUT_DEBUT = 8;
+    /** Saut chargé, relâche : {@code float lacet}, {@code float tangage} de la visée (caméra). Le serveur calcule la
+     *  charge avec ses deux heures et répond {@link #TYPE_SAUT}. */
+    public static final byte KIND_SAUT_RELACHE = 9;
+    /** Saut chargé, annulation (quitté le sol, garde, écran ouvert ; aucun corps). */
+    public static final byte KIND_SAUT_ANNULE = 10;
+    /** Saut chargé : le mod n'a pas joué un {@code GO} arrivé trop tard (aucun corps). Bond pas encore décollé : remboursé. */
+    public static final byte KIND_SAUT_GO_IGNORE = 11;
 
     private CombatChannel() {}
 
@@ -157,6 +182,66 @@ public final class CombatChannel {
         ByteArrayOutputStream b = new ByteArrayOutputStream();
         try (DataOutputStream out = new DataOutputStream(b)) {
             out.writeByte(TYPE_LOOK_DOWN);
+        } catch (IOException ignored) {
+            return;
+        }
+        target.sendPluginMessage(plugin, CHANNEL, b.toByteArray());
+    }
+
+    /** Saut chargé accepté : vitesse de départ, charge retenue, recharge, drapeaux et portée bornée. */
+    public static void sendSautGo(Plugin plugin, Player target, double[] v, double charge, long rechargeMs,
+                                  byte drapeaux, double porteeBorne) {
+        ByteArrayOutputStream b = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(b)) {
+            out.writeByte(TYPE_SAUT);
+            out.writeByte(SAUT_GO);
+            out.writeFloat((float) v[0]);
+            out.writeFloat((float) v[1]);
+            out.writeFloat((float) v[2]);
+            out.writeFloat((float) charge);
+            out.writeInt((int) Math.min(Integer.MAX_VALUE, rechargeMs));
+            out.writeByte(drapeaux);
+            out.writeFloat((float) porteeBorne);
+        } catch (IOException ignored) {
+            return;
+        }
+        target.sendPluginMessage(plugin, CHANNEL, b.toByteArray());
+    }
+
+    /** Saut chargé refusé : raison ({@code SAUT_R_*}) et recharge restante (0 sinon). */
+    public static void sendSautNon(Plugin plugin, Player target, byte raison, long resteMs) {
+        ByteArrayOutputStream b = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(b)) {
+            out.writeByte(TYPE_SAUT);
+            out.writeByte(SAUT_NON);
+            out.writeByte(raison);
+            out.writeInt((int) Math.max(0, Math.min(Integer.MAX_VALUE, resteMs)));
+        } catch (IOException ignored) {
+            return;
+        }
+        target.sendPluginMessage(plugin, CHANNEL, b.toByteArray());
+    }
+
+    /** Réglages du saut chargé (voir {@link #TYPE_SAUT_REGLES}). */
+    public static void sendSautRegles(Plugin plugin, Player target, com.reborn.shinobicombat.saut.SautChargeLoi.Regles r) {
+        ByteArrayOutputStream b = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(b)) {
+            out.writeByte(TYPE_SAUT_REGLES);
+            out.writeByte(1);
+            out.writeInt((int) r.chargeMs());
+            out.writeFloat((float) r.seuil());
+            out.writeFloat((float) r.vitesseMin());
+            out.writeFloat((float) r.vitessePente());
+            out.writeFloat((float) r.elanMin());
+            out.writeFloat((float) r.elanPente());
+            out.writeFloat((float) r.vyMax());
+            out.writeFloat((float) r.trainee());
+            out.writeFloat((float) r.coutMinPct());
+            out.writeFloat((float) r.coutMaxPct());
+            out.writeInt((int) r.rechargeMinMs());
+            out.writeInt((int) r.rechargeMaxMs());
+            out.writeFloat((float) r.porteeMax());
+            out.writeFloat((float) r.viseeMaxDeg());
         } catch (IOException ignored) {
             return;
         }

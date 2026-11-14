@@ -1335,3 +1335,16 @@ concentration:
     sang: false               # true : les blessés (moins de la moitié de leur vie) marquent le talon de sang
     max-troncon: 1024         # pas gardés par tronçon (le plus vieux part) ; l'envoi reste borné : 320 pas à un joueur, les plus proches
     max-global: 500000        # pas gardés sur le serveur (le plus vieux part)
+
+# Byakugan (lot 5, Game Plan n° 17, étape B) : vision tenue sur la touche O du mod (canal reborn:dojutsu). Le serveur
+# décide qui l'a, la paie et la coupe (KO, mort, cinématique, douane, capacité TECHNIQUE à 0, chakra épuisé) ; tout le
+# rendu est côté client, rien au tchat, aucun nom ni aucune lecture de chakra envoyés.
+dojutsu:
+  byakugan:
+    actif: true
+    clans: [Hyuga, Hyūga, Otsutsuki, Ōtsutsuki]   # accents et casse ignorés
+    portee: 50.0              # blocs : personnes vues, à travers les murs compris (4 à 128)
+    cout-pct-seconde: 0.1     # part de la réserve de chakra par seconde (0,1 = 0,1 % ; 0 = gratuit)
+    yeux: true                # il faut au moins un œil qui voit, du clan ou un Byakugan greffé (chirurgie des yeux)
+    reprendre-sense: true     # /sense dojutsu (clans du Byakugan) et /sense byakugan passent par ce module, pas par ShinobiSense
+    signe-rayon: 12.0         # blocs : les joueurs proches voient les yeux pâles du porteur (0 = jamais)

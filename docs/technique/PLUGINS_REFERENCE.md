@@ -20,7 +20,7 @@
 | **ShinobiAbilities** | `minecraft/shinobi/ShinobiAbilities` | Maven | ShinobiCore, MagicSpells, ShinobiTail | Contenu Naruto : catalogue de techniques (`abilities.yml`), lancer, mobilité (Naruto run, dash, sauts), parchemins, bibliothèques, apprentissage |
 | **ShinobiCombat** | `minecraft/shinobi/ShinobiCombat` | Maven | ShinobiCore | Combat M1 kenjutsu / taïjutsu, parade, endurance, HUD combat |
 | **ShinobiLearning** | `minecraft/shinobi/ShinobiLearning` | Maven | ShinobiCore, ShinobiAbilities | Académie, équipes Genin, transmission de maîtrise par un sensei |
-| **ShinobiSense** | `minecraft/shinobi/ShinobiSense` | Maven | ShinobiCore, ShinobiAbilities, ShinobiTail | Perception : radar de chakra, genjutsu, dōjutsu (Byakugan) |
+| **ShinobiSense** | `minecraft/shinobi/ShinobiSense` | Maven | ShinobiCore, ShinobiAbilities, ShinobiTail | Perception : radar de chakra, genjutsu, dōjutsu ; le **Byakugan** est repris par ShinobiCore depuis le lot 5 (§4 duodecies) |
 | **ShinobiTail** | `minecraft/shinobi/ShinobiTail` | Maven | ShinobiCore | Démons à queues : rage, corruption, monde intérieur, transformation |
 | **ShinobiRadio** | `minecraft/shinobi/ShinobiRadio` | Maven | **`depend`** : ShinobiCore, **PlasmoVoice** (plugin serveur `spigot-2.1.17`) | Radio en escouades (14/10) : oreillette, escouades persistantes, addon serveur Plasmo Voice (activation et ligne « radio »), écoute staff — [`../gameplay/RADIO.md`](../gameplay/RADIO.md) |
 | **RebornGuardian** | `minecraft/plugin-guardian` | Gradle | — | Vérifie le play-token au JOIN (signature, UUID, portée `play` / `douane`, serveur visé `aud`), kick sinon ; pose la marque `reborn.scope` ; mode fermé sans secret — §5.4 |
@@ -297,8 +297,9 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `reborn:anim` | ⇄ | `shinobiabilities.mobility.AnimRelayListener` | `animation/AnimSyncPayload` | Synchronisation d'animations |
 | `reborn:eau` | S → C | `shinobiabilities.mobility.MarcheEau` | `eau/EauPayload` | **Marche sur l'eau** (15/10, octets bruts) : `0` réglages (actif, chakra/s immobile, marche, trot, sprint) ; `1` permis (0/1 + raison : 0 aucune, 1 pas appris, 2 chakra, 3 état, 4 hors jeu, 5 surcharge, 6 désactivé). Envoyé seulement aux clients qui écoutent le canal ; les ondes vues des autres ne passent pas par le réseau — [`../gameplay/DEPLACEMENTS.md`](../gameplay/DEPLACEMENTS.md) §10 |
 | `reborn:meditation` | S ↔ C | `character.MeditationManager` | `meditation/MeditationPayload` | **Halo de méditation** (18/10, octets bruts). S → C : `0`, nombre (int), puis pour chaque méditant à moins de `meditation.halo.portee` (48) blocs, destinataire compris : identifiant réseau de l'entité (int) et **couleur d'aura** RGB (int) — envoyé au début / à la fin d'une méditation, à un changement de couleur et toutes les 10 ticks **seulement si la liste change** ; liste vide une fois quand il n'y a plus personne ; `1`, couleur d'aura du personnage actif (int RGB) + octet « choisie » (réponse). C → S (v2) : `1` demander sa couleur, `2` + int RGB l'enregistrer sur le personnage (au plus une fois par 0,5 s), `3` revenir au défaut |
-| `reborn:combat`, `reborn:combatin` | ⇄ | `shinobicombat.net.CombatChannel` | `combat/CombatPayload`, `CombatInputPayload` | HUD combat, entrées M1 / parade |
-| `reborn:byakugan` | S → C | `shinobisense.ByakuganVision` | `byakugan/ByakuganPayload` | Vision Byakugan |
+| `reborn:combat`, `reborn:combatin` | ⇄ | `shinobicombat.net.CombatChannel` | `combat/CombatPayload`, `CombatInputPayload` | HUD combat, entrées M1 / parade. **Saut chargé** (lot 5, 09/11, octets bruts, §5.1 bis) : C → S kind `8` début de charge, `9` relâche (`float lacet`, `float tangage`), `10` annulation ; S → C type `7` réponse, type `8` réglages. L'ancien kind `5` (vitesse calculée par le client) reste accepté une version |
+| `reborn:dojutsu` | ⇄ | `dojutsu.ByakuganService` (ShinobiCore) | `byakugan/DojutsuCanal` → `ByakuganClient` | **Byakugan** (lot 5, étape B, 09/11) : C → S `{"a":"byakugan","on":bool}` (touche O) ; S → C `regles` (droit du personnage, portée), `byakugan` (accepté / refusé / fin imposée, `raison`), `signes` (porteurs proches dont le mod peint les veines) ; aucun nom, aucune lecture de chakra (§4 duodecies) |
+| `reborn:byakugan` | S → C | `shinobisense.ByakuganVision` (jar non commité du dev) | `byakugan/ByakuganPayload` | **Ancienne** vision (`/sense dojutsu`) : toujours écoutée par le mod pour que ShinobiSense se taise (ni armure de chakra ni barre de boss) ; suivie seulement si ShinobiCore ne parle pas `reborn:dojutsu` (§4 duodecies.3) |
 | `reborn:ost`, `reborn:ost_request` | ⇄ | `ost.plugin.network.OstChannel` | `ost/network/*` (mod-ost) | Musiques |
 | `reborn:controls` | client | — | `keybind/*` | Interne au mod |
 | `reborn:annonce` | S → C | `staff.outils.EffetsStaff` | `staff/EffetsStaff` | Annonce globale ou personnelle (§4 bis.3) |
@@ -1020,6 +1021,66 @@ Code : `ShinobiCore concentration/trace/` (`TraceService` pour le serveur ; `Tra
   `max-global` (absents d'un `config.yml` du disque : ces défauts). `actif: false` (`/sc reload`) arrête tout dans la seconde :
   plus de relevé ni d'envoi, mémoire vidée, et un message `plein` vide efface les traces de l'écran des concentrés.
 
+## 4 duodecies. Byakugan — ShinobiCore `reborn:dojutsu` (lot 5, étape B, 09/11)
+
+Décision du 09/11 : « l'encre ne donne rien, c'est pas beau » (celle de la maquette ; l'encre blanche de Ketto est rétablie
+le même jour, côté mod seulement) et `ByakuganVision.java` (ShinobiSense, non commité) **ne sera pas commité** : un vrai
+Byakugan à nous, côté ShinobiCore (`dojutsu/ByakuganService`, règles pures
+`dojutsu/ByakuganRegles`, tests `ByakuganReglesTest`). Le rendu est entièrement côté mod (§ MOD_HUD, `byakugan/`) :
+le serveur décide, paie et coupe, il ne dessine rien et ne dit rien au tchat.
+
+### 4 duodecies.1 Règles (serveur)
+
+| | |
+|---|---|
+| **Qui** | Personnage actif d'un clan de `dojutsu.byakugan.clans` (Hyūga, Ōtsutsuki ; accents et casse ignorés) **et**, si `yeux: true`, au moins un œil qui voit, Byakugan ou œil natif du clan (chirurgie des yeux : un Hyūga sans ses deux yeux ne l'a plus). Staff : `/sense byakugan` (permission `shinobisense.dojutsu.any`), sans clan ni coût |
+| **Coût** | `cout-pct-seconde` (0,1) % de la réserve par seconde, débité toutes les 0,5 s (`ChakraPool.consume`) ; réserve vide : fin « Ton chakra est épuisé. » |
+| **Refus et fins** | Relus à l'activation, toutes les 0,5 s **et à chaque `EtatChangedEvent`** (le KO coupe au tick même) : mort RP, à terre, inconscient, spectateur, cinématique, douane, hors jeu (sélection, sans personnage, **mode staff** : aucune mécanique RP, comme ShinobiCombat ; la vision de test `/sense byakugan` du staff reste permise — `ByakuganRegles.horsJeu`), capacité `TECHNIQUE` à 0 de la matrice d'états (niveau 1, entravé ou sans mudra : permis), écran noir du staff ; mort, changement de personnage, déconnexion. 4 activations par seconde au plus (« Trop vite. »), arrêt jamais limité |
+| **Ce que voient les autres** | Rien, sauf de près (`signe-rayon`, 12 blocs) : les veines des tempes du porteur (quelques pixels peints par le mod). Ni nom, ni pourcentage, ni annonce |
+
+### 4 duodecies.2 Canal `reborn:dojutsu` (JSON UTF-8 brut, `v` = 1, champs inconnus ignorés)
+
+| Sens | Message | Effet |
+|---|---|---|
+| C → S | `{"v":1,"a":"byakugan","on":true}` | Activer (touche O). `"on":false` : arrêter |
+| S → C | `{"v":1,"t":"regles","byakugan":true,"portee":50.0}` | À la connexion (après 2 s), au changement de personnage, au rechargement : sans droit, la touche ne fait rien côté mod |
+| S → C | `{"v":1,"t":"byakugan","on":true,"portee":50.0}` | Accepté : le mod lance le fondu (0,35 s) |
+| S → C | `{"v":1,"t":"byakugan","on":false,"raison":"Tu es inconscient."}` | Refus ou fin imposée ; sans `raison` : arrêt voulu par le joueur |
+| S → C | `{"v":1,"t":"signes","ids":[4182]}` | Identifiants d'entités des porteurs proches (envoyé seulement quand la liste change ; vide une fois quand il n'y a plus personne) |
+
+### 4 duodecies.3 Coexistence avec ShinobiSense (jar du serveur de dev)
+
+Le jar ShinobiSense déployé sur le dev garde `/sense dojutsu`, `/sense byakugan` et son canal `reborn:byakugan` (code non
+commité, que personne ne touche ; ce dépôt ne le modifie pas). Rien de destructif n'est demandé au staff :
+
+- **`reprendre-sense: true`** (défaut) : ShinobiCore intercepte, avant ShinobiSense (`PlayerCommandPreprocessEvent`,
+  priorité la plus basse), `/sense|/sentir|/perception dojutsu|doujutsu|yeux` pour un personnage d'un clan du Byakugan et
+  `/sense byakugan` pour qui a `shinobisense.dojutsu.any`. La commande devient la même bascule que la touche O. Le dōjutsu de
+  ShinobiSense ne s'allume donc plus pour eux : ni coût de 8 par seconde, ni lecture du chakra avec le vrai nom dans la barre
+  d'action, ni annonce au tchat, ni double rendu. Les autres clans (Uchiha…) gardent ShinobiSense tel quel.
+- Le mod **écoute toujours** `reborn:byakugan` : ShinobiSense voit le canal et ne pose ni armure de chakra ni barre de boss.
+  Dès que ShinobiCore lui a parlé `reborn:dojutsu`, le mod ignore les messages de `reborn:byakugan` ; sur un serveur sans ce
+  ShinobiCore (avant le lot 5), il les suit encore et dessine la nouvelle vision.
+- `reprendre-sense: false` n'est utile que pour revenir à l'ancien Byakugan : le mod ne le dessinerait plus (il suit
+  `reborn:dojutsu`), garder `true`.
+- Limite : seule la commande **tapée** est reprise. Un `performCommand("sense dojutsu")` lancé par un autre plugin ne passe
+  pas par `PlayerCommandPreprocessEvent` (aucun ne le fait dans ce dépôt ; ShinobiSense n'a pas d'autre chemin d'activation).
+
+À faire par le staff : déposer `ShinobiCore` (et `reborn-hud` 0.4.202 par le manifeste), redémarrer. La section
+`dojutsu.byakugan` prend ses défauts du code tant qu'elle n'est pas dans le `config.yml` du serveur.
+
+### 4 duodecies.4 Réglages (`ShinobiCore/config.yml`, `dojutsu.byakugan`, défauts dans le code)
+
+| Clé | Défaut | |
+|---|---|---|
+| `actif` | `true` | Sans lui : aucun droit, la touche O ne fait rien |
+| `clans` | `[Hyuga, Hyūga, Otsutsuki, Ōtsutsuki]` | |
+| `portee` | `50.0` | Blocs : personnes vues, à travers les murs compris (4 à 128) |
+| `cout-pct-seconde` | `0.1` | Part de la réserve par seconde (0 = gratuit) |
+| `yeux` | `true` | Il faut un œil qui voit (chirurgie des yeux) |
+| `reprendre-sense` | `true` | Voir §4 duodecies.3 |
+| `signe-rayon` | `12.0` | Blocs (0 = personne ne voit les veines) |
+
 ## 4 ter. Nourriture et modificateurs — protocole (14/10)
 
 > ShinobiCore `nourriture/` et `modificateur/` ⇄ mod `fr.reborn.hud.nourriture`. JSON UTF-8 brut, champs optionnels,
@@ -1562,12 +1623,69 @@ remplace `satiete.affame` = 20, désormais ignorée ; alerte seule, **aucun malu
 | `character-select` | point de sélection des persos | [`gameplay/PERSONNAGES.md`](../gameplay/PERSONNAGES.md) |
 | `tablist`, `lore`, `cinematic`, `optimization`, `no-character-lockdown`, `character`, `shop` | divers | — |
 | `douane` | aiguillage à la connexion, monde, hall, bureaux, délais, voix, banque de questions | §4 decies.1 |
+| `dojutsu` | `byakugan.*` : `actif`, `clans`, `portee`, `cout-pct-seconde`, `yeux`, `reprendre-sense`, `signe-rayon` (lot 5, 09/11) | §4 duodecies.4 |
 | `reborn`, `panel-bridge` | URL de l'API, secrets HMAC du pont panel ; `reborn.server-id` et `reborn.game-secret` (routes signées de la douane, §4 decies.1) ; `reborn.sync-personnages` (§4 decies.8) | **ne jamais commiter de vraie valeur** |
 
 > **Une config existante sur le serveur n'est jamais réécrite** par une nouvelle version du plugin. Une clé
 > ajoutée dans le code prend sa **valeur par défaut du code** tant qu'elle n'est pas dans le fichier du
 > serveur. Pour changer une valeur déjà présente, il faut éditer `plugins/ShinobiCore/config.yml` sur le
 > serveur, **serveur arrêté** (sinon il est réécrit à l'arrêt).
+
+### 5.1 bis Saut chargé : `reborn:combat` / `reborn:combatin` et `ShinobiCombat/config.yml` (lot 5, étape A, 09/11)
+
+Code : `ShinobiCombat/…/combat/SautCharge` (serveur), `…/saut/SautChargeLoi` (loi pure, testée, **copie exacte** de
+`mod-hud/…/combat/SautChargeLoi`). Fiche : [`../gameplay/DEPLACEMENTS.md`](../gameplay/DEPLACEMENTS.md) §11.
+
+| Sens | Message | Corps (octets bruts, `DataOutputStream`) | Le serveur |
+|---|---|---|---|
+| C → S | kind `8` | aucun | Personnage, KO, garde, étourdi, `MOBILITE` + `SAUTER` (`EtatService`), surcharge, eau, recharge, chakra pour le seuil, aucun bond en cours, **au sol** (collision 0,25 sous les pieds ; jamais le `onGround` déclaré par le client). Note **son** heure ; refus immédiat par `NON`. Marque le client « nouveau protocole » (l'ancien kind 5 lui est fermé) |
+| C → S | kind `9` | `float lacet, float tangage` (visée caméra) | Charge calculée avec **ses deux heures** (60 ms au plus sous le seuil : arrondie au seuil) ; gardes relues, au sol ou vu au sol dans les 200 ms ; charge ramenée à ce que la réserve paie ; visée ramenée dans **25°** de son regard ; vitesse par la loi, **vraie arrivée** (relief compris) bornée par la distance de vue ; débit du chakra ; recharge ; `GO` ; protection de chute ; son `ENTITY_BREEZE_JUMP` (remplace le battement de dragon) |
+| C → S | kind `10` | aucun | Oublie la charge |
+| C → S | kind `11` | aucun | Le mod n'a pas joué un `GO` arrivé hors de sa fenêtre (plus de 3 s après la relâche, ou pendant une nouvelle charge) : bond pas encore décollé = **remboursé** (chakra rendu, recharge d'avant remise), aucune protection |
+| S → C | type `7`, `1` = GO | `float vx, vy, vz, float charge, int rechargeMs, byte drapeaux (1 portée bornée par la vue, 2 charge bornée par le chakra), float porteeBorne` | Le mod joue le vol, sans poussée |
+| S → C | type `7`, `0` = NON | `byte raison, int resteMs` : 1 état, 2 recharge (avec le reste), 3 chakra, 4 sol, 5 seuil, 6 eau, 7 surcharge, 8 KO, 9 aucun personnage, 10 relâche sans début, 11 garde | Rien ne part, aucune recharge |
+| S → C | type `8` | `byte 1, int chargeMs, float seuil, vitesseMin, vitessePente, elanMin, elanPente, vyMax, trainee, coutMinPct, coutMaxPct, int rechargeMinMs, int rechargeMaxMs, float porteeMax, viseeMaxDeg` | 2 s après la connexion, et à l'activation du plugin pour les joueurs en ligne |
+
+**En vol** (de `GO` à la première réception, 10 s au plus) : le serveur ne pose pas la vitesse, il **surveille** (toutes les
+5 ticks, distance au départ au plus celle permise à `tick + 12`, plus 3 blocs ; sinon le bond est arrêté et journalisé),
+remet la distance de chute à zéro à chaque tick, et **annule les dégâts de chute pour tous** (priorité `LOWEST`) jusqu'à une
+seconde après la réception. Métadonnée `reborn_bond` pendant le bond : ShinobiAbilities se retire, `MobilityListener`
+(ni double saut, ni saut mural, ni escalade, ni onde au sol) **et la Voie du Flux** (`MobilityPathTwoModule` : ni pilotage
+ni plafond de vitesse en l'air, ni gravité allégée, ni bond au double appui ; la course et l'élan restent). Le KO fait tomber
+une charge ; un bond en cours garde sa protection jusqu'au sol. `/resetcd` efface aussi cette recharge ; elle survit à une
+reconnexion.
+
+**Le bond doit être pris** (critique du 09/11). Sans décollage vu par le serveur (collision sous les pieds perdue, ou 0,4 bloc
+de montée) dans `10 ticks + 2 × ping` (3 s au plus), le bond tombe et il est **remboursé** : rien n'a eu lieu, pas de
+protection, pas de retrait de ShinobiAbilities. **Huit ticks après le décollage**, le corps doit avoir suivi l'arc : au moins
+30 % de l'avance horizontale attendue et 40 % de la montée attendue (`SautChargeLoi.decollageConforme`, marges pour les
+paquets de mouvement groupés). Sinon (se laisser tomber d'une falaise à la place du bond, faire un saut vanilla, heurter un mur
+dans les premiers blocs) la protection de chute tombe, **sans** remboursement. Un téléport (staff, cinématique, douane,
+hôpital) ou un changement de monde finit le bond proprement (seconde de grâce), sans faux « bond arrêté ».
+
+**Ancien saut** (kind `5`, mod d'avant le lot 5, gardé une version) : accepté seulement d'un client qui n'a jamais montré le
+nouveau protocole (aucun kind 8, canal `reborn:dojutsu` non écouté : le mod 0.4.202 l'écoute toujours), au sol vu par le
+serveur, sans bond ni charge en cours ; **recharge partagée** avec le saut chargé (35 s posées des deux côtés) ; vitesse du
+client bornée comme avant (5,0 à l'horizontale, −0,2 à 3,0 en vertical) ; vol surveillé et chute couverte comme un bond,
+**jamais** un bond existant écrasé. Le mod 0.4.202 n'essaie l'ancien saut qu'après 5 s de jeu sans réglages reçus.
+
+**`ShinobiCombat/config.yml`** (nouveau, `saveDefaultConfig`, lu au démarrage) : `mobility.saut-charge` : `charge-ms` (1200),
+`seuil` (0,1125, soit 135 ms), `vitesse-min` (1,5), `vitesse-pente` (1,65), `elan-min` (0,6), `elan-pente` (0,35), `vy-max`
+(3,0), `trainee` (0,98), `cout-min` (0,3), `cout-max` (3,0, en % de la réserve), `recharge-min-s` (5), `recharge-max-s` (30),
+`portee-max` (96), `visee-max` (25), `tolerance-sol-ms` (200), `protection-chute-max-s` (10). Les valeurs partent au mod :
+le cercle suit le fichier. Redémarrage du serveur après une retouche.
+
+**Distance de vue.** La **vraie arrivée** est bornée à `min(portee-max, (distance − 1) × 16)`, avec la plus petite des
+distances du serveur (`Player#getViewDistance`) et du client (`getClientViewDistance`) : 96 blocs à 7 chunks et plus, 80 à
+6, 64 à 5. « Vraie arrivée » : l'arc simulé sur le relief (carte des hauteurs `MOTION_BLOCKING`, la plus haute surface
+solide, feuilles et eau comprises ; chunk non chargé = sol inconnu, le vol continue donc la borne joue), puis la vitesse
+horizontale réduite par dichotomie jusqu'à tenir la borne (`SautChargeLoi.bornerArrivee`). Critique du 09/11 : la portée à
+plat mentait depuis un point haut (pleine charge à 29° : 92 blocs à plat, 101 avec 20 de chute, 111 avec 60 ; à 6 chunks
+l'arrivée tombait vers 96 blocs, hors des chunks chargés). Le mod fait le même calcul sur sa carte des hauteurs et sa
+distance de rendu effective, et l'écrit sous le filet (« Portée bornée : N blocs »). Un toit ou une branche sous l'arc
+arrête le corps plus tôt, jamais plus loin. À 96 blocs on reste sous la distance de suivi des entités (meubles Nexo, 96 sur
+le banc local). **Non vérifié sur le dev** :
+`view-distance`, `simulation-distance`, `prevent-moving-into-unloaded-chunks`, plafond de chargement de chunks.
 
 ### 5.2 `ShinobiAbilities/config.yml` — sections
 
@@ -1582,7 +1700,7 @@ remplace `satiete.affame` = 20, désormais ignorée ; alerte seule, **aucun malu
 ### 5.3 Autres
 
 - **ShinobiLearning** : `academy`, `squad`, `storage`.
-- **ShinobiSense** : `sense`, `genjutsu`, `dojutsu` (dont `byakugan`).
+- **ShinobiSense** : `sense`, `genjutsu`, `dojutsu` (dont `byakugan`). Le Byakugan se règle désormais dans `ShinobiCore/config.yml`, `dojutsu.byakugan` (§4 duodecies.4) ; la section `dojutsu.byakugan` de ShinobiSense ne sert plus aux clans repris.
 - **ShinobiTail** : `triggers`, `rage`, `corruption`, `control-window`, `inner-world`, `fake-body`,
   `final-stage`, `aura`, `union`, `stage-power`, `messages`.
 - **ShinobiRadio** : `escouade` (`taille-max` 8, `distance` 3, `invitation-secondes` 10, `dissolution-jours` 30,

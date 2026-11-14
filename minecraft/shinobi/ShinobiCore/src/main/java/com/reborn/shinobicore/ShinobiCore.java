@@ -89,6 +89,8 @@ public final class ShinobiCore extends JavaPlugin {
     private com.reborn.shinobicore.journal.JournalServiceImpl journal;
     /** Lot 4 « Concentration », étape B : plaques lues en concentration (canal reborn:concentration, /plaque). */
     private com.reborn.shinobicore.concentration.ConcentrationModule concentration;
+    /** Lot 5 « Mobilité », étape B : le Byakugan (touche O du mod, canal reborn:dojutsu). */
+    private com.reborn.shinobicore.dojutsu.ByakuganService byakugan;
     /** Météo RP (null si la commande manque) : lue par les traces de pas (lot 4, étape C). */
     private com.reborn.shinobicore.meteo.MeteoCommand meteoCommand;
     private com.reborn.shinobicore.staff.outils.OutilsStaff outilsStaff;
@@ -855,6 +857,11 @@ public final class ShinobiCore extends JavaPlugin {
         this.concentration = new com.reborn.shinobicore.concentration.ConcentrationModule(this);
         this.concentration.demarrer();
 
+        // Byakugan (lot 5, étape B) : vision tenue sur la touche O du mod, droits (clans, yeux), coût, coupure au KO ;
+        // reprend /sense dojutsu (clans du Byakugan) et /sense byakugan avant ShinobiSense. Canal reborn:dojutsu.
+        this.byakugan = new com.reborn.shinobicore.dojutsu.ByakuganService(this);
+        this.byakugan.demarrer();
+
         // Douane (CANDIDATURE_ET_DOUANE.md §3.3-3.10) : aiguillage à la connexion (refus par défaut), monde « douane »,
         // hall, file, bureaux, mode examinateur, /douane, canal reborn:douane. Coupée tant que douane.enabled: false.
         if (!buildMode) {
@@ -959,6 +966,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (koHudSync != null) koHudSync.stop();
         if (staffPanel != null) staffPanel.infirmerie().stop();
         if (concentration != null) concentration.arreter();
+        if (byakugan != null) byakugan.arreter();
         if (exhaustionManager != null) exhaustionManager.stop();
         if (dummyManager != null) dummyManager.save();
         if (cinematicManager != null) cinematicManager.shutdown();
@@ -997,6 +1005,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (etatsModule         != null) etatsModule.service().charger();
         if (douane              != null) douane.recharger();
         if (concentration       != null) concentration.plaques().recharger();
+        if (byakugan            != null) byakugan.recharger();
         if (to != null) {
             to.sendMessage(Component.text("Configuration ShinobiCore rechargée.", NamedTextColor.GREEN));
         }
@@ -1435,6 +1444,8 @@ public final class ShinobiCore extends JavaPlugin {
     public com.reborn.shinobicore.staff.panel.StaffPanel staffPanel() { return staffPanel; }
     /** Lot 4 : plaques lues en concentration (null avant le démarrage). */
     public com.reborn.shinobicore.concentration.ConcentrationModule concentration() { return concentration; }
+    /** Lot 5 : le Byakugan (null avant le démarrage). */
+    public com.reborn.shinobicore.dojutsu.ByakuganService byakugan() { return byakugan; }
 
     public com.reborn.shinobicore.meteo.MeteoCommand meteo() { return meteoCommand; }
     /** Journal universel (14/10) ; les add-ons passent par le service {@code JournalService}. */

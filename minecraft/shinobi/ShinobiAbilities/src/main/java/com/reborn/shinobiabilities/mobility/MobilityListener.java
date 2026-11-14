@@ -122,6 +122,10 @@ public final class MobilityListener implements Listener {
      *  mid-swing is what "breaks" the grapple. */
     private boolean coreSessionActive(Player p) {
         if (mobility.training() != null && mobility.training().isRunning(p)) return true;
+        // Saut chargé en vol (ShinobiCombat, lot 5, métadonnée « reborn_bond ») : le mod joue un vol sans poussée,
+        // le cercle d'arrivée dit vrai seulement si rien d'autre ne touche la vitesse (ni double saut, ni saut mural,
+        // ni escalade, ni onde au sol, ni pilotage en l'air).
+        if (p.hasMetadata("reborn_bond")) return true;
         // A trail ride owns the body too: the ride task drives velocity every
         // tick, so the whole mobility engine (air-control steering AND the
         // space/flight-tap handler) must stand down — otherwise space fights the

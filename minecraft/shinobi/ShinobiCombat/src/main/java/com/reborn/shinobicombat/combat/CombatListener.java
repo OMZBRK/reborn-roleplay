@@ -134,7 +134,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
     private static final double DASH_UP = 0.35;
 
     // --- saut chakra (leap vertical/directionnel) --------------------------
-    /** Cooldown entre deux sauts chakra, par joueur (ms) — long, sans coût stamina. */
+    /** Recharge de l'ancien saut chakra (ms), partagée avec le saut chargé ({@link SautCharge}). */
     private static final long CHAKRA_JUMP_COOLDOWN_MS = 35000L;
     /** Magnitude horizontale max (anti-cheat) — {@code sqrt(vx²+vz²)} clampé à ça. */
     private static final double CHAKRA_JUMP_MAX_HORIZONTAL = 5.0;
@@ -188,7 +188,6 @@ public final class CombatListener implements Listener, PluginMessageListener {
     // Dernier dash par joueur (cooldown).
     private final Map<UUID, Long> lastDashMs = new ConcurrentHashMap<>();
     // Dernier saut chakra par joueur (cooldown).
-    private final Map<UUID, Long> lastChakraJumpMs = new ConcurrentHashMap<>();
     // Dernier keriox dash par joueur (cooldown).
     private final Map<UUID, Long> lastKerioxDashMs = new ConcurrentHashMap<>();
     // Dernière esquive par joueur (cooldown).
@@ -203,6 +202,8 @@ public final class CombatListener implements Listener, PluginMessageListener {
     /** Verrou de garde après une garde brisée (ETATS_JOUEUR §5.1) : pas de nouvelle garde avant cette date. */
     private final Map<UUID, Long> gardeVerrou = new java.util.concurrent.ConcurrentHashMap<>();
     private static final long GARDE_VERROU_MS = 1000L;
+    /** Saut chargé décidé par le serveur (lot 5, étape A), posé par {@link #lierSaut}. */
+    private SautCharge saut;
     /** Immobilité serveur (modificateurs nommés, transitoires : rien dans le NBT, et le Kai ne les retire pas). */
     private final NamespacedKey cleEtourdiVitesse, cleEtourdiSaut, cleGardeVitesse, cleGardeSaut;
 
@@ -220,6 +221,9 @@ public final class CombatListener implements Listener, PluginMessageListener {
         this.cleGardeVitesse = new NamespacedKey(plugin, "garde_vitesse");
         this.cleGardeSaut = new NamespacedKey(plugin, "garde_saut");
     }
+
+    /** Branche le saut chargé (kinds 8 à 10 de {@code reborn:combatin}). */
+    public void lierSaut(SautCharge s) { this.saut = s; }
 
     // ------------------------------------------------------------------ M1 --
 
@@ -463,8 +467,15 @@ public final class CombatListener implements Listener, PluginMessageListener {
     @Override
     public void onPluginMessageReceived(String channel, Player player, byte[] message) {
         if (!CombatChannel.CHANNEL_IN.equals(channel)) return;
-        // mode staff (ShinobiCore) : aucune mécanique RP — ni garde, ni dash, ni bond, ni esquive
-        if (ko != null && ko.isOutOfPlay(player.getUniqueId())) return;
+        // mode staff (ShinobiCore) : aucune mécanique RP — ni garde, ni dash, ni bond, ni esquive. Le saut chargé reçoit
+        // quand même un NON : le mod n'attend pas une réponse qui ne viendrait jamais.
+        if (ko != null && ko.isOutOfPlay(player.getUniqueId())) {
+            if (saut != null && message.length > 0
+                    && (message[0] == CombatChannel.KIND_SAUT_DEBUT || message[0] == CombatChannel.KIND_SAUT_RELACHE)) {
+                CombatChannel.sendSautNon(plugin, player, CombatChannel.SAUT_R_ETAT, 0);
+            }
+            return;
+        }
         byte kind;
         float dx = 0f;
         float dz = 0f;
@@ -473,7 +484,11 @@ public final class CombatListener implements Listener, PluginMessageListener {
         float vz = 0f;
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(message))) {
             kind = in.readByte();
-            if (kind == CombatChannel.KIND_DASH) {
+            if (kind == CombatChannel.KIND_SAUT_RELACHE) {
+                // Corps de la relâche du saut chargé : lacet et tangage de la visée.
+                dx = in.readFloat();
+                dz = in.readFloat();
+            } else if (kind == CombatChannel.KIND_DASH) {
                 // Corps du dash : direction horizontale monde (déjà normalisée).
                 dx = in.readFloat();
                 dz = in.readFloat();
@@ -488,7 +503,15 @@ public final class CombatListener implements Listener, PluginMessageListener {
         } catch (IOException ignored) {
             return; // paquet malformé — on ignore
         }
-        if (kind == CombatChannel.KIND_BLOCK_ON) {
+        if (kind == CombatChannel.KIND_SAUT_DEBUT) {
+            if (saut != null) saut.debut(player);
+        } else if (kind == CombatChannel.KIND_SAUT_RELACHE) {
+            if (saut != null && Float.isFinite(dx) && Float.isFinite(dz)) saut.relache(player, dx, dz);
+        } else if (kind == CombatChannel.KIND_SAUT_ANNULE) {
+            if (saut != null) saut.annule(player);
+        } else if (kind == CombatChannel.KIND_SAUT_GO_IGNORE) {
+            if (saut != null) saut.goIgnore(player);
+        } else if (kind == CombatChannel.KIND_BLOCK_ON) {
             startBlocking(player);
         } else if (kind == CombatChannel.KIND_BLOCK_OFF) {
             stopBlocking(player, false);
@@ -533,13 +556,12 @@ public final class CombatListener implements Listener, PluginMessageListener {
     }
 
     /**
-     * Saut chakra : bond puissant dont la vélocité est calculée côté client. Gardes
-     * comme le dash (personnage actif, non KO, cooldown), mais <b>sans coût
-     * stamina</b> — la contrainte est le long cooldown ({@link #CHAKRA_JUMP_COOLDOWN_MS}).
-     * Un <b>clamp anti-cheat</b> borne la magnitude horizontale à
-     * {@link #CHAKRA_JUMP_MAX_HORIZONTAL} (mise à l'échelle proportionnelle) et la
-     * composante verticale à {@code [CHAKRA_JUMP_MIN_VY, CHAKRA_JUMP_MAX_VY]}. Arme le
-     * cooldown. Le mouvement est observable par les autres clients — aucune anim à diffuser.
+     * Ancien saut chakra (kind 5, mod d'avant le lot 5, gardé une version) : vélocité calculée côté client. Gardes comme
+     * le dash (personnage actif, non KO), <b>sans coût stamina</b>. Lot 5 : il passe par {@link SautCharge#ancienPermis}
+     * (au sol vu par le serveur, aucun bond en cours, recharge partagée avec le saut chargé, et fermé à tout client qui a
+     * montré le nouveau protocole) puis {@link SautCharge#ancienParti} (recharge de {@link #CHAKRA_JUMP_COOLDOWN_MS}, chute
+     * couverte, vol surveillé). Un <b>clamp anti-cheat</b> borne la magnitude horizontale à
+     * {@link #CHAKRA_JUMP_MAX_HORIZONTAL} et la composante verticale à {@code [CHAKRA_JUMP_MIN_VY, CHAKRA_JUMP_MAX_VY]}.
      */
     private void handleChakraJump(Player player, float vx, float vy, float vz) {
         UUID id = player.getUniqueId();
@@ -547,12 +569,8 @@ public final class CombatListener implements Listener, PluginMessageListener {
         if (ko != null && ko.isKo(id)) return;
         if (immobile(id) || mobiliteRefusee(id)) return;
         if (surcharge(id)) return;   // sacoche trop lourde : ni dash ni bond (palier « Surchargé »)
-
-        long now = System.currentTimeMillis();
-        Long last = lastChakraJumpMs.get(id);
-        if (last != null && now - last < CHAKRA_JUMP_COOLDOWN_MS) return;
-
-        lastChakraJumpMs.put(id, now);
+        if (saut == null || !saut.ancienPermis(player)) return;
+        if (!Float.isFinite(vx) || !Float.isFinite(vy) || !Float.isFinite(vz)) return;
 
         // Clamp anti-cheat : magnitude horizontale.
         double cvx = vx;
@@ -568,6 +586,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
 
         player.setVelocity(new Vector(cvx, cvy, cvz));
         player.getWorld().playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDER_DRAGON_FLAP, org.bukkit.SoundCategory.PLAYERS, 0.7f, 1.4f);
+        saut.ancienParti(player, cvx, cvy, cvz, CHAKRA_JUMP_COOLDOWN_MS);   // la chute est couverte pour tous (lot 5)
     }
 
     /**
@@ -784,6 +803,16 @@ public final class CombatListener implements Listener, PluginMessageListener {
         return es != null && !es.peut(id, com.reborn.shinobicore.api.etat.Capacite.MOBILITE);
     }
 
+    /** Saut chargé refusé par l'état : {@code MOBILITE} ou {@code SAUTER} (à terre, porté, douleur, surchargé…). */
+    boolean sautRefuse(UUID id) {
+        var es = etats();
+        return es != null && (!es.peut(id, com.reborn.shinobicore.api.etat.Capacite.MOBILITE)
+                || !es.peut(id, com.reborn.shinobicore.api.etat.Capacite.SAUTER));
+    }
+
+    /** Sacoche trop lourde (palier « Surchargé ») : pas de saut chargé. */
+    boolean surchargeSaut(UUID id) { return surcharge(id); }
+
     /** Étourdi ou en garde : aucun déplacement de combat (dash, bond, keriox, esquive). */
     private boolean immobile(UUID id) {
         return isStunned(id) || blocking.contains(id);
@@ -883,6 +912,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
         // Le KO rompt l'étourdi (ETATS_JOUEUR §5.2 règle 1) : il ne survit plus au réveil.
         stunnedUntil.remove(e.player().getUniqueId());
         liberer(e.player(), cleEtourdiVitesse, cleEtourdiSaut);
+        if (saut != null) saut.surKo(e.player());   // la charge tombe ; un bond en cours reste protégé jusqu'au sol
     }
 
     /** Changement de personnage : ni garde ni étourdi ne passent à l'autre personnage (§2.4 n° 18). */
@@ -918,9 +948,9 @@ public final class CombatListener implements Listener, PluginMessageListener {
      */
     public void resetCooldowns(UUID id) {
         lastDashMs.remove(id);
-        lastChakraJumpMs.remove(id);
         lastKerioxDashMs.remove(id);   // double saut
         lastDodgeMs.remove(id);
+        if (saut != null) saut.reinitialiser(id);   // saut chargé (lot 5)
     }
 
     /** Nettoie l'état combat d'un joueur (mort, déconnexion). */
@@ -931,7 +961,6 @@ public final class CombatListener implements Listener, PluginMessageListener {
         blocking.remove(id);
         blockStartMs.remove(id);
         lastDashMs.remove(id);
-        lastChakraJumpMs.remove(id);
         lastKerioxDashMs.remove(id);
         lastDodgeMs.remove(id);
         stunnedUntil.remove(id);

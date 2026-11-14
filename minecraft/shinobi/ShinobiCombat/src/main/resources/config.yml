@@ -1,0 +1,35 @@
+# ShinobiCombat : réglages.
+# Lot 5, étape A (09/11) : le saut chargé (Maj + Espace), décidé par le serveur.
+# Les valeurs sont poussées au mod à la connexion : le cercle d'arrivée suit ces réglages.
+# Après une retouche : redémarrage du serveur (pas de rechargement à chaud).
+
+mobility:
+  saut-charge:
+    # Durée d'une charge pleine, en millisecondes.
+    charge-ms: 1200
+    # Part de charge sous laquelle rien ne part (0.1125 x 1200 ms = 135 ms, le seuil d'avant).
+    seuil: 0.1125
+    # Vitesse de départ, blocs par tick : vitesse-min + vitesse-pente x charge.
+    vitesse-min: 1.5
+    vitesse-pente: 1.65
+    # Élan vertical ajouté, même à plat : elan-min + elan-pente x charge.
+    elan-min: 0.6
+    elan-pente: 0.35
+    # Vitesse verticale de départ au plus (3.0 donne un sommet de 40 blocs).
+    vy-max: 3.0
+    # Frottement horizontal par tick pendant le vol (le jeu vanilla : 0.91).
+    trainee: 0.98
+    # Coût en pourcentage de la réserve de chakra : cout-min + (cout-max - cout-min) x charge².
+    cout-min: 0.3
+    cout-max: 3.0
+    # Recharge en secondes : recharge-min-s + (recharge-max-s - recharge-min-s) x charge.
+    recharge-min-s: 5
+    recharge-max-s: 30
+    # Portée à plat au plus, en blocs. Aussi bornée par la distance de vue du joueur : (distance - 1) x 16.
+    portee-max: 96
+    # Écart au plus, en degrés, entre la visée envoyée par le mod et le regard connu du serveur.
+    visee-max: 25
+    # Tolérance au sol à la relâche, en millisecondes (latence).
+    tolerance-sol-ms: 200
+    # Protection contre la chute, en secondes au plus, jusqu'à la première réception.
+    protection-chute-max-s: 10

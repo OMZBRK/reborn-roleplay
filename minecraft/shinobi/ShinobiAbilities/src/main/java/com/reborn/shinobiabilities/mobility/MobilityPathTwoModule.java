@@ -134,6 +134,13 @@ public final class MobilityPathTwoModule implements Listener {
 
     private boolean running(Player p) { return narutoRun != null && narutoRun.isActive(p); }
 
+    /**
+     * Saut chargé en vol (ShinobiCombat, lot 5, métadonnée {@code reborn_bond}) : le mod joue un vol sans poussée et le
+     * cercle d'arrivée ne dit vrai que si rien ne touche la vitesse. La Voie du Flux se retire donc pendant le bond : ni
+     * pilotage en l'air, ni plafond de vitesse, ni gravité allégée, ni bond au double appui. La course et l'élan restent.
+     */
+    private static boolean enBond(Player p) { return p.hasMetadata("reborn_bond"); }
+
     /** Track real WASD movement from position deltas — {@code getVelocity()} is
      *  near-zero/stale for players, so it can't tell us which way they're going. */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -170,6 +177,15 @@ public final class MobilityPathTwoModule implements Listener {
     private void applyFlux(Player p) {
         UUID id = p.getUniqueId();
         applied.add(id);
+        if (enBond(p)) {
+            // le bond possède la vitesse : on lâche la gravité allégée, on désarme le bond au double appui
+            clear(p, Attribute.GRAVITY, gravityKey);
+            if (p.getAllowFlight()) p.setAllowFlight(false);
+            rising.remove(id);
+            diveCommitted.remove(id);
+            RasenganCompat.setMovementChecksExempt(p, true);
+            return;
+        }
         boolean onGround = p.isOnGround();
         boolean run = running(p);
 
@@ -575,6 +591,7 @@ public final class MobilityPathTwoModule implements Listener {
         e.setCancelled(true);
         p.setFlying(false);
         UUID id = p.getUniqueId();
+        if (enBond(p)) { p.setAllowFlight(false); return; }    // saut chargé en vol : pas de bond par-dessus
         if (running(p)) { p.setAllowFlight(false); return; }   // run ON → single-space leap, not this
         if (djUsed.contains(id)) { p.setAllowFlight(false); return; }
         djUsed.add(id);
@@ -596,7 +613,7 @@ public final class MobilityPathTwoModule implements Listener {
         if (mh.length() < cfg("leap-min-speed", 0.08)) return;  // not in motion → vanilla jump
         // Apply next tick so the vanilla jump's vertical velocity is already in.
         plugin.getServer().getScheduler().runTask(plugin, () -> {
-            if (p.isOnline() && !p.isOnGround())
+            if (p.isOnline() && !p.isOnGround() && !enBond(p))
                 doLeap(p, mh, cfg("leap-up-base", 0.42), cfg("leap-up-look", 0.55),
                         cfg("leap-power", 0.45), cfg("leap-up-hcut", 0.6));
         });
