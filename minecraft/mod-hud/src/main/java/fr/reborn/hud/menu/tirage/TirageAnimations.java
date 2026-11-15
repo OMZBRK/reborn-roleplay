@@ -39,6 +39,8 @@ public final class TirageAnimations {
     private static final int FADE = 3;
 
     private Animation mudra;
+    /** Mains jointes des mudras au clavier (14/11) : bras, tête et buste seulement, on peut marcher. */
+    private Animation signe, signeFin;
     /** La feuille tenue entre deux doigts devant le visage (16/10) : montée 0,7 s puis respiration en boucle. */
     private Animation feuille, fin;
     private boolean available = false;
@@ -51,6 +53,8 @@ public final class TirageAnimations {
                 LAYER, PRIORITY,
                 avatar -> new PlayerAnimationController(avatar, (ctrl, data, setter) -> PlayState.STOP));
             mudra = load("mudra_chakratest.json");
+            signe = load("mudra_signe.json");
+            signeFin = load("mudra_signe_fin.json");
             feuille = load("feuille_canal.json");
             fin = load("feuille_fin.json");
             available = mudra != null || feuille != null;
@@ -69,6 +73,29 @@ public final class TirageAnimations {
         c.replaceAnimationWithFade(
             AbstractFadeModifier.standardFadeIn(FADE, EasingType.EASE_IN_OUT_SINE),
             RawAnimation.begin().then(mudra, mudra.loopType()));
+    }
+
+    /**
+     * Un signe de la barre de mudras ({@code mudra/MudraClient}) : les mains s'écartent un peu puis se rejoignent, et la
+     * pose tient jusqu'à {@link #stopDoux}. Rejouée à chaque signe, sur soi comme sur un joueur proche.
+     */
+    public void playSigne(AbstractClientPlayer player) {
+        if (signe == null || player == null) return;
+        PlayerAnimationController c = controllerOf(player);
+        if (c == null) return;
+        c.replaceAnimationWithFade(
+            AbstractFadeModifier.standardFadeIn(2, EasingType.EASE_IN_OUT_SINE),
+            RawAnimation.begin().then(signe, signe.loopType()));
+    }
+
+    /** Fin des mudras au clavier : les bras redescendent de la pose des mains jointes (0,3 s), sans passer par la feuille. */
+    public void stopSigne(AbstractClientPlayer player) {
+        if (player == null) return;
+        PlayerAnimationController c = controllerOf(player);
+        if (c == null) return;
+        if (signeFin == null) { c.stopTriggeredAnimation(); return; }
+        c.replaceAnimationWithFade(AbstractFadeModifier.standardFadeIn(2, EasingType.EASE_IN_OUT_SINE),
+            RawAnimation.begin().then(signeFin, Animation.LoopType.PLAY_ONCE));
     }
 
     /** Sort la feuille et canalise : la main droite la monte devant le visage, puis respiration (boucle dès 0,7 s). */

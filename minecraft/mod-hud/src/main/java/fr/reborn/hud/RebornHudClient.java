@@ -641,6 +641,9 @@ public final class RebornHudClient implements ClientModInitializer {
         // cerné de l'encre blanche de Ketto (filtre reborn-hud:byakugan), personnes en cyan (ChakraNetworkLayer, mixins
         // LivingEntityRenderer*Byakugan), liseré derrière les murs, fondu 0,35 / 0,27 s, yeux pâles des porteurs proches.
         fr.reborn.hud.byakugan.ByakuganClient.init();
+        // Mudras au clavier (14/11) : barre des douze signes sur U, rangée des chiffres, canal reborn:mudra (ShinobiCore
+        // mudra/) ; portes scellées et apprentissage côté serveur. Sans règles du serveur, la touche ne fait rien.
+        fr.reborn.hud.mudra.MudraClient.init();
         // Ancien canal reborn:byakugan (ShinobiSense, S2C {actif, portée}) : toujours écouté, pour que ShinobiSense voie le
         // mod et ne pose ni armure de chakra ni barre de boss ; suivi seulement si ShinobiCore ne parle pas reborn:dojutsu.
         net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
@@ -789,6 +792,7 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.audit.Lot4dDebug.init();   // banc de la touche maintenue et de l'effet réduit (REBORN_LOT4_DEBUG=d, dev)
         fr.reborn.hud.audit.Lot5Debug.init();    // banc du saut chargé (REBORN_LOT5_DEBUG=saut, dev)
         fr.reborn.hud.audit.Lot5ByakDebug.init();   // banc du Byakugan (REBORN_LOT5_DEBUG=byak, dev)
+        fr.reborn.hud.audit.Lot6MudraDebug.init();  // banc de la barre de mudras (REBORN_LOT6_DEBUG=mudra, dev)
         // Narration du staff (lot 2, étape 2d, canal reborn:narration, ShinobiCore Narrations) : type S2C enregistré (le
         // serveur sait que le joueur a le mod, sinon repli tchat), message passé au texte au centre ; oubli à la connexion.
         fr.reborn.hud.recit.NarrationClient.init();

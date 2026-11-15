@@ -418,5 +418,47 @@
         "name": "reborn:byakugan/fermeture"
       }
     ]
+  },
+  "mudra.signe": {
+    "sounds": [
+      {
+        "name": "reborn:mudra/signe"
+      }
+    ]
+  },
+  "mudra.barre": {
+    "sounds": [
+      {
+        "name": "reborn:mudra/barre"
+      }
+    ]
+  },
+  "mudra.reussite": {
+    "sounds": [
+      {
+        "name": "reborn:mudra/reussite"
+      }
+    ]
+  },
+  "mudra.echec": {
+    "sounds": [
+      {
+        "name": "reborn:mudra/echec"
+      }
+    ]
+  },
+  "mudra.dalle": {
+    "sounds": [
+      {
+        "name": "reborn:mudra/dalle"
+      }
+    ]
+  },
+  "mudra.choc": {
+    "sounds": [
+      {
+        "name": "reborn:mudra/choc"
+      }
+    ]
   }
 }

@@ -1,0 +1,14 @@
+Dessins des douze mudras (rat.svg … sanglier.svg)
+
+Source  : Wikimedia Commons, fichiers « Mudra-Naruto-<Signe>.svg » (Rat, Buffle, Tigre, Lievre, Dragon, Serpent, Cheval,
+          Chevre, Singe, Coq, Chien, Cochon), https://commons.wikimedia.org/wiki/File:Mudra-Naruto-Tigre.svg
+Auteur  : Schlum (travail personnel, vectorisé d'après photographie, 2010)
+Licence : Creative Commons Attribution - Partage dans les mêmes conditions 4.0 International (CC BY-SA 4.0),
+          https://creativecommons.org/licenses/by-sa/4.0/deed.fr (aussi sous GFDL 1.2 ou ultérieure, au choix)
+
+Fichiers renommés (belier = Chevre, sanglier = Cochon, boeuf = Buffle), contenu inchangé. Téléchargés par le propriétaire
+le 15/11/2026.
+
+La texture qui en est tirée (minecraft/mod-hud/src/main/resources/assets/reborn/textures/gui/mudras/medaillons.png,
+générée par tools/gen_mudras_textures.py : mains détourées, traits épaissis, posées sur un disque) est une œuvre dérivée,
+diffusée sous la même licence CC BY-SA 4.0, avec la même attribution.

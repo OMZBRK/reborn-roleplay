@@ -81,6 +81,10 @@ import java.util.function.IntFunction;
  * touche chez les joueurs déjà migrés (en AZERTY, QWERTY et QWERTZ, O s'affiche « O » : rien ne bouge ; ailleurs, la
  * touche qui affiche « o » si elle est libre). « Amis » (O en 26.2) a été déliée par la version 4.
  *
+ * <p><b>Version 7 — Mudras sur U</b> (14/11) : même règle que la version 6, pour cette seule touche (U s'affiche « U »
+ * en AZERTY, QWERTY et QWERTZ ; ailleurs, la touche qui affiche « u » si elle est libre). Si sa touche est déjà tenue par
+ * une autre liaison, Mudras passe sur « aucune » ({@link #jamaisPrises}), comme Y et I en version 4.
+ *
  * Idempotente : chaque partie ne s'applique qu'aux versions antérieures, puis le drapeau passe à {@link #VERSION}.
  */
 public final class TouchesMigration {
@@ -88,7 +92,7 @@ public final class TouchesMigration {
     private static final Logger LOG = LoggerFactory.getLogger("reborn-hud/touches");
 
     /** Version de la carte des touches ; on la monte si une nouvelle migration s'ajoute. */
-    public static final int VERSION = 6;
+    public static final int VERSION = 7;
 
     /**
      * Touches de Minecraft cachées des Paramètres › Commandes (et déliées une fois par la version 4 si elles étaient sur
@@ -161,17 +165,20 @@ public final class TouchesMigration {
                 nouvelles.add(HudKeybinds.MICRO);
             }
             if (v < 6 && HudKeybinds.BYAKUGAN != null) nouvelles.add(HudKeybinds.BYAKUGAN);
+            if (v < 7 && HudKeybinds.MUDRAS != null) nouvelles.add(HudKeybinds.MUDRAS);
             if (!nouvelles.isEmpty()) changees += clavier(nom, nouvelles);
         }
         if (v < 3) changees += verifierPortee(mc);
         // parties de la version 4 : jamais rejouées chez un joueur déjà en version 4 (ses choix restent)
         if (v < 4) {
             changees += cacher(mc);
-            changees += jamaisPrises(mc);
+            changees += jamaisPrises(mc, HudKeybinds.CONCENTRATION, HudKeybinds.MICRO);
         }
         // version 5 (lot 4, validé en jeu le 07/11) : R déliée si elle est sur son défaut et que Concentration a une
         // touche ; après la version 4, qui a pu laisser Concentration sans touche (Y déjà prise)
         if (v < 5) changees += retirerInteraction(nom);
+        // version 7 : Mudras ne double jamais une autre liaison (U choisie par le joueur, ou le Dash en Dvorak) : elle cède
+        if (v < 7) changees += jamaisPrises(mc, HudKeybinds.MUDRAS);
         if (changees > 0) {
             KeyMapping.resetMapping();
             mc.options.save();
@@ -229,9 +236,9 @@ public final class TouchesMigration {
      * Version 4 : Concentration et Couper le micro ne prennent jamais une touche déjà donnée à autre chose (règle de H) :
      * la nôtre reste alors sans touche, à lier dans les Paramètres. Les raccourcis F3 + touche ne comptent pas.
      */
-    private static int jamaisPrises(Minecraft mc) {
+    private static int jamaisPrises(Minecraft mc, KeyMapping... cles) {
         int changees = 0;
-        for (KeyMapping km : new KeyMapping[]{HudKeybinds.CONCENTRATION, HudKeybinds.MICRO}) {
+        for (KeyMapping km : cles) {
             if (km == null || km.isUnbound()) continue;
             InputConstants.Key k = KeyMappingHelper.getBoundKeyOf(km);
             KeyMapping tenue = tenuePar(mc, k, km);

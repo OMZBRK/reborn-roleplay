@@ -124,6 +124,11 @@ public final class HudKeybinds {
      * autres dispositions). Sans le Byakugan (clan, yeux), elle ne fait rien. Lue par {@code ByakuganClient}.
      */
     public static KeyMapping BYAKUGAN;
+    /**
+     * Barre de mudras (14/11) : un appui demande l'ouverture, un autre referme. U par défaut (libre dans Minecraft et le
+     * modpack, voisine de Y / I / O ; même lettre en AZERTY, QWERTY et QWERTZ). Lue par {@code mudra/MudraClient}.
+     */
+    public static KeyMapping MUDRAS;
 
     /** Appui plus court que ça sur la touche radio (sans la tenir) = écran de l'escouade. */
     public static final long RADIO_BREF_MS = 250L;
@@ -339,6 +344,8 @@ public final class HudKeybinds {
         PARLER = bind("key.reborn-hud.parler", -1);
         // Lot 5 (09/11) : Byakugan sur O (« Amis » de 26.2, déliée par la migration 4), en bascule.
         BYAKUGAN = bind("key.reborn-hud.byakugan", GLFW.GLFW_KEY_O);
+        // Mudras (14/11) : barre des douze signes sur U, en bascule ; sans effet tant que le serveur ne l'a pas activée.
+        MUDRAS = bind("key.reborn-hud.mudras", GLFW.GLFW_KEY_U);
 
         TouchesMigration.init();
         TouchesPlasmo.init();

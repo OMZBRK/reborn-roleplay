@@ -28,6 +28,7 @@
 |---|---|
 | [`gameplay/KO_ET_MORT_RP.md`](./gameplay/KO_ET_MORT_RP.md) | KO, ATA, soins, zones d'entraînement, menu des corps, mise à mort RP, exécutions, scène de mort |
 | [`gameplay/APPRENTISSAGE.md`](./gameplay/APPRENTISSAGE.md) | Parchemins, bibliothèques à tirage, séances, concentration du chakra, slots du rang S |
+| [`gameplay/MUDRAS.md`](./gameplay/MUDRAS.md) | Mudras au clavier (barre des douze signes), portes scellées, apprentissage guidé — codé le 14/11, livré éteint |
 | [`gameplay/STATS_ET_PROGRESSION.md`](./gameplay/STATS_ET_PROGRESSION.md) | 6 stats, XP invisible, grades, points de Mérite |
 | [`gameplay/PERSONNAGES.md`](./gameplay/PERSONNAGES.md) | Sélection et création en scène, apparence |
 | [`gameplay/CANDIDATURE_ET_DOUANE.md`](./gameplay/CANDIDATURE_ET_DOUANE.md) | **Codé le 25/10, non publié** : candidature du launcher en onglets façon Ketto (nouveau format seul), oral en jeu dans une douane façon Elderwood (séances avec capacité, hall, bureaux, examinateur), création pré-remplie et verrouillée, « Mes personnages » ; Q1 à Q13 tranchées |
