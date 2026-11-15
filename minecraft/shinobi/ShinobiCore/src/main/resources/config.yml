@@ -1348,3 +1348,20 @@ dojutsu:
     yeux: true                # il faut au moins un œil qui voit, du clan ou un Byakugan greffé (chirurgie des yeux)
     reprendre-sense: true     # /sense dojutsu (clans du Byakugan) et /sense byakugan passent par ce module, pas par ShinobiSense
     signe-rayon: 12.0         # blocs : les joueurs proches voient les yeux pâles du porteur (0 = jamais)
+
+# Mudras au clavier et portes scellées (14/11) : la barre de 12 mudras du mod, composée en temps compté (canal
+# reborn:mudra), et les dalles qui se lèvent quand la bonne suite est composée devant elles (/porte). Le système est livré
+# éteint, et l'interrupteur n'est PAS ici : c'est la clé « actif » de plugins/ShinobiCore/mudras.yml, basculée en jeu par
+# /porte systeme on|off (Admin). Aucun indice n'est envoyé au client : ni la présence d'une porte, ni la justesse d'un signe.
+mudras:
+  temps-ms: 5000        # composition libre : durée de la ligne de temps
+  gain-ms: 700          # temps rendu par signe
+  max-signes: 12
+  signe-min-ms: 120     # écart minimal entre deux signes (plafond moyen : 500 ms de marge pour la latence et les ticks longs)
+  recharge-ms: 1500     # délai avant de rouvrir la barre
+  geste-rayon: 24.0     # blocs : les proches voient et entendent les signes (0 = jamais)
+  guide-marge-ms: 1500  # apprentissage : temps ajouté au délai par signe de la difficulté
+  portes:
+    portee: 6.0         # blocs entre le joueur et la dalle
+    duree-ticks: 60     # durée de la levée
+    ouverte-s: 8        # la dalle redescend après ce délai, dès que le passage est libre

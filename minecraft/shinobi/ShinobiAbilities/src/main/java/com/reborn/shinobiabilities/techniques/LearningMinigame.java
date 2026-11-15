@@ -37,7 +37,11 @@ import java.util.function.BiConsumer;
  *   <li><b>MUDRA</b> — a title prompts each expected hand seal; the
  *       player confirms with a LEFT click before the per-step timeout
  *       (EASY 3 s / MEDIUM 2 s / HARD 1.5 s). A RIGHT click is a wrong
- *       sign — instant fail.</li>
+ *       sign — instant fail. Depuis le 14/11, quand le joueur a le mod et
+ *       que les mudras sont allumés ({@code /porte systeme on}), la suite
+ *       se compose sur la barre de mudras du mod ({@code reborn:mudra},
+ *       ShinobiCore {@code mudra/MudraModule#guider}) : chaque signe est
+ *       alors vraiment vérifié. Sinon, l'ancien mini-jeu ci-dessus.</li>
  *   <li><b>PUSHUP</b> — N sneak-reps (rank-scaled), each within the
  *       difficulty's rep timer. Boss bar tracks progress.</li>
  *   <li><b>SUIVI</b> — staff validation via /sa valider|refuser.</li>
@@ -57,6 +61,8 @@ public final class LearningMinigame implements Listener {
         List<String> sequence;
         int index;
         BukkitTask timeout;
+        /** La session est tenue par la barre de mudras du mod (ShinobiCore) : ni titres, ni clics, ni délai ici. */
+        boolean barre;
     }
 
     private static final class PushupSession implements Session {
@@ -157,9 +163,12 @@ public final class LearningMinigame implements Listener {
         s.slot = slot;
         // Mudra names → free-form steps → random seals (rank-sized).
         List<String> labels = ability.incantationLabels();
+        // La vraie suite de mudras (ou la suite tirée au sort) ; null pour un art à « steps » sans mudra.
+        List<Mudra> suite = ability.mudras().isEmpty() ? null : ability.mudras();
         if (labels == null) {
+            suite = Mudra.randomSequence(ability.rank().defaultMudraCount());
             List<String> random = new java.util.ArrayList<>();
-            for (Mudra m : Mudra.randomSequence(ability.rank().defaultMudraCount())) {
+            for (Mudra m : suite) {
                 random.add(m.display());
             }
             labels = random;
@@ -167,10 +176,58 @@ public final class LearningMinigame implements Listener {
         s.sequence = labels;
         s.index = 0;
         sessions.put(p.getUniqueId(), s);
+        // Barre de mudras du mod d'abord (14/11) ; refusée (système éteint, joueur sans le mod, état) : l'ancien mini-jeu.
+        if (suite != null && guiderBarre(p, s, suite)) {
+            s.barre = true;
+            p.sendMessage(Component.text(
+                    "Entraînement — compose les signes sur la barre, dans l'ordre et sans traîner.",
+                    NamedTextColor.GOLD));
+            return;
+        }
         p.sendMessage(Component.text(
                 "Entraînement — reproduis les signes : clic GAUCHE pour confirmer, "
                         + "clic droit = raté.", NamedTextColor.GOLD));
         promptMudra(p, s);
+    }
+
+    /**
+     * Essaie de confier la session à la barre de mudras de ShinobiCore ({@code plugin.mudras().guider}) : délai par signe
+     * = celui de la difficulté + {@code mudras.guide-marge-ms}. La réussite et l'échec repassent par {@link #finish} et
+     * {@link #fail}, comme l'ancien mini-jeu (même {@link Result}, mêmes messages) ; une coupure (KO, entrave,
+     * déconnexion…) abandonne en silence, comme {@link #abort}. Faux : rien n'est ouvert, l'appelant garde l'ancien chemin
+     * (ShinobiCore absent ou plus ancien compris).
+     */
+    private boolean guiderBarre(Player p, MudraSession s, List<Mudra> suite) {
+        try {
+            com.reborn.shinobicore.ShinobiCore core = com.reborn.shinobicore.ShinobiCore.get();
+            com.reborn.shinobicore.mudra.MudraModule mudras = core == null ? null : core.mudras();
+            if (mudras == null) return false;
+            long temps = s.ability.difficulty().mudraTimeoutMillis() + mudras.reglages().guideMargeMs();
+            return mudras.guiderAvecRaison(p, suite, s.ability.name(), temps, fin -> {
+                if (sessions.get(p.getUniqueId()) != s) return;   // session déjà finie ou remplacée
+                s.barre = false;                                    // la barre est close : rien à annuler
+                switch (fin) {
+                    case OK -> finish(p, new Result(s.ability, s.shelfLoc, s.slot, true));
+                    case RATE -> fail(p, "Mauvais signe !");
+                    case TEMPS -> fail(p, "Trop lent — le signe t'a échappé.");
+                    case FERME -> fail(p, "Signes interrompus.");
+                    case COUPE -> {
+                        abort(p);
+                        if (p.isOnline()) p.sendActionBar(Component.text("Entraînement interrompu.", NamedTextColor.GRAY));
+                    }
+                }
+            });
+        } catch (LinkageError | RuntimeException e) {
+            return false;
+        }
+    }
+
+    /** Referme la barre de mudras d'une session abandonnée, sans rappel ({@code plugin.mudras().annuler}). */
+    private static void annulerBarre(Player p) {
+        try {
+            com.reborn.shinobicore.ShinobiCore core = com.reborn.shinobicore.ShinobiCore.get();
+            if (core != null && core.mudras() != null) core.mudras().annuler(p);
+        } catch (LinkageError | RuntimeException ignored) { }
     }
 
     private void promptMudra(Player p, MudraSession s) {
@@ -198,7 +255,7 @@ public final class LearningMinigame implements Listener {
     public void onAnimation(PlayerAnimationEvent event) {
         if (event.getAnimationType() != PlayerAnimationType.ARM_SWING) return;
         Player p = event.getPlayer();
-        if (!(sessions.get(p.getUniqueId()) instanceof MudraSession s)) return;
+        if (!(sessions.get(p.getUniqueId()) instanceof MudraSession s) || s.barre) return;
         s.index++;
         p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING,
                 0.8f, 1.0f + 0.08f * s.index);
@@ -216,7 +273,7 @@ public final class LearningMinigame implements Listener {
                 && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         if (event.getHand() != org.bukkit.inventory.EquipmentSlot.HAND) return;
         Player p = event.getPlayer();
-        if (sessions.get(p.getUniqueId()) instanceof MudraSession) {
+        if (sessions.get(p.getUniqueId()) instanceof MudraSession s && !s.barre) {
             fail(p, "Mauvais signe !");
         }
     }
@@ -388,6 +445,8 @@ public final class LearningMinigame implements Listener {
     private void cleanup(Player p) {
         Session s = sessions.remove(p.getUniqueId());
         if (s instanceof MudraSession m && m.timeout != null) m.timeout.cancel();
+        // session tenue par la barre de mudras et abandonnée ici (quit, KO, changement de personnage, arrêt) : on la referme
+        if (s instanceof MudraSession m && m.barre) { m.barre = false; annulerBarre(p); }
         if (s instanceof PushupSession pu) {
             if (pu.timeout != null) pu.timeout.cancel();
             if (pu.bar != null) p.hideBossBar(pu.bar);

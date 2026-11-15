@@ -1081,6 +1081,163 @@ commité, que personne ne touche ; ce dépôt ne le modifie pas). Rien de destru
 | `reprendre-sense` | `true` | Voir §4 duodecies.3 |
 | `signe-rayon` | `12.0` | Blocs (0 = personne ne voit les veines) |
 
+## 4 terdecies. Mudras au clavier et portes scellées — ShinobiCore `reborn:mudra` (14/11)
+
+Demande du 14/11 : une barre de 12 mudras composés sur la rangée des chiffres, en temps compté ; des portes scellées dont
+la dalle coulisse vers le haut quand la bonne suite est composée devant elles ; la même barre pour apprendre une
+technique. Côté serveur : `ShinobiCore mudra/` (`MudraModule`, `MudraService`, `PorteService`, `PorteStore`,
+`PorteScellee`, `PorteCommand`, règles pures `MudraRegles`, tests `MudraReglesTest` et `PorteStoreTest`), branché dans
+`ShinobiAbilities techniques/LearningMinigame`. Le rendu (barre, ligne de temps, signes des autres) est entièrement côté
+mod. **Le serveur ne dit jamais au client s'il y a une porte devant lui ni si un signe est juste.**
+
+**Livré éteint.** L'interrupteur n'est pas dans `config.yml` : c'est la clé `actif` à la racine de
+`plugins/ShinobiCore/mudras.yml` (absente ou fichier absent = `false`), basculée en jeu par `/porte systeme on|off`
+(Admin), journalisée et renvoyée aussitôt à tous (message `regles`). Éteint : la barre ne s'ouvre pour personne, les
+portes restent fermées (`/porte ouvrir` compris ; à la bascule sur `off`, celles qui montent ou sont levées sont refermées
+tout de suite, sans animation, comme à l'arrêt), `guider(…)` rend `false` et l'ancien mini-jeu d'apprentissage sert.
+
+### 4 terdecies.1 Règles (serveur)
+
+| | |
+|---|---|
+| **Droit de composer** | Relu à l'ouverture, à chaque signe, toutes les 10 ticks pendant la session **et à chaque `EtatChangedEvent`** : système allumé ; joueur vivant, ni à terre ni inconscient, pas spectateur, pas en cinématique, pas en douane ni en sélection, pas en mode staff, un personnage choisi (relus en dur chez leurs détenteurs, comme le Byakugan) ; puis `EtatService.verifier(uuid, TECHNIQUE, true).ok()` (**avec mudras** : un entravé ne signe pas). Le refus porte la raison courte de l'état |
+| **Cadence** | `ouvrir` : 2 par seconde et par joueur (« Trop vite. ») ; après une fin, pas de nouvelle session libre avant `recharge-ms`. **Signes** : un par `signe-min-ms` en moyenne, avec 500 ms de marge (`MudraRegles.GIGUE_MS`, `signeRecevable` / `signeSuivant`) ; seul un signe en avance de plus de 500 ms sur ce plafond est ignoré. Ce n'est pas un écart mesuré entre deux arrivées : un tick long, une retransmission ou le battement de 50 ms tassent des signes posés à bonne distance, et un signe juste jeté en silence décalait toute la suite (séance d'apprentissage perdue). Un mod qui garde au moins `signe-min-ms` entre deux signes n'en perd donc jamais ; une rafale reste bornée (5 signes d'un coup au plus avec les défauts). La minuterie et la cadence se jugent sur l'instant d'arrivée du paquet, pas sur celui de son traitement |
+| **Mode libre** | Ligne de temps de `temps-ms`, qui part à l'envoi de `ouvre` ; chaque signe accepté rend `gain-ms` sans dépasser `temps-ms` ; 500 ms de tolérance en faveur du joueur ; à l'échéance `fin` `temps`. Après chaque signe : si la suite composée est **exactement** celle d'une porte fermée et immobile du même monde, à `portes.portee` blocs au plus des pieds du joueur (distance à la boîte de la dalle ; la plus proche s'il y en a plusieurs), la porte s'ouvre et la session finit `ok`. À `max-signes` signes sans porte : `fin` `rate`. Hors de portée de toute porte, la barre s'ouvre et se joue pareil |
+| **Mode guide** | Ouvert par un autre plugin (§4 terdecies.5) : la suite attendue est envoyée ; chaque signe doit arriver en moins de `temps` ms (la ligne repart pleine à chaque bon signe, `gain` = `temps`). Mauvais signe : `rate` ; dernier bon signe : `ok` ; échéance : `temps` |
+| **Ce que voient les autres** | À chaque signe accepté, les joueurs du même monde à `geste-rayon` blocs qui écoutent le canal reçoivent `geste` et entendent `reborn:mudra.signe` (son du mod, `PLAYERS`, volume 0,9) à la place du signataire. Rien si le signataire leur est invisible (vanish, mode staff, spectateur, `canSee` faux). Jamais envoyé au signataire |
+| **Coupures** | Déconnexion, mort, KO, changement de monde, changement de personnage, perte du droit, système éteint, arrêt du plugin : `fin` `coupe` (avec la raison quand il y en a une). Reprendre dans la liste le personnage qu'on joue déjà n'est pas un changement (`CharacterSwitchEvent` part quand même) : la session continue, `regles` est renvoyé |
+
+Ordinaux : 0 à 11 = ordre de l'enum `technique.Mudra` (`RAT, OX, TIGER, HARE, DRAGON, SNAKE, HORSE, RAM, MONKEY, BIRD, DOG,
+BOAR`) = ordre de la barre.
+
+### 4 terdecies.2 Canal `reborn:mudra` (JSON UTF-8 brut, `v` = 1, champs inconnus ignorés)
+
+Patron de `reborn:dojutsu` : message reçu de 256 octets au plus, traité sur le fil principal, `v` exigé, envoi seulement si
+le joueur écoute le canal.
+
+| Sens | Message | Effet |
+|---|---|---|
+| S → C | `{"v":1,"t":"regles","actif":true,"max":12}` | 40 ticks après la connexion, au changement de personnage (1 tick après), à `/sc reload`, à `/porte systeme`. `actif` = interrupteur du système seulement (les états du joueur sont relus à l'ouverture) ; `max` = `max-signes` |
+| S → C | `{"v":1,"t":"ouvre","n":3,"mode":"libre","temps":5000,"gain":700,"max":12}` | Session ouverte : réponse à `ouvrir`. `n` = numéro de session, croissant par joueur jusqu'à sa déconnexion |
+| S → C | `{"v":1,"t":"ouvre","n":4,"mode":"guide","temps":3500,"gain":3500,"max":12,"suite":[2,5,10],"titre":"Boule de feu"}` | Session guidée, ouverte par le serveur de lui-même (apprentissage). `suite` : ordinaux attendus ; `titre` : 48 caractères au plus ; `max` : `max-signes`, ou la longueur de la suite si elle est plus longue |
+| S → C | `{"v":1,"t":"fin","n":3,"res":"ok","m":"…"}` | La session `n` est finie. `res` : `ok` (suite reconnue : porte qui s'ouvre, apprentissage réussi), `rate` (mauvais signe en guide, `max-signes` signes sans rien en libre), `temps` (ligne écoulée), `coupe` (état du joueur, déconnexion, arrêt du module), `ferme` (le joueur a refermé). `m` : phrase courte, facultative |
+| S → C | `{"v":1,"t":"refus","m":"Tu es à terre."}` | `ouvrir` refusé (système éteint, état, cadence). Toujours une réponse ; `m` absent quand le refus suit une session déjà ouverte |
+| S → C | `{"v":1,"t":"geste","e":4182,"s":2}` | Un proche a posé le signe `s` ; `e` = identifiant d'entité du signataire. Jamais au signataire |
+| C → S | `{"v":1,"a":"ouvrir"}` | Demande une session libre. Réponse : `ouvre` ou `refus`. Une session déjà ouverte est refermée (`fin` `ferme`), puis `refus` sans message |
+| C → S | `{"v":1,"a":"signe","n":3,"s":2}` | Un signe (0 à 11). Ignoré en silence si `n` n'est pas la session en cours, si `s` est hors bornes ou s'il dépasse la cadence (un signe par `signe-min-ms`, 500 ms de marge : §4 terdecies.1). Le mod doit donc garder au moins `signe-min-ms` entre deux signes : le seuil ne lui est pas envoyé |
+| C → S | `{"v":1,"a":"fermer","n":3}` | Referme la session (`fin` `ferme`) |
+
+### 4 terdecies.3 Portes scellées
+
+- **Donnée** (`mudras.yml`) : `id` (« D » + base 36, compteur qui ne redescend jamais), `nom` (32 au plus), `monde`, boîte de
+  la dalle (`x`, `y`, `z` du coin bas + `boite: [dx, dy, dz]`), `signes` (2 à 12 mudras, par leur nom d'enum), `leve`
+  (blocs de levée, 1 à `dy`, défaut `dy`), `cree` / `modifie` (`le`, `par`, `pseudo`), `ouverte`, `blocs` (les
+  `BlockData#getAsString()` de la dalle, rangée par rangée du bas vers le haut, puis x, puis z ; présents seulement porte
+  ouverte).
+- **Boîte valide** (`MudraRegles.validerBoite`, `validerContenu`) : chaque côté de 1 à 9, épaisseur (le plus petit côté
+  horizontal) de 3 au plus, 162 blocs au plus ; pas d'air seulement ; aucun bloc à état propre (`TileState` : coffre,
+  panneau, bannière…) ; aucune entité accrochée à l'un de ses blocs (cadre, tableau, nœud de laisse : elle tomberait en
+  objet une fois son support parti) ; ne recoupe aucune autre porte. Le contenu est revérifié à chaque ouverture (la dalle
+  a pu changer par un éditeur de monde) : une dalle qui ne passe plus ne se lève pas, dit à la console pour un joueur, au
+  staff pour `/porte ouvrir`.
+- **Ouverture** (`portes.duree-ticks`, 60) : 1. `ouverte: true` et `blocs` écrits **tout de suite**, avant de toucher au
+  monde (si l'écriture échoue, la porte reste fermée) ; 2. chaque bloc non vide devient un `BlockDisplay` non persistant à
+  sa place, le bloc réel une `BARRIER` (sans physique) ; 3. un tick plus tard, interpolation vers une translation
+  `(0, leve, 0)` ; 4. la rangée `r` (comptée du bas, à partir de 0) se libère au tick `ceil((r + 1) × duree / leve)`, quand
+  le bas de la dalle l'a dépassée ; les rangées au-dessus de `leve` restent en barrière ; 5. à la fin, les affichages
+  arrivés dans un bloc occultant (`Material#isOccluding`) sont retirés, les autres restent en haut ; 6. sons du mod par clé :
+  `reborn:mudra.dalle` au départ, `reborn:mudra.choc` à l'arrêt (`BLOCKS`, au centre de la dalle).
+- **Fermeture** : `portes.ouverte-s` secondes (8) après la fin de l'ouverture, puis nouvel essai chaque seconde tant qu'un
+  joueur ou une entité vivante recoupe la boîte de la dalle (spectateurs et supports d'armure ignorés). Mouvement inverse :
+  affichages recréés en haut, barrières reposées de haut en bas (rangée `r` au tick `duree − ceil((r + 1) × duree / leve)`),
+  blocs d'origine remis à la fin, affichages retirés, `ouverte: false` écrit ; mêmes sons.
+- **Sûreté** : au démarrage, toute porte `ouverte: true` est remise tout de suite depuis `blocs` (puis `ouverte: false`) ;
+  monde absent ou bloc illisible : dit à la console, `ouverte: true` gardé, nouvel essai au chargement du monde et au
+  démarrage suivant. À l'arrêt et à `/sc reload`, toute porte en mouvement ou levée est refermée sans animation. Jamais
+  deux animations sur la même porte. Sur un bloc d'une dalle (porte fermée ou levée) sont annulés : casse, pose,
+  accrochage d'un cadre, d'un tableau ou d'un nœud de laisse (`HangingPlaceEvent`), explosions, pistons, feu, changement
+  par une entité, coulée d'eau ou de lave. Registre indexé par monde puis tronçon : une
+  recherche par événement, aucune tâche au repos.
+
+### 4 terdecies.4 Commande `/porte` (alias `/portescellee`, permission `reborn.staff.portes`)
+
+Permission déclarée dans `plugin.yml` (`default: op`) et donnée d'office par `reborn.staff.helper`. Droits relus dans le
+code par grade (`StaffGrades`, `MudraRegles.peutLister|peutGerer|peutSysteme`) ; la console vaut Owner.
+
+| Sous-commande | Grade | Effet |
+|---|---|---|
+| `liste` | Helper | Toutes les portes (état, distance, nombre de signes), jamais la suite ; rappelle l'état du système |
+| `info [id]` | Helper | Boîte, levée, auteur ; sans id : la plus proche à 16 blocs. **La suite n'est montrée qu'à un Modérateur**, dans sa réponse privée |
+| `tp <id>` | Helper | Place sûre devant la dalle, journal `PORTE_TP` |
+| `coin 1\|2` | Modérateur | Le bloc visé (8 blocs) devient un coin de la dalle ; gardé en mémoire par staff |
+| `creer <nom> <signes…>` | Modérateur | Crée la porte entre les deux coins. Nom en un mot (`_` = espace) ; signes en noms français ou anglais (`Mudra.from`) ou en nombres de 1 à 12 = place sur la barre |
+| `signes <id> <signes…>` · `nom <id> <nom…>` · `leve <id> <n>` | Modérateur | Retouches (`leve` : porte fermée seulement) |
+| `ouvrir <id>` · `fermer <id>` | Modérateur | Essai du staff, sans suite (journal `PORTE_ESSAI`) ; refusé système éteint ; `fermer` attend que le passage soit libre |
+| `retirer <id>` | Modérateur | Porte fermée seulement ; les blocs restent en place |
+| `systeme on\|off` | Admin | Allume ou éteint les mudras pour tout le serveur ; sans argument : l'état. `off` coupe les sessions et referme tout de suite, sans animation, les portes en mouvement ou levées (nombre noté au journal) |
+
+Complétion par tabulation (sous-commandes selon le grade, identifiants, noms des mudras).
+
+`creer`, `signes`, `nom`, `leve`, `retirer` et `systeme` n'annoncent un succès que si `mudras.yml` s'est écrit : sinon le
+changement est défait en mémoire, rien n'est journalisé et le staff lit « mudras.yml ne s'écrit pas : rien n'est changé »
+(la porte « créée » aurait disparu au redémarrage, la porte « retirée » serait revenue avec sa suite).
+
+### 4 terdecies.5 API pour les autres plugins (`ShinobiCore.get().mudras()`, `MudraModule`)
+
+```java
+/** false si le système est éteint, si le joueur n'écoute pas reborn:mudra, n'a pas le droit, ou a déjà une session.
+ *  fin.accept(true) = suite complète ; false = mauvais signe, temps écoulé ou coupure. Une seule fois, fil principal. */
+boolean guider(Player p, List<Mudra> suite, String titre, long tempsParSigneMs, Consumer<Boolean> fin);
+/** Le même, avec la raison de la fin : OK, RATE, TEMPS, COUPE, FERME (MudraService.Fin). */
+boolean guiderAvecRaison(Player p, List<Mudra> suite, String titre, long tempsParSigneMs, Consumer<MudraService.Fin> fin);
+/** Finit sans appeler `fin` la session guidée du joueur (abandon par l'appelant) ; le mod reçoit `fin` `coupe`. */
+void annuler(Player p);
+boolean enCours(Player p);
+```
+
+**Apprentissage** (`LearningMinigame.startMudra`, ShinobiAbilities) : quand la technique a de vrais mudras, ou une suite
+tirée au sort (`Mudra.randomSequence`), la séance essaie d'abord `guiderAvecRaison(p, suite, nom de la technique,
+difficulty.mudraTimeoutMillis() + mudras.guide-marge-ms, …)`. Acceptée : la session du mini-jeu est tenue par la barre
+(`isActive` reste vrai, `abort` appelle `annuler`) ; `OK` → même `Result` de réussite ; `RATE` → « Mauvais signe ! » ;
+`TEMPS` → « Trop lent — le signe t'a échappé. » ; `FERME` → « Signes interrompus. » ; `COUPE` → abandon silencieux, comme
+un KO. Refusée (système éteint, joueur sans le mod, état, ShinobiCore plus ancien) : ancien mini-jeu inchangé (titres +
+clic gauche). Les techniques à `steps` sans mudra gardent l'ancien chemin.
+
+### 4 terdecies.6 Fichier, réglages, journal
+
+- `plugins/ShinobiCore/mudras.yml` : `actif`, `prochain`, `portes: { <id>: {…} }`. Écriture **atomique** (`.tmp` puis
+  renommage) et **immédiate** à chaque changement. **Fichier illisible, YAML invalide, porte rejetée ou clé inconnue à la
+  racine** : jamais écrasé, copie `mudras.yml.corrompu-<date>`, log **SEVERE**, créations, retouches et ouvertures
+  bloquées jusqu'à un `/sc reload` réussi après correction à la main. `actif` doit être un vrai booléen. Une retouche à
+  la main gagne sur la mémoire au rechargement. Les coordonnées restent dans ce fichier, jamais dans le dépôt.
+- `config.yml` › `mudras` (défauts dans le code, `MudraRegles.Reglages`) :
+
+| Clé | Défaut | |
+|---|---|---|
+| `temps-ms` | `5000` | Composition libre : durée de la ligne de temps (1 000 à 60 000) |
+| `gain-ms` | `700` | Temps rendu par signe (sans dépasser `temps-ms`) |
+| `max-signes` | `12` | Signes au plus dans une composition libre (2 à 12) |
+| `signe-min-ms` | `120` | Écart minimal entre deux signes : plafond moyen, 500 ms de marge (§4 terdecies.1) ; 0 à 2 000 |
+| `recharge-ms` | `1500` | Délai avant de rouvrir la barre |
+| `geste-rayon` | `24.0` | Blocs : les proches voient et entendent les signes (0 = jamais) |
+| `guide-marge-ms` | `1500` | Apprentissage : temps ajouté au délai par signe de la difficulté |
+| `portes.portee` | `6.0` | Blocs entre les pieds du joueur et la dalle (1 à 16) |
+| `portes.duree-ticks` | `60` | Durée de la levée et de la descente (10 à 400) |
+| `portes.ouverte-s` | `8` | La dalle redescend après ce délai, dès que le passage est libre |
+
+- Journal : `INTERACTION` / `PORTE_OUVERTE` (une porte ouverte par un joueur) ; `INTERACTION` / `MUDRA_ESSAI` (une
+  composition libre d'au moins un signe finie sans succès à portée d'une porte fermée : porte la plus proche, suite
+  composée, résultat ; rien loin de toute porte). La porte et le lieu sont relevés **à chaque signe** (la dernière porte
+  fermée à portée au moment d'un signe) : reculer, changer de monde ou se déconnecter avant la fin de la session ne retire
+  pas la trace ; à défaut, la porte à portée à la fin de la session. `STAFF` / `PORTE_POSEE`, `PORTE_MODIFIEE`,
+  `PORTE_RETIREE`, `PORTE_ESSAI`, `PORTE_TP`, `PORTE_REFUS`, `MUDRAS_SYSTEME`. La suite d'une porte n'est écrite ni dans
+  le tchat public ni au journal (seulement son nombre de signes). Elle voyage pourtant dans les arguments de `/porte creer`
+  et `/porte signes`, et toute commande du staff, de la console ou du RCON est journalisée en `STAFF` / `COMMANDE`, lu dès
+  le grade Helper : `JournalEcouteur` y écrit ces deux lignes avec la suite remplacée par `[suite masquée]`
+  (`MudraRegles.masquerCommande` : alias, `shinobicore:porte`, casse, identifiant oublié compris). Reste hors de portée du
+  plugin : la ligne « issued server command » du journal de la console du serveur (`logs/latest.log`), qui garde la
+  commande entière ; elle n'est lue que par ceux qui ont accès aux fichiers du serveur.
+
 ## 4 ter. Nourriture et modificateurs — protocole (14/10)
 
 > ShinobiCore `nourriture/` et `modificateur/` ⇄ mod `fr.reborn.hud.nourriture`. JSON UTF-8 brut, champs optionnels,

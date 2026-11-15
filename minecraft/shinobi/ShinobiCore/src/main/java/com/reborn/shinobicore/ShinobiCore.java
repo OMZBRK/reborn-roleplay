@@ -91,6 +91,8 @@ public final class ShinobiCore extends JavaPlugin {
     private com.reborn.shinobicore.concentration.ConcentrationModule concentration;
     /** Lot 5 « Mobilité », étape B : le Byakugan (touche O du mod, canal reborn:dojutsu). */
     private com.reborn.shinobicore.dojutsu.ByakuganService byakugan;
+    /** Mudras au clavier et portes scellées (14/11) : canal reborn:mudra, /porte, plugins/ShinobiCore/mudras.yml. */
+    private com.reborn.shinobicore.mudra.MudraModule mudras;
     /** Météo RP (null si la commande manque) : lue par les traces de pas (lot 4, étape C). */
     private com.reborn.shinobicore.meteo.MeteoCommand meteoCommand;
     private com.reborn.shinobicore.staff.outils.OutilsStaff outilsStaff;
@@ -862,6 +864,12 @@ public final class ShinobiCore extends JavaPlugin {
         this.byakugan = new com.reborn.shinobicore.dojutsu.ByakuganService(this);
         this.byakugan.demarrer();
 
+        // Mudras au clavier et portes scellées (14/11) : barre de 12 mudras du mod composée en temps compté (canal
+        // reborn:mudra), dalles qui se lèvent sur la bonne suite, /porte. Livré éteint : interrupteur « actif » de
+        // plugins/ShinobiCore/mudras.yml (/porte systeme on|off), pas du config.yml.
+        this.mudras = new com.reborn.shinobicore.mudra.MudraModule(this);
+        this.mudras.demarrer();
+
         // Douane (CANDIDATURE_ET_DOUANE.md §3.3-3.10) : aiguillage à la connexion (refus par défaut), monde « douane »,
         // hall, file, bureaux, mode examinateur, /douane, canal reborn:douane. Coupée tant que douane.enabled: false.
         if (!buildMode) {
@@ -967,6 +975,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (staffPanel != null) staffPanel.infirmerie().stop();
         if (concentration != null) concentration.arreter();
         if (byakugan != null) byakugan.arreter();
+        if (mudras != null) mudras.arreter();
         if (exhaustionManager != null) exhaustionManager.stop();
         if (dummyManager != null) dummyManager.save();
         if (cinematicManager != null) cinematicManager.shutdown();
@@ -1006,6 +1015,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (douane              != null) douane.recharger();
         if (concentration       != null) concentration.plaques().recharger();
         if (byakugan            != null) byakugan.recharger();
+        if (mudras              != null) mudras.recharger();
         if (to != null) {
             to.sendMessage(Component.text("Configuration ShinobiCore rechargée.", NamedTextColor.GREEN));
         }
@@ -1446,6 +1456,8 @@ public final class ShinobiCore extends JavaPlugin {
     public com.reborn.shinobicore.concentration.ConcentrationModule concentration() { return concentration; }
     /** Lot 5 : le Byakugan (null avant le démarrage). */
     public com.reborn.shinobicore.dojutsu.ByakuganService byakugan() { return byakugan; }
+    /** Mudras au clavier et portes scellées (null avant le démarrage) : API {@code guider}, {@code annuler}, {@code enCours}. */
+    public com.reborn.shinobicore.mudra.MudraModule mudras() { return mudras; }
 
     public com.reborn.shinobicore.meteo.MeteoCommand meteo() { return meteoCommand; }
     /** Journal universel (14/10) ; les add-ons passent par le service {@code JournalService}. */

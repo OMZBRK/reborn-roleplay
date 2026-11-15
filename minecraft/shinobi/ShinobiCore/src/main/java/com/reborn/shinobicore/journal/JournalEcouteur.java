@@ -170,7 +170,7 @@ public final class JournalEcouteur implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onCommand(PlayerCommandPreprocessEvent ev) {
         Player p = ev.getPlayer();
-        String msg = ev.getMessage();
+        String msg = journalisable(ev.getMessage());
         if (ignoree(msg)) return;
         String racine = racine(msg);
         boolean st = staff(p);
@@ -188,17 +188,28 @@ public final class JournalEcouteur implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onConsole(ServerCommandEvent ev) {
-        if (ignoree("/" + ev.getCommand())) return;
+        String msg = journalisable("/" + ev.getCommand());
+        if (ignoree(msg)) return;
         var e = Journal.entree(Categorie.STAFF, "COMMANDE").acteur(ev.getSender())
-                .detail("/" + ev.getCommand() + (ev.isCancelled() ? " (refusée)" : ""));
-        Player cible = cibleDans("/" + ev.getCommand(), null);
+                .detail(msg + (ev.isCancelled() ? " (refusée)" : ""));
+        Player cible = cibleDans(msg, null);
         if (cible != null) e.cible(cible);
         e.ecrire();
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onRcon(RemoteServerCommandEvent ev) {
-        Journal.entree(Categorie.STAFF, "COMMANDE").acteur(ev.getSender()).detail("/" + ev.getCommand() + " (RCON)").ecrire();
+        Journal.entree(Categorie.STAFF, "COMMANDE").acteur(ev.getSender())
+                .detail(journalisable("/" + ev.getCommand()) + " (RCON)").ecrire();
+    }
+
+    /**
+     * La ligne de commande telle qu'elle s'écrit au journal. Le journal {@code STAFF} est lu dès le grade Helper
+     * ({@code /journal}) : un argument que ce grade n'a pas le droit de voir n'y passe pas en clair. Aujourd'hui : la
+     * suite d'une porte scellée ({@code /porte creer}, {@code /porte signes}), réservée au Modérateur.
+     */
+    private static String journalisable(String msg) {
+        return com.reborn.shinobicore.mudra.MudraRegles.masquerCommande(msg);
     }
 
     private boolean ignoree(String msg) {
