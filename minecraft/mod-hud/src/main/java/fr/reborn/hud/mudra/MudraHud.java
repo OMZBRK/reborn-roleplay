@@ -21,9 +21,10 @@ import net.minecraft.resources.Identifier;
  * signe</b> ({@code gui/mudras/mains.png}, Schlum, Wikimedia Commons, CC BY-SA 4.0, lissée). Au-dessus le nom en
  * ArcadePix, dessous la <b>jauge du temps</b> (celle du poids de la sacoche : piste sombre cernée d'or sombre, plein or à
  * crête claire), puis la touche dans la <b>case des rappels de touches</b> ({@link RappelsTouches#caseTouche}, Inter
- * gras). Le signe qui vient d'être composé, et en mode guidé le signe attendu, passent en <b>laque rouge</b> à équerres
- * d'angle, leur nom en or ; en mode guidé les autres pâlissent et le nom de la technique s'écrit au-dessus avec
- * l'avancement. Rien d'autre : aucune trace de la suite composée (il faut la connaître).
+ * gras). Le signe qui vient d'être composé passe en <b>laque rouge</b> à équerres d'angle, son nom en or. En mode guidé
+ * (apprentissage) le nom de la technique s'écrit au-dessus avec l'avancement, et <b>rien ne dit quel signe est
+ * attendu</b> (16/11 : la suite se sait par le parchemin ou par un professeur). Seul un serveur plus ancien, qui donne
+ * encore la suite, fait mettre le signe attendu en rouge et pâlir les autres. Aucune trace de la suite composée.
  *
  * <p>Gabarit au <b>texel</b> : un texel = {@code z} pixels écran, entier ({@code z} = hauteur / 540 arrondi : 2 en
  * 1080p, 1 en 768p, 3 en 1440p ; borné pour que la rangée tienne dans 94 % de la largeur, le pas resserré en dessous). Case 34 texels, 58 d'axe en
@@ -110,7 +111,8 @@ public final class MudraHud {
             if (clesPour != MudraClient.ouverteA()) nommerTouches();
             float fin = 1f - sortie;
             int dyFin = MudraClient.finOk() ? Math.round(sortie * 5 * z) : 0;
-            boolean guide = MudraClient.guide();
+            // « montree » : seulement si le serveur a donné la suite (ancien serveur) ; sinon rien n'est mis en avant
+            boolean guide = MudraClient.guide(), montree = MudraClient.montree();
             int attendu = MudraClient.attendu();
             long t0 = MudraClient.ouverteA();
 
@@ -134,7 +136,7 @@ public final class MudraHud {
                 float e = entree(now, t0, i);
                 float a = e * fin;
                 if (a <= 0.01f) continue;
-                int teinte = guide && i != attendu && bosse(now, i) <= 0.01f ? 0x8C8C8C : 0xFFFFFF;
+                int teinte = montree && i != attendu && bosse(now, i) <= 0.01f ? 0x8C8C8C : 0xFFFFFF;
                 l.etire(x0 + i * pas + marge, yCase(yCase, dyFin, e, now, i, z) + marge, main, main, i * t + 0.5f, 0, t - 1, t,
                     DaKit.argb(teinte, a));
             }
@@ -167,7 +169,7 @@ public final class MudraHud {
                 if (a <= 0.01f) continue;
                 float cx = x0 + i * pas + cote / 2f;
                 boolean choisie = i == attendu || bosse(now, i) > 0.01f;
-                float an = guide && !choisie ? 0.55f * a : a;
+                float an = montree && !choisie ? 0.55f * a : a;
                 arc(g, f, NOMS[i], cx, yNom + (yCase(yCase, dyFin, e, now, i, z) - yCase), z, choisie ? OR_CLAIR : CREME, an);
                 cle(i, k, cx, yCle + dyFin + touche / 2.0).dessinerPx(g, an);
             }
@@ -244,7 +246,7 @@ public final class MudraHud {
 
     private static String titre() {
         String src = MudraClient.titre();
-        int fait = MudraClient.fait(), n = MudraClient.suite().length;
+        int fait = MudraClient.fait(), n = MudraClient.total();
         if (fait != titreFait || n != titreTotal || !src.equals(titreSrc)) {
             titreFait = fait;
             titreTotal = n;

@@ -229,14 +229,18 @@ final class OngletTechniques implements Onglet {
             dMaitriseN = l.maitrise();
             dMaitrise = l.mot();
             if (p != null && p.mudras() != null) {
+                // la suite entière (16/11) : elle ne s'affiche plus pendant la séance, celui qui a appris la technique
+                // doit pouvoir la relire ici pour l'enseigner. Deux lignes au plus (6 signes aux rangs A et S).
                 for (String m : p.mudras()) {
-                    // 4 signes au plus (une ligne) ; « … » s'il en reste : la suite entière est sur le parchemin
-                    if (dMudras.size() >= 4) { dMudras.add("…"); break; }
+                    if (dMudras.size() >= 12) break;
                     dMudras.add(m);
                 }
                 if (!dMudras.isEmpty()) dMudrasTxt = FicheArt.paragraphe(f, String.join("  ·  ", dMudras), X1 - 70, false, 12, 2);
             }
-            if (p != null && p.desc() != null) dDesc = FicheArt.paragraphe(f, p.desc(), X1, false, 13, 3);
+            // suite sur deux lignes : la description en rend une (le panneau garde sa hauteur sur les petits écrans)
+            if (p != null && p.desc() != null) {
+                dDesc = FicheArt.paragraphe(f, p.desc(), X1, false, 13, dMudrasTxt.lignes().size() > 1 ? 2 : 3);
+            }
             if (t.castable()) {
                 int casts = StatsMath.casts(s.snap().levers(), s.rep().previewStats(), t);
                 dCout = FicheArt.paragraphe(f, (t.stamina() ? "Se paie en endurance : " : "Se paie en chakra : ")

@@ -28,7 +28,9 @@ import java.util.function.LongSupplier;
  * <p><b>Le serveur décide de tout</b> (ShinobiCore {@code mudra/}, canal {@code reborn:mudra}) : qui peut ouvrir la barre,
  * combien de temps elle dure, si la suite ouvre une porte scellée. Le mod affiche, capte les touches et envoie chaque
  * signe ; il ne sait jamais s'il y a une porte près de lui ni si un signe est le bon (mode libre). En mode guidé
- * (apprentissage d'une technique), le serveur donne la suite : le signe attendu est mis en avant.
+ * (apprentissage d'une technique), le serveur ne donne que le <b>nombre de signes</b> (16/11) : la suite se compose de
+ * mémoire, rien n'est mis en avant ; chaque signe avance le compte, le serveur referme au premier mauvais. Un serveur
+ * plus ancien donne encore la suite : le signe attendu est alors mis en avant, comme avant.
  *
  * <p>La touche (U par défaut) demande l'ouverture ; un second appui ou Échap referme. Tant que la barre est ouverte et
  * qu'aucun écran ne l'est, la rangée des chiffres ne change plus l'objet tenu ({@code mixin/KeyboardMudraMixin}). Chaque
@@ -71,7 +73,7 @@ public final class MudraClient {
 
     /* session en cours */
     private static boolean ouverte, guide;
-    private static int session, max, fait;
+    private static int session, max, fait, total;
     private static long temps, gain, ouverteA, echeance, dernierSigne;
     private static int[] suite = new int[0];
     private static String titre = "";
@@ -103,8 +105,11 @@ public final class MudraClient {
     public static boolean systeme() { return systeme; }
     public static boolean ouverte() { return ouverte; }
     static boolean guide() { return guide; }
-    static int fait() { return fait; }
-    static int[] suite() { return suite; }
+    public static int fait() { return fait; }
+    /** Mode guidé : nombre de signes de la suite à composer. */
+    static int total() { return total; }
+    /** Mode guidé : le serveur a-t-il donné la suite (ancien serveur) ? Sinon elle se compose de mémoire. */
+    static boolean montree() { return guide && suite.length > 0; }
     static String titre() { return titre; }
     static long ouverteA() { return ouverteA; }
     static long finA() { return finA; }
@@ -114,8 +119,8 @@ public final class MudraClient {
     static long messageA() { return messageA; }
     static boolean messageRefus() { return messageRefus; }
 
-    /** Le signe attendu en mode guidé, ou −1. */
-    static int attendu() { return ouverte && guide && fait < suite.length ? suite[fait] : -1; }
+    /** Le signe attendu en mode guidé quand le serveur a donné la suite, ou −1 (composition de mémoire). */
+    public static int attendu() { return ouverte && guide && fait < suite.length ? suite[fait] : -1; }
 
     /** Part de temps restante (0 à 1) à l'instant donné. */
     static float reste(long now) {
@@ -155,8 +160,9 @@ public final class MudraClient {
         dernierSigne = now;
         APPUI[s] = now;
         if (guide) {
-            // le bon signe avance la suite et rend tout le temps ; un mauvais : le serveur referme (fin « rate »)
-            if (fait < suite.length && suite[fait] == s) {
+            // de mémoire (suite non donnée) : tout signe avance le compte et rend tout le temps, le serveur referme au
+            // premier mauvais (fin « rate »). Suite donnée : seul le bon signe avance.
+            if (suite.length == 0 || (fait < suite.length && suite[fait] == s)) {
                 fait++;
                 echeance = now + temps;
             }
@@ -206,7 +212,9 @@ public final class MudraClient {
                         for (int i = 0; i < s.length; i++) s[i] = Math.max(0, Math.min(N - 1, a.get(i).getAsInt()));
                     }
                     suite = s;
-                    if (guide) max = Math.max(1, s.length);
+                    total = s.length > 0 ? s.length
+                        : o.has("total") ? Math.max(1, Math.min(N, o.get("total").getAsInt())) : 0;
+                    if (guide) max = Math.max(1, total);
                     titre = o.has("titre") ? o.get("titre").getAsString() : "";
                     fait = 0;
                     ouverte = true;

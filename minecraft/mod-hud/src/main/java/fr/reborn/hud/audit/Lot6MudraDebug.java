@@ -28,7 +28,8 @@ import java.util.function.Predicate;
  * vrai {@link MudraClient#signe(int)} ; horloge du mod figée et avancée à la main (images reproductibles).
  *
  * <p>Captures {@code run/screenshots/mudra_*.png} : entrée en cascade, barre posée, signe composé, temps presque écoulé,
- * réussite, mode guidé (signe attendu, avancement, mauvais signe), refus, pose du personnage vue de face, 1366 × 768.
+ * réussite, mode guidé de mémoire (aucun signe mis en avant, avancement, mauvais signe), refus, pose du personnage vue
+ * de face, 1366 × 768.
  * Bilans « [mudra] OK / ECHEC », puis le jeu se ferme.
  */
 public final class Lot6MudraDebug {
@@ -134,14 +135,18 @@ public final class Lot6MudraDebug {
             h += 2500;
             session++;
             FILE.add("{\"v\":1,\"t\":\"ouvre\",\"n\":" + session + ",\"mode\":\"guide\",\"temps\":3500,\"gain\":3500,\"max\":3,"
-                + "\"suite\":[2,5,0],\"titre\":\"Boule de feu\"}");
-        }, "ouverture guidée par le serveur");
+                + "\"total\":3,\"titre\":\"Boule de feu\"}");
+        }, "ouverture guidée par le serveur (de mémoire)");
         attendre(mc -> MudraClient.ouverte(), 40, "barre guidée ouverte");
-        pas(1, mc -> h += 800, "barre guidée posée");
+        pas(1, mc -> {
+            verifie(MudraClient.attendu() == -1, "séance de mémoire : aucun signe attendu n'est mis en avant");
+            h += 800;
+        }, "barre guidée posée");
         pas(2, mc -> shot(mc, "mudra_guide"), "capture");
         pas(1, mc -> {
             h += 600;
             MudraClient.signe(2);
+            verifie(MudraClient.fait() == 1 && MudraClient.attendu() == -1, "signe composé : le compte avance (2 / 3), toujours rien en avant");
             h += 130;
         }, "bon signe");
         pas(2, mc -> shot(mc, "mudra_guide_2"), "capture");
@@ -155,6 +160,20 @@ public final class Lot6MudraDebug {
         attendre(mc -> !MudraClient.ouverte(), 40, "barre refermée sur l'échec");
         pas(1, mc -> h += 120, "sortie de l'échec");
         pas(2, mc -> shot(mc, "mudra_rate"), "capture");
+
+        /* ---- ancien serveur : la suite est encore donnée, le signe attendu est mis en avant */
+        pas(2, mc -> {
+            h += 2500;
+            session++;
+            FILE.add("{\"v\":1,\"t\":\"ouvre\",\"n\":" + session + ",\"mode\":\"guide\",\"temps\":3500,\"gain\":3500,\"max\":3,"
+                + "\"suite\":[2,5,0],\"titre\":\"Boule de feu\"}");
+        }, "ouverture guidée avec la suite (ancien serveur)");
+        attendre(mc -> MudraClient.ouverte(), 40, "barre guidée ouverte");
+        pas(1, mc -> {
+            verifie(MudraClient.attendu() == 2, "suite donnée par un ancien serveur : le signe attendu est connu");
+            FILE.add("{\"v\":1,\"t\":\"fin\",\"n\":" + session + ",\"res\":\"coupe\"}");
+        }, "suite donnée");
+        attendre(mc -> !MudraClient.ouverte(), 40, "barre refermée");
 
         /* ---- refus, secours, extinction */
         pas(2, mc -> { h += 2500; reponse = "refus"; MudraClient.basculer(); }, "demande refusée");

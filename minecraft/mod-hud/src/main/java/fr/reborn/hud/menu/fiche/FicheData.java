@@ -347,7 +347,7 @@ public final class FicheData {
             "desc":"Une sphère d'eau dense crachée d'un seul souffle. Elle frappe comme un poing et trempe tout autour.","mudras":["Tigre","Serpent","Rat"]},
            {"id":"suiton_mizurappa","name":"Suiton — Jet Tranchant","rank":"D","tier":1,"cat":"ninjutsu/suiton","nature":"SUITON","kind":"CHAKRA","factor":1,"explicit":true,"castable":true,"mastery":55,"scaling":{"ninjutsu":"B","controle":"C"},
             "letter":"D","groupe":"NINJUTSU","palier":1,"palierTxt":"Avancé","origin":"PARCHEMIN","teach":false,
-            "desc":"Un jet d'eau comprimé, assez fin pour entailler le bois. Il part des lèvres, d'un seul souffle.","mudras":["Tigre","Bélier","Rat"]},
+            "desc":"Un jet d'eau comprimé, assez fin pour entailler le bois. Il part des lèvres, d'un seul souffle.","mudras":["Tigre","Bélier","Sanglier","Dragon","Buffle","Rat"]},
            {"id":"futon_rafale","name":"Fūton — Rafale Vive","rank":"D","tier":1,"cat":"ninjutsu/futon","nature":"FUTON","kind":"CHAKRA","factor":1,"explicit":true,"castable":true,"mastery":10,"scaling":{"ninjutsu":"B","chakra":"C"},
             "letter":"D","groupe":"NINJUTSU","palier":0,"palierTxt":"Novice","origin":"PARCHEMIN","teach":false,
             "desc":"Une bourrasque soufflée entre les doigts, qui repousse et déséquilibre.","mudras":["Serpent","Bélier"]},
