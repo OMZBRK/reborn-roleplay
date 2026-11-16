@@ -34,6 +34,11 @@
   qu'un signe est juste. Une mauvaise suite se dissipe en silence.
 - Les essais ratés devant une porte fermée sont notés au journal du staff (qui, où, quelle suite) : forcer une porte
   en essayant des suites se voit.
+- **Essais en série** (16/11) : au cinquième essai manqué devant une même porte en une minute, la porte **ne répond
+  plus à ce joueur pendant deux minutes**, même à la bonne suite. Rien ne le lui dit (aucun indice) ; le staff le
+  lit au journal. Se déconnecter ne lève pas le blocage ; un redémarrage du serveur ou un `/sc reload`, si. Devant
+  deux portes proches (un sas), l'essai compte pour les deux. Celui qui pose la bonne suite sans que la porte
+  s'ouvre (un pas trop loin, dalle encore en mouvement) n'est pas compté.
 - La dalle ne se casse pas, ne se pousse pas, n'explose pas.
 
 **Côté staff** — commande `/porte` (Modo et plus pour créer ; Helper pour lister) :
@@ -52,17 +57,25 @@ Limites d'une dalle : 9 blocs par côté au plus, 3 d'épaisseur, blocs simples 
 bannière, ni cadre ou tableau accroché : la création est refusée). On ne peut rien poser ni accrocher sur une dalle.
 
 La suite d'une porte n'est jamais écrite au journal du staff (elle y apparaît masquée) ; seuls les Modos et plus la
-voient avec `/porte info`. **Pas de blocage contre les essais en série** : une porte à 2 signes se force en quelques
-minutes (144 suites), les essais sont seulement tracés. Donner au moins 4 signes à une porte qui compte.
+voient avec `/porte info`. Le blocage des essais en série (au 5ᵉ essai manqué en une minute, 2 minutes de silence :
+`mudras.portes.essais-max`, `essais-fenetre-s`, `blocage-s`) ne freine que celui qui enchaîne. Un joueur qui s'en
+tient à 4 essais par minute n'est jamais bloqué : une porte à 2 signes (144 suites) lui cède en une demi-heure
+environ (36 minutes au pire), avec seulement les `MUDRA_ESSAI` au journal. **Donner au moins 4 signes à une porte
+qui compte** (20 736 suites).
 
 ## 3. L'apprentissage d'une technique
 
 Quand une séance d'apprentissage arrive aux mudras, la barre s'ouvre **en mode guidé** : le nom de la technique
-s'écrit au-dessus avec l'avancement (« Boule de feu · 2 / 4 »), le signe attendu reste clair et souligné d'or, les autres
-pâlissent. Il faut presser la bonne touche dans le délai de la difficulté (plus 1,5 s pour trouver la touche). Un
-mauvais signe ou un délai dépassé fait échouer la séance, comme avant.
+s'écrit au-dessus avec l'avancement (« Boule de feu · 2 / 4 »). **Rien ne dit quel signe est attendu** (décision du
+16/11 : « le joueur doit les connaître depuis le parchemin ou via professeur ») : la suite se compose **de mémoire**.
+Le joueur la lit sur son parchemin avant de s'entraîner, ou la tient d'un maître qui la lui montre ou la lui dit en
+RP (celui qui a appris une technique relit sa suite entière sur sa fiche, onglet Techniques). Le serveur ne donne
+même plus la suite au mod, seulement le nombre de signes : un client modifié n'y gagne rien. Chaque signe doit
+arriver dans le délai de la difficulté (plus 1,5 s). Un mauvais signe ou un délai dépassé fait échouer la séance.
 
 Sans le système (éteint, ou joueur sans le mod à jour), l'ancien mini-jeu reste : titres à l'écran et clic gauche.
+Système allumé mais joueur empêché de signer par son état (blessé, en garde, en prison…) : la séance s'arrête sans
+compter, l'ancien mini-jeu ne prend pas le relais (il nommerait chaque signe).
 
 **Chaque technique a sa suite, toujours la même** (15/11). Huit techniques la déclarent dans `abilities.yml`
 (`mudras:`). Pour les autres, la suite est **tirée de l'identifiant de la technique** : fixe, la même à chaque séance,
@@ -70,7 +83,8 @@ Sans le système (éteint, ou joueur sans le mod à jour), l'ancien mini-jeu res
 hasard à chaque séance : on n'apprenait rien. Pour les arts à signes (ninjutsu, kekkei genkai de nature, genjutsu,
 kinjutsu, juinjutsu, senjutsu : 133 techniques), cette suite appartient à la technique : le parchemin et la fiche la
 montrent aussi. Pour les autres arts dont la séance passe par les mudras (armes hors kenjutsu, marionnettes, dōjutsu :
-48 techniques), elle ne sert qu'à la séance. Écrire `mudras:` sur une technique remplace sa suite tirée.
+48 techniques), elle ne sert qu'à la séance : **le parchemin la montre** (16/11, sans quoi elle ne s'apprendrait
+nulle part), pas la fiche ni l'incantation. Écrire `mudras:` sur une technique remplace sa suite tirée.
 
 **Le lancer en combat n'utilise pas la barre** (précision du propriétaire, 15/11 : « quand je te parle des mudras
 c'est pour le système d'apprentissage »). L'incantation reste la barre bleue qui avance seule ; elle affiche

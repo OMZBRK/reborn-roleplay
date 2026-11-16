@@ -3,7 +3,9 @@ package com.reborn.shinobicore.mudra;
 import com.reborn.shinobicore.staff.panel.StaffGrades;
 import com.reborn.shinobicore.technique.Mudra;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
 
@@ -58,11 +60,16 @@ public final class MudraRegles {
      * @param portee       blocs entre les pieds du joueur et la dalle
      * @param dureeTicks   durée de la levée (et de la descente)
      * @param ouverteS     secondes avant que la dalle redescende, dès que le passage est libre
+     * @param essaisMax    essais manqués devant une même porte, dans la fenêtre, avant qu'elle ne réponde plus à ce
+     *                     joueur (0 = jamais de blocage)
+     * @param essaisFenetreS fenêtre de ce compte, en secondes
+     * @param blocageS     durée du blocage, en secondes
      */
     public record Reglages(long tempsMs, long gainMs, int maxSignes, long signeMinMs, long rechargeMs, double gesteRayon,
-                           long guideMargeMs, double portee, int dureeTicks, int ouverteS) {
+                           long guideMargeMs, double portee, int dureeTicks, int ouverteS, int essaisMax,
+                           int essaisFenetreS, int blocageS) {
 
-        public static final Reglages DEFAUT = new Reglages(5000, 700, 12, 120, 1500, 24.0, 1500, 6.0, 60, 8);
+        public static final Reglages DEFAUT = new Reglages(5000, 700, 12, 120, 1500, 24.0, 1500, 6.0, 60, 8, 5, 60, 120);
 
         public Reglages {
             tempsMs = Math.max(1000, Math.min(60_000, tempsMs));
@@ -75,6 +82,9 @@ public final class MudraRegles {
             portee = Double.isNaN(portee) ? 6.0 : Math.max(1.0, Math.min(16.0, portee));
             dureeTicks = Math.max(10, Math.min(400, dureeTicks));
             ouverteS = Math.max(1, Math.min(600, ouverteS));
+            essaisMax = Math.max(0, Math.min(50, essaisMax));
+            essaisFenetreS = Math.max(5, Math.min(3600, essaisFenetreS));
+            blocageS = Math.max(5, Math.min(86_400, blocageS));
         }
     }
 
@@ -153,6 +163,57 @@ public final class MudraRegles {
 
     /** La composition libre est-elle pleine ({@code max-signes} signes sans rien) ? */
     public static boolean pleine(int composes, int maxSignes) { return composes >= maxSignes; }
+
+    /**
+     * Essais en série devant une porte : note l'essai manqué de {@code now} dans {@code instants} (ceux sortis de la
+     * fenêtre sont retirés) et dit si le plafond est atteint. Vrai : la liste est vidée, à l'appelant de bloquer la
+     * porte pour ce joueur. {@code max} à 0 ou moins : jamais de blocage, rien n'est noté.
+     */
+    public static boolean essaiDeTrop(Deque<Long> instants, long now, int max, long fenetreMs) {
+        if (max <= 0) return false;
+        while (!instants.isEmpty() && now - instants.peekFirst() > fenetreMs) instants.pollFirst();
+        instants.addLast(now);
+        if (instants.size() < max) return false;
+        instants.clear();
+        return true;
+    }
+
+    /**
+     * Essais manqués d'un joueur devant une porte, et la fin de son blocage. L'horloge est passée par l'appelant.
+     */
+    public static final class Essais {
+        private final ArrayDeque<Long> instants = new ArrayDeque<>();
+        private long bloqueJusqua;
+
+        /** La porte ne répond-elle plus à ce joueur ? */
+        public boolean bloquee(long now) { return now < bloqueJusqua; }
+
+        /**
+         * Note un essai manqué ; vrai s'il déclenche le blocage ({@code blocageMs}). Pendant un blocage rien n'est
+         * compté : il ne se prolonge pas.
+         */
+        public boolean compter(long now, int max, long fenetreMs, long blocageMs) {
+            if (max <= 0 || bloquee(now)) return false;
+            if (!essaiDeTrop(instants, now, max, fenetreMs)) return false;
+            bloqueJusqua = now + Math.max(0, blocageMs);
+            return true;
+        }
+
+        /** Plus rien à retenir : blocage fini et aucun essai encore dans la fenêtre. */
+        public boolean eteint(long now, long fenetreMs) {
+            return !bloquee(now) && (instants.isEmpty() || now - instants.peekLast() > fenetreMs);
+        }
+    }
+
+    /**
+     * La composition commence-t-elle par cette suite ? Sert à reconnaître la <b>bonne</b> suite d'une porte posée sans
+     * qu'elle s'ouvre (blocage, hors de portée, dalle en mouvement) : elle ne s'écrit pas en clair au journal et ne
+     * compte pas comme un essai manqué.
+     */
+    public static boolean commencePar(List<Integer> composee, List<Integer> suite) {
+        if (composee == null || suite == null || suite.isEmpty() || composee.size() < suite.size()) return false;
+        return composee.subList(0, suite.size()).equals(suite);
+    }
 
     /** Suite lue d'une saisie du staff, ou l'erreur à lui montrer. */
     public record Suite(List<Mudra> signes, String erreur) {

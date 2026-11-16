@@ -299,7 +299,20 @@ public final class ScrollCatalog {
         o.addProperty("desc", a.description() == null ? "" : a.description());
         JsonArray signs = new JsonArray();
         List<String> labels = a.incantationLabels();
-        if (labels != null) for (String s : labels) signs.add(s);
+        if (labels != null) {
+            for (String s : labels) signs.add(s);
+        } else if (branch(a).equals("Ninjutsu")) {
+            // sans signes propres (armes hors kenjutsu, marionnettes, dōjutsu) mais apprise par les signes : le parchemin
+            // montre la suite que la séance attend (LearningMinigame.startMudra), elle ne s'affiche plus pendant (16/11)
+            try {
+                for (com.reborn.shinobicore.technique.Mudra m
+                        : com.reborn.shinobicore.technique.Mudra.suiteStable(a.id(), a.rank().defaultMudraCount())) {
+                    signs.add(m.display());
+                }
+            } catch (LinkageError ancien) {
+                // ShinobiCore d'avant le 15/11 : pas de suite fixe, rien à montrer
+            }
+        }
         o.add("signs", signs);
         o.addProperty("seances", seances(r));
         o.addProperty("weight", weight(r));

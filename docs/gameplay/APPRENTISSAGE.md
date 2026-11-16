@@ -222,7 +222,9 @@ lancer une **simulation** (moyenne sur 10 000 tirages). Ordre de grandeur sur 6 
 - **« S'entraîner »** lance l'épreuve **dans le monde** (pas dans un menu) :
   - **Ninjutsu** : concentration du chakra (§4.1), puis enchaînement de **mudras** sur la **barre de mudras**
     ([`MUDRAS.md`](./MUDRAS.md) §3, 15/11) : la suite de la technique, toujours la même, composée sur la rangée des
-    chiffres, le signe attendu mis en avant. Système éteint ou joueur sans le mod : titres à l'écran et clic gauche ;
+    chiffres, **de mémoire** (16/11 : aucun signe n'est mis en avant, la suite se lit sur le parchemin ou se tient
+    d'un maître). Système éteint ou joueur sans le mod : titres à l'écran et clic gauche. Joueur empêché de signer
+    par son état (blessé, en garde, en prison…) : la séance s'arrête sans compter ;
   - **Kenjutsu** : concentration du chakra, puis **pompes** ;
   - **Taïjutsu** : **pompes** seulement (pas de chakra).
 - **Une séance par technique toutes les 20 h** (`parchemins.seance-heures`), réussie ou ratée.

@@ -4,6 +4,7 @@ import com.reborn.shinobicore.staff.panel.StaffGrades;
 import com.reborn.shinobicore.technique.Mudra;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayDeque;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -31,11 +32,14 @@ class MudraReglesTest {
         assertEquals(6.0, d.portee());
         assertEquals(60, d.dureeTicks());
         assertEquals(8, d.ouverteS());
+        assertEquals(5, d.essaisMax());
+        assertEquals(60, d.essaisFenetreS());
+        assertEquals(120, d.blocageS());
     }
 
     @Test
     void reglages_bornes() {
-        MudraRegles.Reglages r = new MudraRegles.Reglages(10, 99_999, 40, -5, -1, 500, 99_999, 0, 1, 0);
+        MudraRegles.Reglages r = new MudraRegles.Reglages(10, 99_999, 40, -5, -1, 500, 99_999, 0, 1, 0, -3, 1, 1);
         assertEquals(1000, r.tempsMs(), "ligne de temps d'une seconde au moins");
         assertEquals(1000, r.gainMs(), "le gain ne dépasse jamais la ligne");
         assertEquals(12, r.maxSignes());
@@ -46,8 +50,83 @@ class MudraReglesTest {
         assertEquals(1.0, r.portee());
         assertEquals(10, r.dureeTicks());
         assertEquals(1, r.ouverteS());
-        assertEquals(2, new MudraRegles.Reglages(5000, 700, 0, 120, 1500, 24, 1500, 6, 60, 8).maxSignes());
-        assertEquals(0.0, new MudraRegles.Reglages(5000, 700, 12, 120, 1500, Double.NaN, 1500, 6, 60, 8).gesteRayon());
+        assertEquals(0, r.essaisMax(), "0 = jamais de blocage");
+        assertEquals(5, r.essaisFenetreS());
+        assertEquals(5, r.blocageS());
+        assertEquals(2, new MudraRegles.Reglages(5000, 700, 0, 120, 1500, 24, 1500, 6, 60, 8, 5, 60, 120).maxSignes());
+        assertEquals(0.0, new MudraRegles.Reglages(5000, 700, 12, 120, 1500, Double.NaN, 1500, 6, 60, 8, 5, 60, 120).gesteRayon());
+    }
+
+    /* ================================================================ essais en série */
+
+    @Test
+    void essais_leCinquiemeDansLaMinuteBloque() {
+        ArrayDeque<Long> l = new ArrayDeque<>();
+        long t = 1_000_000;
+        for (int i = 0; i < 4; i++) assertFalse(MudraRegles.essaiDeTrop(l, t + i * 10_000, 5, 60_000), "essai " + (i + 1));
+        assertTrue(MudraRegles.essaiDeTrop(l, t + 40_000, 5, 60_000), "le cinquième en moins d'une minute");
+        assertTrue(l.isEmpty(), "le compte repart de zéro après le blocage");
+    }
+
+    @Test
+    void essais_lesAnciensSortentDeLaFenetre() {
+        ArrayDeque<Long> l = new ArrayDeque<>();
+        long t = 1_000_000;
+        for (int i = 0; i < 4; i++) assertFalse(MudraRegles.essaiDeTrop(l, t + i * 1000, 5, 60_000));
+        assertFalse(MudraRegles.essaiDeTrop(l, t + 70_000, 5, 60_000), "les quatre premiers ont plus d'une minute");
+        assertEquals(1, l.size());
+    }
+
+    @Test
+    void essais_fenetreStricte() {
+        ArrayDeque<Long> l = new ArrayDeque<>();
+        for (int i = 0; i < 4; i++) assertFalse(MudraRegles.essaiDeTrop(l, i, 5, 60_000));
+        assertTrue(MudraRegles.essaiDeTrop(l, 60_000, 5, 60_000), "un essai vieux de 60 s pile compte encore");
+    }
+
+    @Test
+    void essais_blocageDureEtNeSeProlongePas() {
+        MudraRegles.Essais e = new MudraRegles.Essais();
+        long t = 5_000_000;
+        for (int i = 0; i < 4; i++) assertFalse(e.compter(t + i * 1000, 5, 60_000, 120_000));
+        assertFalse(e.bloquee(t + 4000));
+        assertTrue(e.compter(t + 4000, 5, 60_000, 120_000), "le cinquième bloque");
+        assertTrue(e.bloquee(t + 4001));
+        for (int i = 0; i < 20; i++) assertFalse(e.compter(t + 5000 + i * 1000, 5, 60_000, 120_000), "rien n'est compté pendant");
+        assertTrue(e.bloquee(t + 4000 + 119_999));
+        assertFalse(e.bloquee(t + 4000 + 120_000), "le blocage ne s'est pas prolongé");
+        assertFalse(e.compter(t + 4000 + 120_000, 5, 60_000, 120_000), "le compte repart de zéro");
+    }
+
+    @Test
+    void essais_eteint() {
+        MudraRegles.Essais e = new MudraRegles.Essais();
+        assertTrue(e.eteint(1000, 60_000), "jamais d'essai");
+        e.compter(1000, 2, 60_000, 120_000);
+        assertFalse(e.eteint(2000, 60_000), "un essai dans la fenêtre");
+        assertTrue(e.eteint(61_001, 60_000));
+        e.compter(70_000, 2, 60_000, 120_000);
+        assertTrue(e.compter(70_500, 2, 60_000, 120_000));
+        assertFalse(e.eteint(100_000, 60_000), "bloqué");
+        assertTrue(e.eteint(190_500, 60_000), "blocage fini, plus aucun essai");
+        assertFalse(new MudraRegles.Essais().compter(1, 0, 60_000, 120_000), "0 = jamais");
+    }
+
+    @Test
+    void commencePar_reconnaitLaBonneSuite() {
+        assertTrue(MudraRegles.commencePar(List.of(2, 5, 10), List.of(2, 5, 10)));
+        assertTrue(MudraRegles.commencePar(List.of(2, 5, 10, 3), List.of(2, 5, 10)), "signes posés après la bonne suite");
+        assertFalse(MudraRegles.commencePar(List.of(2, 5), List.of(2, 5, 10)));
+        assertFalse(MudraRegles.commencePar(List.of(3, 2, 5, 10), List.of(2, 5, 10)));
+        assertFalse(MudraRegles.commencePar(List.of(2, 5, 10), List.of()));
+        assertFalse(MudraRegles.commencePar(null, List.of(2)));
+    }
+
+    @Test
+    void essais_zeroNeBloqueJamais() {
+        ArrayDeque<Long> l = new ArrayDeque<>();
+        for (int i = 0; i < 100; i++) assertFalse(MudraRegles.essaiDeTrop(l, 1000 + i, 0, 60_000));
+        assertTrue(l.isEmpty(), "rien n'est noté");
     }
 
     /* ================================================================ minuterie */

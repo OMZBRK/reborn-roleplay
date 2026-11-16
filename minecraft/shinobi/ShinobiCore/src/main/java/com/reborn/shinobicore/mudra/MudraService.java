@@ -1,6 +1,5 @@
 package com.reborn.shinobicore.mudra;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.reborn.shinobicore.ShinobiCore;
@@ -29,6 +28,7 @@ import org.bukkit.plugin.messaging.PluginMessageListener;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -47,7 +47,8 @@ import java.util.logging.Level;
  *   <tr><td>S → C</td><td>{@code {"v":1,"t":"regles","actif":bool,"max":12}}</td><td>40 ticks après la connexion, au
  *       changement de personnage, à {@code /sc reload}, à {@code /porte systeme} : l'interrupteur du système seulement</td></tr>
  *   <tr><td>S → C</td><td>{@code {"v":1,"t":"ouvre","n":3,"mode":"libre","temps":5000,"gain":700,"max":12}}</td>
- *       <td>session ouverte ; en mode {@code "guide"} en plus {@code "suite":[2,5,10]} et {@code "titre":"…"}</td></tr>
+ *       <td>session ouverte ; en mode {@code "guide"} en plus {@code "total":3} (nombre de signes) et
+ *       {@code "titre":"…"} ; <b>jamais la suite</b> (16/11 : elle se sait par le parchemin ou par un professeur)</td></tr>
  *   <tr><td>S → C</td><td>{@code {"v":1,"t":"fin","n":3,"res":"ok|rate|temps|coupe|ferme","m":"…"}}</td><td>la session
  *       {@code n} est finie ({@code m} facultatif)</td></tr>
  *   <tr><td>S → C</td><td>{@code {"v":1,"t":"refus","m":"…"}}</td><td>{@code ouvrir} refusé : toujours une réponse</td></tr>
@@ -61,7 +62,14 @@ import java.util.logging.Level;
  * </table>
  *
  * <p><b>Aucun indice</b> : en mode libre, ni la présence d'une porte ni la justesse d'un signe ne partent chez le client ;
- * hors de portée de toute porte, la barre s'ouvre et se joue pareil.
+ * hors de portée de toute porte, la barre s'ouvre et se joue pareil. En mode guide non plus : le mod ne reçoit que le
+ * nombre de signes, la suite se compose de mémoire.
+ *
+ * <p><b>Essais en série</b> : {@code portes.essais-max} compositions manquées devant une même porte en
+ * {@code portes.essais-fenetre-s} secondes, et la porte ne répond plus à ce joueur pendant {@code portes.blocage-s}
+ * secondes (même la bonne suite). Rien ne lui est dit ; le journal du staff reçoit {@code MUDRA_BLOCAGE}. L'essai
+ * compte pour chaque porte fermée vue à portée pendant la session ; la bonne suite d'une porte, posée sans qu'elle
+ * s'ouvre, n'est ni comptée ni écrite en clair au journal.
  */
 public final class MudraService implements PluginMessageListener, Listener {
 
@@ -102,6 +110,11 @@ public final class MudraService implements PluginMessageListener, Listener {
          */
         PorteScellee devant;
         Location lieuEssai;
+        /**
+         * Mode libre : toutes les portes fermées vues à portée au moment d'un signe (identifiant → porte). L'essai
+         * manqué compte pour chacune : deux portes proches (sas, double sceau) ne se couvrent pas l'une l'autre.
+         */
+        final Map<String, PorteScellee> vues = new LinkedHashMap<>();
 
         Session(int n, List<Integer> attendue, long tempsMs, long gainMs, Consumer<Fin> fin, long now) {
             this.n = n;
@@ -124,6 +137,12 @@ public final class MudraService implements PluginMessageListener, Listener {
     /** Instant de la dernière fin de session de chaque joueur (délai de recharge). */
     private final Map<UUID, Long> finLe = new HashMap<>();
     private final PlaqueRegles.Limiteur<UUID> ouvertures = new PlaqueRegles.Limiteur<>(MudraRegles.OUVRIR_PAR_S, 1000);
+
+    /**
+     * Joueur → identifiant de porte → essais. Gardé à la déconnexion (se reconnecter ne lève pas un blocage) ; vidé à
+     * l'arrêt et à {@code /sc reload} (le moyen du staff de lever un blocage sans redémarrer).
+     */
+    private final Map<UUID, Map<String, MudraRegles.Essais>> essais = new HashMap<>();
     private int tache = -1;
     private int passages;
 
@@ -148,12 +167,17 @@ public final class MudraService implements PluginMessageListener, Listener {
         desarmer();
         numeros.clear();
         finLe.clear();
+        essais.clear();
         Bukkit.getMessenger().unregisterIncomingPluginChannel(plugin, CANAL, this);
     }
 
-    /** {@code /sc reload} : nouveaux réglages, règles renvoyées à tous. Les sessions en cours gardent leur minuterie. */
+    /**
+     * {@code /sc reload} : nouveaux réglages, règles renvoyées à tous. Les sessions en cours gardent leur minuterie ;
+     * les comptes d'essais et les blocages de portes sont levés.
+     */
     public void recharger(MudraRegles.Reglages r) {
         reglages = r;
+        essais.clear();
         diffuserRegles();
     }
 
@@ -304,9 +328,13 @@ public final class MudraService implements PluginMessageListener, Listener {
         if (pres != null) {
             se.devant = pres;
             se.lieuEssai = p.getLocation();
+            for (PorteScellee v : portes.portes().values()) {
+                if (portes.fermee(v) && PorteService.distance(v, p) <= reglages.portee()) se.vues.put(v.id, v);
+            }
         }
         PorteScellee d = portes.correspondante(p, se.composee);
-        if (d != null && portes.ouvrirPar(p, d)) { finir(id, Fin.OK, null); return; }
+        // une porte bloquée pour ce joueur (essais en série) ne répond pas, même à la bonne suite
+        if (d != null && !bloquee(id, d, recu) && portes.ouvrirPar(p, d)) { finir(id, Fin.OK, null); return; }
         if (MudraRegles.pleine(se.composee.size(), reglages.maxSignes())) finir(id, Fin.RATE, null);
     }
 
@@ -371,7 +399,6 @@ public final class MudraService implements PluginMessageListener, Listener {
      * porte la plus proche à la fin de la session, comme le dit le cahier.
      */
     private void essaiManque(UUID id, Player p, Session s, Fin res) {
-        if (plugin.journal() == null) return;
         PorteScellee d = s.devant;
         Location lieu = s.lieuEssai;
         if (d == null && p != null) {
@@ -379,13 +406,58 @@ public final class MudraService implements PluginMessageListener, Listener {
             lieu = p.getLocation();
         }
         if (d == null) return;
+        s.vues.putIfAbsent(d.id, d);
+        // L'essai compte pour chaque porte vue à portée, sauf celle dont la bonne suite a été posée sans qu'elle s'ouvre
+        // (blocage, dernier signe hors de portée, dalle en mouvement) : celui qui la connaît n'est pas en train de forcer.
+        long now = System.currentTimeMillis();
+        boolean bonne = false;
+        List<PorteScellee> bloquees = new ArrayList<>();
+        for (PorteScellee v : s.vues.values()) {
+            if (MudraRegles.commencePar(s.composee, MudraRegles.ordinaux(v.signes))) bonne = true;
+            else if (compterEssai(id, v, now)) bloquees.add(v);
+        }
+        if (plugin.journal() == null) return;
         JournalService.Entree e = plugin.journal().entree(JournalService.Categorie.INTERACTION, "MUDRA_ESSAI");
         if (p != null) e.acteur(p);
         else e.acteur(id);
         e.cibleTexte("porte " + d.id)
-                .detail(d.libelle() + " · composé : " + MudraRegles.libelleOrdinaux(s.composee) + " · " + res.code());
+                // la bonne suite d'une porte ne s'écrit jamais : le journal est lu des Helpers, qui ne la voient pas
+                .detail(d.libelle() + " · composé : " + (bonne ? MudraRegles.SUITE_MASQUEE + " (bonne suite, porte restée fermée)"
+                        : MudraRegles.libelleOrdinaux(s.composee)) + " · " + res.code());
         if (lieu != null) e.lieu(lieu);
         e.ecrire();
+        for (PorteScellee v : bloquees) {
+            JournalService.Entree b = plugin.journal().entree(JournalService.Categorie.INTERACTION, "MUDRA_BLOCAGE");
+            if (p != null) b.acteur(p);
+            else b.acteur(id);
+            b.cibleTexte("porte " + v.id)
+                    .detail(v.libelle() + " · " + reglages.essaisMax() + " essais manqués en " + reglages.essaisFenetreS()
+                            + " s · la porte ne lui répond plus pendant " + reglages.blocageS() + " s");
+            if (lieu != null) b.lieu(lieu);
+            b.ecrire();
+        }
+    }
+
+    /* ================================================================ essais en série */
+
+    /** La porte est-elle bloquée pour ce joueur (trop d'essais manqués devant elle) ? */
+    private boolean bloquee(UUID id, PorteScellee d, long now) {
+        Map<String, MudraRegles.Essais> m = essais.get(id);
+        MudraRegles.Essais e = m == null ? null : m.get(d.id);
+        return e != null && e.bloquee(now);
+    }
+
+    /**
+     * Note un essai manqué devant la porte ; vrai si cet essai déclenche le blocage. Pendant un blocage rien n'est
+     * compté (il ne se prolonge pas). Les comptes éteints du joueur sont retirés au passage.
+     */
+    private boolean compterEssai(UUID id, PorteScellee d, long now) {
+        if (reglages.essaisMax() <= 0) return false;
+        long fenetre = reglages.essaisFenetreS() * 1000L;
+        Map<String, MudraRegles.Essais> m = essais.computeIfAbsent(id, k -> new HashMap<>());
+        m.values().removeIf(e -> e.eteint(now, fenetre));
+        return m.computeIfAbsent(d.id, k -> new MudraRegles.Essais())
+                .compter(now, reglages.essaisMax(), fenetre, reglages.blocageS() * 1000L);
     }
 
     /* ================================================================ tâche des sessions */
@@ -422,7 +494,8 @@ public final class MudraService implements PluginMessageListener, Listener {
     /* ================================================================ API pour les autres plugins */
 
     /**
-     * Ouvre une barre guidée (la suite attendue est montrée au joueur) ; chaque signe doit arriver en moins de
+     * Ouvre une barre guidée : le joueur compose la suite <b>de mémoire</b> (16/11 : le mod ne reçoit que le nombre de
+     * signes, jamais la suite ; elle se sait par le parchemin ou par un professeur) ; chaque signe doit arriver en moins de
      * {@code tempsParSigneMs}. Faux si le système est éteint, si le joueur n'écoute pas {@value #CANAL}, n'a pas le droit,
      * ou a déjà une session. {@code fin} reçoit la raison de la fin, une seule fois, sur le fil principal.
      */
@@ -446,9 +519,7 @@ public final class MudraService implements PluginMessageListener, Listener {
         o.addProperty("temps", temps);
         o.addProperty("gain", temps);
         o.addProperty("max", Math.max(reglages.maxSignes(), attendue.size()));
-        JsonArray a = new JsonArray();
-        for (int x : attendue) a.add(x);
-        o.add("suite", a);
+        o.addProperty("total", attendue.size());
         o.addProperty("titre", MudraRegles.titre(titre));
         envoyer(p, o);
         return true;

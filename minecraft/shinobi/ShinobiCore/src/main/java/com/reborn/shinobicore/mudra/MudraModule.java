@@ -68,7 +68,9 @@ public final class MudraModule {
             s.getInt("max-signes", d.maxSignes()), s.getLong("signe-min-ms", d.signeMinMs()),
             s.getLong("recharge-ms", d.rechargeMs()), s.getDouble("geste-rayon", d.gesteRayon()),
             s.getLong("guide-marge-ms", d.guideMargeMs()), s.getDouble("portes.portee", d.portee()),
-            s.getInt("portes.duree-ticks", d.dureeTicks()), s.getInt("portes.ouverte-s", d.ouverteS()));
+            s.getInt("portes.duree-ticks", d.dureeTicks()), s.getInt("portes.ouverte-s", d.ouverteS()),
+            s.getInt("portes.essais-max", d.essaisMax()), s.getInt("portes.essais-fenetre-s", d.essaisFenetreS()),
+            s.getInt("portes.blocage-s", d.blocageS()));
     }
 
     public MudraRegles.Reglages reglages() { return mudras.reglages(); }

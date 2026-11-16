@@ -1365,3 +1365,6 @@ mudras:
     portee: 6.0         # blocs entre le joueur et la dalle
     duree-ticks: 60     # durée de la levée
     ouverte-s: 8        # la dalle redescend après ce délai, dès que le passage est libre
+    essais-max: 5       # essais manqués devant une même porte avant qu'elle ne réponde plus au joueur (0 = jamais)
+    essais-fenetre-s: 60  # ... comptés sur cette durée
+    blocage-s: 120      # durée du blocage (rien n'est dit au joueur, le journal du staff le note)

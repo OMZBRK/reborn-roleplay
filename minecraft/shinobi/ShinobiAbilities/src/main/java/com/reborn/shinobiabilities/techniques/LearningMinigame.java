@@ -182,12 +182,22 @@ public final class LearningMinigame implements Listener {
         s.sequence = labels;
         s.index = 0;
         sessions.put(p.getUniqueId(), s);
-        // Barre de mudras du mod d'abord (14/11) ; refusée (système éteint, joueur sans le mod, état) : l'ancien mini-jeu.
+        // Barre de mudras du mod d'abord (14/11) ; refusée parce que le système est éteint ou que le joueur n'a pas le
+        // mod : l'ancien mini-jeu. Refusée par l'état du joueur : la séance s'arrête sans compter (plus bas).
+        // La barre ne montre pas la suite (16/11) : le joueur la sait par le parchemin ou par un professeur.
         if (suite != null && guiderBarre(p, s, suite)) {
             s.barre = true;
             p.sendMessage(Component.text(
-                    "Entraînement — compose les signes sur la barre, dans l'ordre et sans traîner.",
+                    "Entraînement — compose les signes de mémoire, dans l'ordre et sans traîner.",
                     NamedTextColor.GOLD));
+            return;
+        }
+        // Système allumé et joueur à l'écoute, mais barre refusée par son état (blessé, en garde, prison…) : pas d'ancien
+        // mini-jeu, il nommerait chaque signe (16/11). La séance s'arrête sans compter.
+        if (suite != null && barreAttendue(p, suite)) {
+            abort(p);
+            p.sendMessage(Component.text("Tu ne peux pas composer de signes maintenant : la séance ne compte pas.",
+                    NamedTextColor.RED));
             return;
         }
         p.sendMessage(Component.text(
@@ -225,6 +235,19 @@ public final class LearningMinigame implements Listener {
             });
         } catch (LinkageError | RuntimeException e) {
             return false;
+        }
+    }
+
+    /** La barre aurait dû s'ouvrir (système allumé, joueur à l'écoute, suite jouable) : le refus vient de l'état du joueur. */
+    private static boolean barreAttendue(Player p, List<Mudra> suite) {
+        try {
+            com.reborn.shinobicore.ShinobiCore core = com.reborn.shinobicore.ShinobiCore.get();
+            com.reborn.shinobicore.mudra.MudraModule mudras = core == null ? null : core.mudras();
+            return mudras != null && mudras.actif()
+                    && suite.size() <= com.reborn.shinobicore.mudra.MudraRegles.SUITE_MAX
+                    && p.getListeningPluginChannels().contains(com.reborn.shinobicore.mudra.MudraService.CANAL);
+        } catch (LinkageError | RuntimeException e) {
+            return false;   // ShinobiCore absent ou plus ancien : l'ancien mini-jeu reste
         }
     }
 

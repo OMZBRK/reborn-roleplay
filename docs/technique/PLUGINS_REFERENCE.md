@@ -1103,7 +1103,7 @@ tout de suite, sans animation, comme à l'arrêt), `guider(…)` rend `false` et
 | **Droit de composer** | Relu à l'ouverture, à chaque signe, toutes les 10 ticks pendant la session **et à chaque `EtatChangedEvent`** : système allumé ; joueur vivant, ni à terre ni inconscient, pas spectateur, pas en cinématique, pas en douane ni en sélection, pas en mode staff, un personnage choisi (relus en dur chez leurs détenteurs, comme le Byakugan) ; puis `EtatService.verifier(uuid, TECHNIQUE, true).ok()` (**avec mudras** : un entravé ne signe pas). Le refus porte la raison courte de l'état |
 | **Cadence** | `ouvrir` : 2 par seconde et par joueur (« Trop vite. ») ; après une fin, pas de nouvelle session libre avant `recharge-ms`. **Signes** : un par `signe-min-ms` en moyenne, avec 500 ms de marge (`MudraRegles.GIGUE_MS`, `signeRecevable` / `signeSuivant`) ; seul un signe en avance de plus de 500 ms sur ce plafond est ignoré. Ce n'est pas un écart mesuré entre deux arrivées : un tick long, une retransmission ou le battement de 50 ms tassent des signes posés à bonne distance, et un signe juste jeté en silence décalait toute la suite (séance d'apprentissage perdue). Un mod qui garde au moins `signe-min-ms` entre deux signes n'en perd donc jamais ; une rafale reste bornée (5 signes d'un coup au plus avec les défauts). La minuterie et la cadence se jugent sur l'instant d'arrivée du paquet, pas sur celui de son traitement |
 | **Mode libre** | Ligne de temps de `temps-ms`, qui part à l'envoi de `ouvre` ; chaque signe accepté rend `gain-ms` sans dépasser `temps-ms` ; 500 ms de tolérance en faveur du joueur ; à l'échéance `fin` `temps`. Après chaque signe : si la suite composée est **exactement** celle d'une porte fermée et immobile du même monde, à `portes.portee` blocs au plus des pieds du joueur (distance à la boîte de la dalle ; la plus proche s'il y en a plusieurs), la porte s'ouvre et la session finit `ok`. À `max-signes` signes sans porte : `fin` `rate`. Hors de portée de toute porte, la barre s'ouvre et se joue pareil |
-| **Mode guide** | Ouvert par un autre plugin (§4 terdecies.5) : la suite attendue est envoyée ; chaque signe doit arriver en moins de `temps` ms (la ligne repart pleine à chaque bon signe, `gain` = `temps`). Mauvais signe : `rate` ; dernier bon signe : `ok` ; échéance : `temps` |
+| **Mode guide** | Ouvert par un autre plugin (§4 terdecies.5) : le mod ne reçoit que le **nombre de signes** (`total`), jamais la suite (16/11 : elle se compose de mémoire, un client modifié ne peut pas la lire) ; chaque signe doit arriver en moins de `temps` ms (la ligne repart pleine à chaque bon signe, `gain` = `temps`). Mauvais signe : `rate` ; dernier bon signe : `ok` ; échéance : `temps` |
 | **Ce que voient les autres** | À chaque signe accepté, les joueurs du même monde à `geste-rayon` blocs qui écoutent le canal reçoivent `geste` et entendent `reborn:mudra.signe` (son du mod, `PLAYERS`, volume 0,9) à la place du signataire. Rien si le signataire leur est invisible (vanish, mode staff, spectateur, `canSee` faux). Jamais envoyé au signataire |
 | **Coupures** | Déconnexion, mort, KO, changement de monde, changement de personnage, perte du droit, système éteint, arrêt du plugin : `fin` `coupe` (avec la raison quand il y en a une). Reprendre dans la liste le personnage qu'on joue déjà n'est pas un changement (`CharacterSwitchEvent` part quand même) : la session continue, `regles` est renvoyé |
 
@@ -1119,7 +1119,7 @@ le joueur écoute le canal.
 |---|---|---|
 | S → C | `{"v":1,"t":"regles","actif":true,"max":12}` | 40 ticks après la connexion, au changement de personnage (1 tick après), à `/sc reload`, à `/porte systeme`. `actif` = interrupteur du système seulement (les états du joueur sont relus à l'ouverture) ; `max` = `max-signes` |
 | S → C | `{"v":1,"t":"ouvre","n":3,"mode":"libre","temps":5000,"gain":700,"max":12}` | Session ouverte : réponse à `ouvrir`. `n` = numéro de session, croissant par joueur jusqu'à sa déconnexion |
-| S → C | `{"v":1,"t":"ouvre","n":4,"mode":"guide","temps":3500,"gain":3500,"max":12,"suite":[2,5,10],"titre":"Boule de feu"}` | Session guidée, ouverte par le serveur de lui-même (apprentissage). `suite` : ordinaux attendus ; `titre` : 48 caractères au plus ; `max` : `max-signes`, ou la longueur de la suite si elle est plus longue |
+| S → C | `{"v":1,"t":"ouvre","n":4,"mode":"guide","temps":3500,"gain":3500,"max":12,"total":3,"titre":"Boule de feu"}` | Session guidée, ouverte par le serveur de lui-même (apprentissage). `total` : nombre de signes de la suite (jusqu'au 16/11 le serveur envoyait `suite`, les ordinaux attendus : le mod les met encore en avant s'il les reçoit) ; `titre` : 48 caractères au plus ; `max` : `max-signes`, ou la longueur de la suite si elle est plus longue |
 | S → C | `{"v":1,"t":"fin","n":3,"res":"ok","m":"…"}` | La session `n` est finie. `res` : `ok` (suite reconnue : porte qui s'ouvre, apprentissage réussi), `rate` (mauvais signe en guide, `max-signes` signes sans rien en libre), `temps` (ligne écoulée), `coupe` (état du joueur, déconnexion, arrêt du module), `ferme` (le joueur a refermé). `m` : phrase courte, facultative |
 | S → C | `{"v":1,"t":"refus","m":"Tu es à terre."}` | `ouvrir` refusé (système éteint, état, cadence). Toujours une réponse ; `m` absent quand le refus suit une session déjà ouverte |
 | S → C | `{"v":1,"t":"geste","e":4182,"s":2}` | Un proche a posé le signe `s` ; `e` = identifiant d'entité du signataire. Jamais au signataire |
@@ -1208,8 +1208,12 @@ l'identifiant, puis SplitMix64 ; jamais deux signes de suite ; valeurs de réfé
 changer). `AbilityRegistry` la pose au chargement sur toute technique sans `mudras:` ni `steps:` dont la catégorie est
 un art à signes (`Mudra.aSignes` : `ninjutsu/*`, `kekkei/*` hors `kekkei/dojutsu`, `senjutsu/*`, `autres/genjutsu`,
 `autres/kinjutsu`, `autres/juinjutsu`), longueur = `rank.defaultMudraCount()` : la fiche (`mudras`), le parchemin
-(`signs`), l'incantation (titre de la barre de boss) et la séance montrent la même. `LearningMinigame.startMudra` s'en
-sert aussi, à la place du tirage au hasard, pour les autres techniques dont la séance passe par les mudras.
+(`signs`) et l'incantation (titre de la barre de boss) montrent la même ; la séance l'attend sans la montrer (16/11).
+`LearningMinigame.startMudra` s'en sert aussi, à la place du tirage au hasard, pour les autres techniques dont la
+séance passe par les mudras ; pour celles-là `ScrollCatalog.json` l'écrit dans `signs` (le parchemin est le seul
+endroit où elle se lit). Barre refusée alors que le système est allumé et que le joueur écoute le canal (état :
+ATA, douleur, garde, prison…) : `startMudra` arrête la séance sans la compter (`barreAttendue`), l'ancien mini-jeu
+à titres ne sert plus que système éteint ou sans le mod.
 
 ### 4 terdecies.6 Fichier, réglages, journal
 
@@ -1232,7 +1236,20 @@ sert aussi, à la place du tirage au hasard, pour les autres techniques dont la 
 | `portes.portee` | `6.0` | Blocs entre les pieds du joueur et la dalle (1 à 16) |
 | `portes.duree-ticks` | `60` | Durée de la levée et de la descente (10 à 400) |
 | `portes.ouverte-s` | `8` | La dalle redescend après ce délai, dès que le passage est libre |
+| `portes.essais-max` | `5` | Essais manqués devant une même porte, sur la fenêtre, avant qu'elle ne réponde plus au joueur ; 0 = jamais (0 à 50) |
+| `portes.essais-fenetre-s` | `60` | Fenêtre de ce compte, en secondes (5 à 3 600) |
+| `portes.blocage-s` | `120` | Durée du blocage, en secondes (5 à 86 400) |
 
+- **Essais en série** (16/11, `MudraRegles.essaiDeTrop` et `MudraRegles.Essais`, `MudraService.compterEssai` /
+  `bloquee`) : une composition libre manquée compte pour **chaque porte fermée vue à portée** d'un de ses signes
+  (`Session.vues` : deux portes proches ne se couvrent pas) ; au `portes.essais-max`ᵉ essai en
+  `portes.essais-fenetre-s` secondes, la porte ne s'ouvre plus pour ce joueur pendant `portes.blocage-s` secondes,
+  même sur la bonne suite (la session continue comme si de rien n'était : aucun message, aucun indice). Les essais
+  faits pendant le blocage ne le prolongent pas. Une composition qui **commence par la bonne suite** d'une porte
+  (`MudraRegles.commencePar` : blocage, dernier signe hors de portée, dalle en mouvement) ne compte pas pour elle et
+  s'écrit masquée dans `MUDRA_ESSAI` (« bonne suite, porte restée fermée »). Le compte survit à la déconnexion, pas
+  au redémarrage ni à `/sc reload` (qui lève comptes et blocages). Journal : `INTERACTION` / `MUDRA_BLOCAGE`, une
+  fois par porte, au déclenchement.
 - Journal : `INTERACTION` / `PORTE_OUVERTE` (une porte ouverte par un joueur) ; `INTERACTION` / `MUDRA_ESSAI` (une
   composition libre d'au moins un signe finie sans succès à portée d'une porte fermée : porte la plus proche, suite
   composée, résultat ; rien loin de toute porte). La porte et le lieu sont relevés **à chaque signe** (la dernière porte
