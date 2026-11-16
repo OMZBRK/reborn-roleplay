@@ -5,7 +5,7 @@
 > apprentissages de techniques) ». Remplace le rejet du 31/10 (« c'est trop pour ouvrir une porte ») : cela ne concerne
 > que les **portes scellées** posées par le staff, pas les portes ordinaires.
 >
-> **État au 14/11 : codé, non publié, livré éteint.** Mod : `reborn-hud` 0.4.203 (paquet `mudra/`), vérifié au banc
+> **État au 15/11 : publié (0.4.203) et essayé en jeu, portes validées ; livré éteint.** Mod : `reborn-hud` 0.4.203 (paquet `mudra/`), vérifié au banc
 > de capture. Serveur : ShinobiCore (paquet `mudra/`), 133 tests verts, **jamais lancé sur un vrai serveur** (l'animation
 > de la dalle en particulier). Détail technique : [`../technique/MOD_HUD.md`](../technique/MOD_HUD.md) §1 sexies et
 > [`../technique/PLUGINS_REFERENCE.md`](../technique/PLUGINS_REFERENCE.md).
@@ -14,10 +14,10 @@
 
 - **Douze signes**, dans l'ordre du zodiaque : Rat, Buffle, Tigre, Lièvre, Dragon, Serpent, Cheval, Bélier, Singe, Coq,
   Chien, Sanglier.
-- Une touche (**U** par défaut) ouvre la **barre de mudras** en bas de l'écran : douze médaillons, le nom au-dessus, la
-  touche dessous. Les signes se composent sur la **rangée des chiffres** : 1 à 9, 0, et les deux touches à droite du zéro.
+- Une touche (**U** par défaut) ouvre la **barre de mudras** en bas de l'écran : douze cases laquées bordées d'or, dans
+  le style des menus Reborn, le dessin du signe dans chacune, le nom au-dessus, la touche dessous. Les signes se composent sur la **rangée des chiffres** : 1 à 9, 0, et les deux touches à droite du zéro.
   Tant que la barre est ouverte, ces touches ne changent plus l'objet tenu.
-- **Le temps est compté** : un filet doré raccourcit sous les médaillons (5 s) ; chaque signe en rend un peu (0,7 s).
+- **Le temps est compté** : une jauge dorée se vide sous les cases (5 s) ; chaque signe en rend un peu (0,7 s).
   À zéro, la barre se referme. Un second appui sur U, ou Échap, la referme aussi.
 - **Le personnage fait les signes** : il joint les mains, on entend le claquement. Les joueurs proches (24 blocs) le
   voient et l'entendent. Une pose pour les douze signes aujourd'hui (provisoire).
@@ -64,16 +64,27 @@ mauvais signe ou un délai dépassé fait échouer la séance, comme avant.
 
 Sans le système (éteint, ou joueur sans le mod à jour), l'ancien mini-jeu reste : titres à l'écran et clic gauche.
 
-**Pas encore fait** : composer les mudras pour **lancer** une technique en combat. L'incantation actuelle (une barre
-qui avance seule) est inchangée ; à décider après l'essai des portes et de l'apprentissage.
+**Chaque technique a sa suite, toujours la même** (15/11). Huit techniques la déclarent dans `abilities.yml`
+(`mudras:`). Pour les autres, la suite est **tirée de l'identifiant de la technique** : fixe, la même à chaque séance,
+à chaque redémarrage (2 signes aux rangs E et D, 4 aux rangs C et B, 6 aux rangs A et S). Avant, elle était tirée au
+hasard à chaque séance : on n'apprenait rien. Pour les arts à signes (ninjutsu, kekkei genkai de nature, genjutsu,
+kinjutsu, juinjutsu, senjutsu : 133 techniques), cette suite appartient à la technique : le parchemin et la fiche la
+montrent aussi. Pour les autres arts dont la séance passe par les mudras (armes hors kenjutsu, marionnettes, dōjutsu :
+48 techniques), elle ne sert qu'à la séance. Écrire `mudras:` sur une technique remplace sa suite tirée.
+
+**Le lancer en combat n'utilise pas la barre** (précision du propriétaire, 15/11 : « quand je te parle des mudras
+c'est pour le système d'apprentissage »). L'incantation reste la barre bleue qui avance seule ; elle affiche
+maintenant le nom des signes de la technique.
 
 ## 4. Ce qui est provisoire
 
-- Les douze **médaillons** ne sont plus provisoires : ce sont les vrais dessins des signes (15/11), de Schlum
-  (Wikimedia Commons, licence CC BY-SA 4.0), fournis par le propriétaire. Le crédit de l'auteur est dans le mod
-  (`gui/mudras/CREDITS.txt`) et doit y rester : c'est la condition de la licence.
+- Les **dessins des signes** ne sont plus provisoires : ce sont les vrais (15/11), de Schlum (Wikimedia Commons,
+  licence CC BY-SA 4.0), fournis par le propriétaire. Le crédit de l'auteur est dans le mod (`gui/mudras/credits.txt`)
+  et doit y rester : c'est la condition de la licence. Le **visuel de la barre** est celui des menus Reborn depuis le
+  16/11 (maquette R2).
 - La **pose** du personnage : une seule pour les douze signes (celle du Test de la Feuille).
-- Les **sons** : synthèse (`tools/ui-art/gen_mudra_sfx.py`), jamais écoutés par le propriétaire.
+- Les **sons** : synthèse (`tools/ui-art/gen_mudra_sfx.py`), adoucis le 16/11 à la demande du propriétaire (« un son
+  plus subtil ») ; à juger en jeu.
 - L'**outil du Poste de garde** (F7) pour poser les portes à la souris n'existe pas encore : commande seulement.
 
 ## 5. Allumer le système pour l'essayer

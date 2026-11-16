@@ -1203,6 +1203,14 @@ difficulty.mudraTimeoutMillis() + mudras.guide-marge-ms, …)`. Acceptée : la s
 un KO. Refusée (système éteint, joueur sans le mod, état, ShinobiCore plus ancien) : ancien mini-jeu inchangé (titres +
 clic gauche). Les techniques à `steps` sans mudra gardent l'ancien chemin.
 
+**Suites des techniques (15/11).** `technique/Mudra.suiteStable(identifiant, n)` rend une suite fixe (FNV-1a 64 de
+l'identifiant, puis SplitMix64 ; jamais deux signes de suite ; valeurs de référence dans `MudraTest`, à ne jamais
+changer). `AbilityRegistry` la pose au chargement sur toute technique sans `mudras:` ni `steps:` dont la catégorie est
+un art à signes (`Mudra.aSignes` : `ninjutsu/*`, `kekkei/*` hors `kekkei/dojutsu`, `senjutsu/*`, `autres/genjutsu`,
+`autres/kinjutsu`, `autres/juinjutsu`), longueur = `rank.defaultMudraCount()` : la fiche (`mudras`), le parchemin
+(`signs`), l'incantation (titre de la barre de boss) et la séance montrent la même. `LearningMinigame.startMudra` s'en
+sert aussi, à la place du tirage au hasard, pour les autres techniques dont la séance passe par les mudras.
+
 ### 4 terdecies.6 Fichier, réglages, journal
 
 - `plugins/ShinobiCore/mudras.yml` : `actif`, `prochain`, `portes: { <id>: {…} }`. Écriture **atomique** (`.tmp` puis

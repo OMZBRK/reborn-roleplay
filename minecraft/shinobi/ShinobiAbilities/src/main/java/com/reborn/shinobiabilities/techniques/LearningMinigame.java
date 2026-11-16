@@ -166,7 +166,13 @@ public final class LearningMinigame implements Listener {
         // La vraie suite de mudras (ou la suite tirée au sort) ; null pour un art à « steps » sans mudra.
         List<Mudra> suite = ability.mudras().isEmpty() ? null : ability.mudras();
         if (labels == null) {
-            suite = Mudra.randomSequence(ability.rank().defaultMudraCount());
+            // suite fixe tirée de l'identifiant (15/11) : la même à chaque séance, jamais au hasard
+            try {
+                suite = Mudra.suiteStable(ability.id(), ability.rank().defaultMudraCount());
+            } catch (LinkageError ancien) {
+                // ShinobiCore d'avant le 15/11 (sans suiteStable) : l'ancien tirage au hasard
+                suite = Mudra.randomSequence(ability.rank().defaultMudraCount());
+            }
             List<String> random = new java.util.ArrayList<>();
             for (Mudra m : suite) {
                 random.add(m.display());

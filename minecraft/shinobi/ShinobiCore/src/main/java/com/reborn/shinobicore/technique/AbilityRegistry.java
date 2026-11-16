@@ -164,6 +164,12 @@ public final class AbilityRegistry implements com.reborn.shinobicore.api.Techniq
                     + "les mudras priment, steps ignorés.");
         }
 
+        // Technique à signes sans mudras déclarés (15/11) : une suite fixe tirée de son identifiant, pour que la fiche,
+        // le parchemin, l'apprentissage et le lancer sur la barre de mudras montrent la même. « mudras: » la remplace.
+        if (mudras.isEmpty() && steps.isEmpty() && Mudra.aSignes(category)) {
+            mudras.addAll(Mudra.suiteStable(id, rank.defaultMudraCount()));
+        }
+
         String description = str(m, "description", "");
 
         // Access prerequisites (requires:). Each entry is a small map; tolerant
