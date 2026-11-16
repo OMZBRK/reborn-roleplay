@@ -407,7 +407,7 @@ Un vrai Byakugan à nous : le serveur est ShinobiCore (`dojutsu/ByakuganService`
   ShinobiCore n'a pas parlé `reborn:dojutsu`. `ByakuganActivation` (flash et lignes) et l'ancien banc `ByakuganDebug`
   sont supprimés.
 
-## 1 sexies. Mudras au clavier (0.4.203, 14/11, non publié)
+## 1 sexies. Mudras au clavier (0.4.203, 14/11 ; barre à la DA des menus Reborn en 0.4.204, 16/11)
 
 Fiche du système : [`../gameplay/MUDRAS.md`](../gameplay/MUDRAS.md). Côté serveur : ShinobiCore `mudra/`
 ([`PLUGINS_REFERENCE.md`](./PLUGINS_REFERENCE.md)). **Livré éteint** : sans message `regles` actif du serveur, la touche
@@ -433,30 +433,37 @@ ne fait rien.
   signe rend `gain` sans dépasser `temps` ; guidé, chaque bon signe rend tout. Deux signes à moins de 120 ms : le second
   n'est pas envoyé (c'est le `signe-min-ms` du serveur, qu'il compte en moyenne avec 500 ms de marge). Sans `fin` du serveur 1,2 s après l'échéance,
   la barre se referme seule.
-- **Barre** (`MudraHud`, pixels écran entiers) : **agrandie le 14/11** (« la taille est un peu trop petite » ; la
-  référence remplit ~91 % de la largeur, pas 58 % comme l'étude l'avait noté). Unité `u` = hauteur / 360 (3 en 1080p,
-  2 en 768p, 4 en 1440p), bornée à 94 % de la largeur ; médaillon 32 u (96 px en 1080p), 50 u d'axe en axe (91 % de la
-  largeur en 1080p), nom au-dessus, touche dessous, filet doré du temps sous la rangée, bas de la barre à 13,5 % de la
-  hauteur. Les douze médaillons partent en un lot (`LotBlit`). **Noms des signes en ArcadePix**, la police du menu
-  principal (demande du 14/11, précisée le 15/11 : « que pour celle des noms des mudras ») : capitales sans accents,
-  facteur entier (capitales de 14 px en 1080p, 7 px en 768p), ombre d'un pixel de police. **Touches** : comme les rappels
-  de touches du bas à droite (15/11 : « garder en bas celle qu'on avait avant ») : case sombre, Inter gras de
-  `TexteCache` (« 1 » à « 9 », « 0 », puis le vrai nom des deux touches suivantes), 12 petites textures demandées dès que
-  le serveur annonce le système actif. Titre du mode guidé (« Technique · i / n ») en Inter gras, refus et message de fin
-  en Inter (une ligne 1,8 s, vermillon pour un refus). Entrée en cascade (0,4 s), signe = médaillon qui monte et grossit
-  0,4 s, sortie 0,3 s (en descendant si la suite est bonne). Mode guidé : signe attendu clair et souligné d'or, les autres
-  à demi-teinte.
-- **Médaillons** (`gui/mudras/medaillons.png`, 1152 × 96, douze de 96 × 96, lissée par `medaillons.png.mcmeta` « blur » :
-  à 1:1 en 1080p, réduite ou agrandie ailleurs) : **les vrais dessins des signes** depuis le 15/11 (« prends les vraies
-  images de mudra »). Sources `tools/mudras_src/<signe>.svg`, dessins de **Schlum, Wikimedia Commons, CC BY-SA 4.0**
-  (fournis par le propriétaire ; `LICENCE.txt` à côté). `tools/gen_mudras_textures.py` (PyMuPDF + Pillow) rend chaque
-  dessin en grand, épaissit ses traits, ramène les ombres au blanc et pose les mains, cernées, sur le disque (les
-  avant-bras sont coupés par le bord). La texture est une œuvre dérivée, **sous la même licence**, créditée dans
-  `gui/mudras/CREDITS.txt` (dans le jar). Les mains en formes simples du 14/11 sont retirées.
+- **Barre** (`MudraHud`, pixels écran entiers), **dans la direction artistique des menus Reborn** depuis la 0.4.204
+  (16/11). Historique : médaillons ronds beiges en ligne (14/11), agrandis à la taille de la référence puis réduits à
+  85 % (15/11) ; jugés « trop ressemblants avec celle de Ketto », le propriétaire demande « le même principe mais plus
+  original pour Reborn », précisé « dans le cadre, comme les autres menus Reborn, qu'on garde une DA graphique ».
+  Neuf maquettes (`Maquettes/gameplan/19_mudras/maquettes_1611/`) ; retenue : **R2**, « avec les signes comme avant
+  (dessins lisses) et pour les touches fais comme avec les trucs concentration ».
+  Douze **cases du kit** (laque en creux, liseré d'or biseauté : les cases de la sacoche agrandies), **sans plaque
+  derrière**, le vrai dessin du signe dans chaque case ; nom au-dessus en **ArcadePix** ; dessous la **jauge du temps**
+  (celle du poids de la sacoche : piste sombre cernée d'or sombre, plein or à crête claire), puis la touche dans la
+  **case des rappels de touches** (`RappelsTouches.lotCases` / `caseTouche`, Inter gras de `TexteCache`, 22 px et
+  capitales de 10 px en 1080p). Le signe composé et, en mode guidé, le signe attendu passent en **laque rouge** à
+  équerres d'angle, nom en or ; en mode guidé les autres pâlissent, « Technique · i / n » au-dessus (Inter gras). Refus
+  et message de fin : une ligne 1,8 s (vermillon pour un refus).
+  Gabarit au **texel** : un texel = `z` pixels écran, entier (`z` = hauteur / 540 arrondi : 2 en 1080p, 1 en 768p, 3 en
+  1440p ; borné à 94 % de la largeur). Case 34 texels, 58 d'axe en axe : 672 texels, soit 70 % de la largeur en 1080p.
+  Trois lots (`LotBlit`) : cases, mains, cases de touche. Entrée en cascade (0,4 s), signe = la case se soulève 0,4 s,
+  sortie 0,3 s (en descendant si la suite est bonne).
+- **Textures** (`tools/gen_mudras_textures.py`, PyMuPDF + Pillow + la boîte à outils de style `tools/ecrans_art.py`) :
+  `gui/mudras/cases.png` (76 × 38, deux cellules de 38 : repos, choisie ; case de 34 en (2, 1), ombre portée dans la
+  cellule ; pixel art) et `gui/mudras/mains.png` (1152 × 96, douze mains de 96 sur fond transparent, lissée par
+  `mains.png.mcmeta` « blur »), plus `mains_petit.png` (576 × 48, les mêmes réduites, prises quand la main fait 48 px ou
+  moins : en 768p, réduite depuis 96 elle crénelait). Les mains sont lues un demi-texel en retrait (pas de bavure de la
+  voisine en 4K) ; fenêtre plus étroite que la rangée : le pas se resserre. Les mains sont **les vrais dessins des signes** (15/11, « prends les vraies images de
+  mudra ») : sources `tools/mudras_src/<signe>.svg`, dessins de **Schlum, Wikimedia Commons, CC BY-SA 4.0** (fournis par
+  le propriétaire ; `LICENCE.txt` à côté) ; chaque dessin est rendu en grand, ses traits épaissis, ses ombres ramenées à
+  l'ivoire. `mains.png` est une œuvre dérivée, **sous la même licence**, créditée dans `gui/mudras/credits.txt` (dans le
+  jar ; en minuscules : un chemin de ressource à majuscules est refusé au chargement). `medaillons.png` est retirée.
 - **Corps et sons** : à chaque signe, `TirageAnimations.playSigne` (animation `animations/mudra_signe.json`, bras, tête
   et buste seulement, tirée de la dernière image de `mudra_chakratest.json` par `tools/gen_mudra_animation.py` ; une pose
   pour les douze signes, **provisoire**), relâchée 0,65 s après le dernier signe ; même pose sur un joueur proche à la
-  réception de `geste`. Sons `reborn:mudra.signe | barre | reussite | echec` joués par le mod, `mudra.dalle` (3 s) et
+  réception de `geste`. Sons `reborn:mudra.signe | barre | reussite | echec` joués par le mod (**adoucis le 16/11**, « un son plus subtil » : le signe n'est plus un claquement sec mais des paumes feutrées, médiums seulement, −9 dB ; ouverture, réussite et échec baissés aussi), `mudra.dalle` (3 s) et
   `mudra.choc` joués dans le monde par le serveur (synthèse `tools/ui-art/gen_mudra_sfx.py`, **jamais écoutés**).
 - **Relecture du 15/11** (deux relecteurs, sept défauts corrigés) : la répétition du clavier de la touche des mudras est
   prise par le mixin (tenir U refermait la barre puis la redemandait trente fois par seconde ; même garde pour le

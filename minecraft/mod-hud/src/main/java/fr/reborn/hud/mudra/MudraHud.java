@@ -1,6 +1,7 @@
 package fr.reborn.hud.mudra;
 
 import fr.reborn.hud.keybind.HudKeybinds;
+import fr.reborn.hud.keybind.RappelsTouches;
 import fr.reborn.hud.ui.DaKit;
 import fr.reborn.hud.ui.LotBlit;
 import fr.reborn.hud.ui.TexteCache;
@@ -11,34 +12,39 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
 /**
- * La <b>barre de mudras</b> (14/11) : douze médaillons en ligne en bas de l'écran, le nom du signe au-dessus, la touche
- * dessous, un filet doré qui raccourcit avec le temps. Rien d'autre : ni plaque, ni fond, ni trace de la suite composée
- * (il faut la connaître). En mode guidé (apprentissage), le signe attendu reste clair, les autres pâlissent, et le nom de
- * la technique s'écrit au-dessus avec l'avancement.
+ * La <b>barre de mudras</b>, dans la direction artistique des menus Reborn (maquette R2 retenue le 16/11 : « trop
+ * ressemblante avec celle de Ketto », « dans le cadre, comme les autres menus Reborn », « R2 avec les signes comme
+ * avant, dessins lisses, et pour les touches fais comme avec les trucs concentration »).
  *
- * <p>Gabarit en pixels écran entiers ({@link DaKit#debutPx}), agrandi le 14/11 à la demande du propriétaire (« la taille
- * est un peu trop petite », la référence remplit ~91 % de la largeur) : unité {@code u} = hauteur de fenêtre / 360 (3 en
- * 1080p, 2 en 768p, 4 en 1440p), bornée pour que la rangée tienne dans 94 % de la largeur. Médaillon 32 u (96 px en
- * 1080p), 50 u d'axe en axe, soit 91 % de la largeur en 1080p. Texture {@code gui/mudras/medaillons.png} : douze
- * médaillons de 96 × 96 tirés des vrais dessins des signes (15/11, Schlum, Wikimedia Commons, CC BY-SA 4.0 ; générateur
- * {@code tools/gen_mudras_textures.py}), lissée ({@code .mcmeta} « blur »), à 1:1 en 1080p. Les médaillons partent en un
- * seul lot.
+ * <p>Douze <b>cases du kit</b> (laque en creux, liseré d'or biseauté : les cases de la sacoche agrandies, texture
+ * {@code gui/mudras/cases.png}, pixel art au texel), sans plaque derrière. Dans chaque case le <b>vrai dessin du
+ * signe</b> ({@code gui/mudras/mains.png}, Schlum, Wikimedia Commons, CC BY-SA 4.0, lissée). Au-dessus le nom en
+ * ArcadePix, dessous la <b>jauge du temps</b> (celle du poids de la sacoche : piste sombre cernée d'or sombre, plein or à
+ * crête claire), puis la touche dans la <b>case des rappels de touches</b> ({@link RappelsTouches#caseTouche}, Inter
+ * gras). Le signe qui vient d'être composé, et en mode guidé le signe attendu, passent en <b>laque rouge</b> à équerres
+ * d'angle, leur nom en or ; en mode guidé les autres pâlissent et le nom de la technique s'écrit au-dessus avec
+ * l'avancement. Rien d'autre : aucune trace de la suite composée (il faut la connaître).
  *
- * <p><b>Noms des signes en ArcadePix</b>, la police du menu principal (demande du 14/11, précisée le 15/11 : « que pour
- * celle des noms des mudras ») : capitales sans accents, à un facteur entier (capitales de 14 px en 1080p), ombre d'un
- * pixel de police, {@link Component} gardés. <b>Touches, titre et messages</b> : comme les rappels de touches du bas à
- * droite (Inter gras de {@link TexteCache}, case sombre).
+ * <p>Gabarit au <b>texel</b> : un texel = {@code z} pixels écran, entier ({@code z} = hauteur / 540 arrondi : 2 en
+ * 1080p, 1 en 768p, 3 en 1440p ; borné pour que la rangée tienne dans 94 % de la largeur, le pas resserré en dessous). Case 34 texels, 58 d'axe en
+ * axe : 672 texels en tout, soit 70 % de la largeur en 1080p. Les douze cases partent en un lot, les douze mains en un
+ * autre, les douze cases de touche en un troisième ; les {@link Component} des noms sont gardés.
  *
- * <p>Animations : entrée en cascade (0,4 s), signe composé = le médaillon monte et grossit 0,4 s, sortie en fondu 0,3 s
- * (en descendant si la suite est bonne).
+ * <p>Animations : entrée en cascade (0,4 s), signe composé = la case se soulève 0,4 s, sortie en fondu 0,3 s (en
+ * descendant si la suite est bonne).
  */
 public final class MudraHud {
 
-    private static final Identifier TEX = DaKit.tex("mudras", "medaillons");
-    /** Côté d'un médaillon : dans la texture (pixels), et à l'écran (unités u). */
-    private static final int T = 96, TW = T * MudraClient.N, D = 32;
-    private static final int PAS = 50, COTE = 11;
-    private static final int OR = 0xE8C27A, VERM = 0xE0563C, CASE = 0x14110D, CREME = 0xF4E8D2, OMBRE = 0x0A0406;
+    private static final Identifier CASES = DaKit.tex("mudras", "cases"), MAINS = DaKit.tex("mudras", "mains"),
+        MAINS_PETIT = DaKit.tex("mudras", "mains_petit");
+    /** Atlas des cases : cellules de 38 (case de 34 en (2, 1), ombre autour) ; atlas des mains : 96 par main. */
+    private static final int CELLULE = 38, CASES_L = 2 * CELLULE, T = 96, T_PETIT = 48;
+    /** Gabarit en texels : case, pas, main dans la case, épaisseur de la jauge. */
+    private static final int COTE = 34, PAS = 58, MAIN = 30, TOTAL = 11 * PAS + COTE;
+    /** Rappels de touches : case de 22 px et capitales de 10 px en 1080p. */
+    private static final int CASE_TOUCHE = 22, CAP_TOUCHE = 10;
+    private static final int CREME = 0xF4E8D2, OR_CLAIR = 0xF2D59A, VERM = 0xE0563C, OMBRE = 0x0A0406;
+    private static final int J_BORD = 0x6A4E24, J_PISTE = 0x0F090B, J_PLEIN = 0xD9A95E, J_CRETE = 0xF2D59A, J_BOUT = 0xFFF2C8;
     private static final long ENTREE_MS = 160L, CASCADE_MS = 22L, SORTIE_MS = 300L, APPUI_MS = 400L;
 
     private static final Component[] NOMS = new Component[MudraClient.N];
@@ -50,9 +56,9 @@ public final class MudraHud {
 
     private static Component messageComp = Component.empty();
     private static String titreTxt = "", titreSrc, messageSrc;
+    private static int titreFait = -1, titreTotal = -1;
     /** Images pendant lesquelles les textes des touches sont demandés à l'avance, barre fermée. */
     private static int aPreparer;
-    private static int titreFait = -1, titreTotal = -1;
 
     static {
         for (int i = 0; i < MudraClient.N; i++) {
@@ -81,75 +87,92 @@ public final class MudraHud {
         Font f = mc.font;
         int ug = DaKit.echelleGui();
         int w = mc.getWindow().getGuiScaledWidth() * ug, h = mc.getWindow().getGuiScaledHeight() * ug;
-        int u = Math.max(1, Math.min(Math.round(h / 360f), (int) (w * 0.94 / (11 * PAS + D))));
-        // touches, titre : même gabarit que les rappels de touches (px du 1080p × k), jamais sous 0,7
-        double k = Math.max(0.7, u / 3.0);
-        // facteur entier de la police (capitales de 7 px × s) : 2 en 1080p, 1 en 768p, 3 en 1440p
-        int s = Math.max(1, Math.round(u * 2 / 3f));
-        int d = D * u, pas = PAS * u, total = 11 * pas + d, x0 = (w - total) / 2;
-        // la case suit son texte quand il est à sa taille plancher (très petite fenêtre, u = 1)
-        int ep = Math.max(2, u), cote = Math.max(COTE * u, (int) Math.ceil(33 * k));
+        // un texel = z pixels écran, entier (pixel art net)
+        int z = Math.max(1, Math.min(Math.round(h / 540f), (int) (w * 0.94 / TOTAL)));
+        // touches et titre : gabarit des rappels de touches (px du 1080p × k), jamais sous 0,7
+        double k = Math.max(0.7, z / 2.0);
+        int cote = COTE * z, pas = PAS * z;
+        // fenêtre plus étroite que la rangée au plus petit texel : le pas se resserre, les cases ne sortent pas de l'écran
+        if (11 * pas + cote > w * 0.94) pas = Math.max(cote + 2 * z, (int) ((w * 0.94 - cote) / 11));
+        int total = 11 * pas + cote, x0 = (w - total) / 2;
+        int touche = (int) Math.round(CASE_TOUCHE * k);
         int base = h - Math.round(h * 0.135f);
-        int yCase = base - ep - 4 * u - cote, yMed = yCase - 3 * u - d;
-        int yNom = yMed - 3 * u - 7 * s, yTitre = yNom - 6 * u - 7 * s;
+        int yCle = base - touche, yJauge = yCle - 4 * z - 4 * z, yCase = yJauge - 5 * z - cote;
+        int yNom = yCase - 4 * z - 7 * z, yTitre = yNom - 6 * z - 7 * z;
 
         if (!barre && aPreparer > 0) {
             aPreparer--;
             if (CLE_TXT[0] == null) nommerTouches();
-            for (int i = 0; i < MudraClient.N; i++) cle(i, k, x0 + i * pas + d / 2.0, yCase + cote / 2.0);
+            for (int i = 0; i < MudraClient.N; i++) cle(i, k, x0 + i * pas + cote / 2.0, yCle + touche / 2.0);
         }
         DaKit.debutPx(g);
         if (barre) {
             if (clesPour != MudraClient.ouverteA()) nommerTouches();
             float fin = 1f - sortie;
-            int dyFin = MudraClient.finOk() ? Math.round(sortie * 10 * u) : 0;
+            int dyFin = MudraClient.finOk() ? Math.round(sortie * 5 * z) : 0;
             boolean guide = MudraClient.guide();
             int attendu = MudraClient.attendu();
             long t0 = MudraClient.ouverteA();
 
-            // 1) médaillons, en un lot
-            LotBlit l = LotBlit.ouvrir(g, TEX, TW, T);
+            // 1) cases du kit, en un lot (la cellule porte l'ombre : case en (2, 1))
+            LotBlit l = LotBlit.ouvrir(g, CASES, CASES_L, CELLULE);
             for (int i = 0; i < MudraClient.N; i++) {
                 float e = entree(now, t0, i);
                 float a = e * fin;
                 if (a <= 0.01f) continue;
-                float b = bosse(now, i);
-                int taille = d + Math.round(d * 0.15f * b);
-                int x = x0 + i * pas - (taille - d) / 2;
-                int y = yMed + dyFin + Math.round((1f - e) * 6 * u) - Math.round(5 * u * b) - (taille - d) / 2;
-                int teinte = guide && i != attendu && b <= 0.01f ? 0x8C8C8C : 0xFFFFFF;
-                l.etire(x, y, taille, taille, i * T, 0, T, T, DaKit.argb(teinte, a));
+                boolean choisie = i == attendu || bosse(now, i) > 0.01f;
+                l.etire(x0 + i * pas - 2 * z, yCase(yCase, dyFin, e, now, i, z) - z, CELLULE * z, CELLULE * z,
+                    choisie ? CELLULE : 0, 0, CELLULE, CELLULE, DaKit.blanc(a));
             }
             l.fermer();
-            // 2) cases des touches, repère du signe attendu, filet du temps
+            // 2) mains des signes, en un lot
+            // sous 2 texels par pixel la main est prise dans l'atlas réduit (96 → 30 px au filtrage linéaire crénelait) ;
+            // lue un demi-texel en retrait : la main voisine ne bave pas quand la texture est agrandie (4K)
+            int main = MAIN * z, marge = (cote - main) / 2, t = main <= T_PETIT ? T_PETIT : T;
+            l = LotBlit.ouvrir(g, t == T ? MAINS : MAINS_PETIT, t * MudraClient.N, t);
             for (int i = 0; i < MudraClient.N; i++) {
-                float a = entree(now, t0, i) * fin;
+                float e = entree(now, t0, i);
+                float a = e * fin;
                 if (a <= 0.01f) continue;
-                int x = x0 + i * pas + (d - cote) / 2, y = yCase + dyFin;
-                int c = DaKit.argb(CASE, 0.62f * a);
-                g.fill(x + u, y, x + cote - u, y + cote, c);
-                g.fill(x, y + u, x + u, y + cote - u, c);
-                g.fill(x + cote - u, y + u, x + cote, y + cote - u, c);
-                if (i == attendu) {
-                    int xr = x0 + i * pas + d / 2 - 8 * u;
-                    g.fill(xr, yCase - 2 * u + dyFin, xr + 16 * u, yCase - u + dyFin, DaKit.argb(OR, 0.95f * a));
+                int teinte = guide && i != attendu && bosse(now, i) <= 0.01f ? 0x8C8C8C : 0xFFFFFF;
+                l.etire(x0 + i * pas + marge, yCase(yCase, dyFin, e, now, i, z) + marge, main, main, i * t + 0.5f, 0, t - 1, t,
+                    DaKit.argb(teinte, a));
+            }
+            l.fermer();
+            // 3) jauge du temps
+            float aj = entree(now, t0, 0) * fin;
+            if (aj > 0.01f) {
+                int yj = yJauge + dyFin;
+                g.fill(x0 - z, yj - z, x0 + total + z, yj + 4 * z, DaKit.argb(J_BORD, aj));
+                g.fill(x0, yj, x0 + total, yj + 3 * z, DaKit.argb(J_PISTE, aj));
+                int plein = Math.round(total * MudraClient.reste(now));
+                if (plein > 0) {
+                    g.fill(x0, yj, x0 + plein, yj + 3 * z, DaKit.argb(J_PLEIN, aj));
+                    g.fill(x0, yj, x0 + plein, yj + z, DaKit.argb(J_CRETE, aj));
+                    g.fill(x0 + plein - z, yj, x0 + plein, yj + 3 * z, DaKit.argb(J_BOUT, aj));
                 }
             }
-            if (ouverte) {
-                int plein = Math.round(total * MudraClient.reste(now));
-                if (plein > 0) g.fill(x0, base - ep, x0 + plein, base, DaKit.argb(OR, 0.9f * entree(now, t0, 0)));
-            }
-            // 3) noms et touches
+            // 4) cases des touches (celles des rappels), en un lot
+            l = RappelsTouches.lotCases(g);
             for (int i = 0; i < MudraClient.N; i++) {
                 float a = entree(now, t0, i) * fin;
                 if (a <= 0.01f) continue;
-                float cx = x0 + i * pas + d / 2f;
-                float an = guide && i != attendu ? 0.55f * a : a;
-                arc(g, f, NOMS[i], cx, yNom + dyFin - Math.round(5 * u * bosse(now, i)), s, CREME, an);
-                cle(i, k, cx, yCase + dyFin + cote / 2.0).dessinerPx(g, an);
+                RappelsTouches.caseTouche(l, x0 + i * pas + (cote - touche) / 2, yCle + dyFin, touche, touche, DaKit.blanc(a));
+            }
+            l.fermer();
+            // 5) noms et touches
+            for (int i = 0; i < MudraClient.N; i++) {
+                float e = entree(now, t0, i);
+                float a = e * fin;
+                if (a <= 0.01f) continue;
+                float cx = x0 + i * pas + cote / 2f;
+                boolean choisie = i == attendu || bosse(now, i) > 0.01f;
+                float an = guide && !choisie ? 0.55f * a : a;
+                arc(g, f, NOMS[i], cx, yNom + (yCase(yCase, dyFin, e, now, i, z) - yCase), z, choisie ? OR_CLAIR : CREME, an);
+                cle(i, k, cx, yCle + dyFin + touche / 2.0).dessinerPx(g, an);
             }
             if (guide && ouverte) {
-                TITRE.ligne(titre(), TexteCache.Style.TOUCHE, 20 * k, k, 0, w / 2.0, yTitre + 3.5 * s).dessinerPx(g, fin);
+                TITRE.ligne(titre(), TexteCache.Style.TOUCHE, 13 * k, k, 0, w / 2.0, yTitre + 3.5 * z).dessinerPx(g, fin);
             }
         }
         DaKit.finPx(g);
@@ -159,14 +182,19 @@ public final class MudraHud {
             String m = MudraClient.message();
             if (!m.equals(messageSrc)) { messageSrc = m; messageComp = DaKit.inter(m); }
             int col = MudraClient.messageRefus() ? DaKit.argb(VERM, a) : DaKit.argb(CREME, 0.85f * a);
-            DaKit.inter7o(g, f, messageComp, mc.getWindow().getGuiScaledWidth() / 2f, (yTitre + 3.5f * s) / ug, col, 1);
+            DaKit.inter7o(g, f, messageComp, mc.getWindow().getGuiScaledWidth() / 2f, (yTitre + 3.5f * z) / ug, col, 1);
         }
+    }
+
+    /** Haut de la case i : sa place, la montée de l'entrée, le sursaut du signe composé, la descente de la sortie. */
+    private static int yCase(int yCase, int dyFin, float entree, long now, int i, int z) {
+        return yCase + dyFin + Math.round((1f - entree) * 4 * z) - Math.round(2 * z * bosse(now, i));
     }
 
     /** Le texte de la touche i, dans sa case (Inter gras des rappels de touches). */
     private static TexteCache.Texte cle(int i, double k, double cx, double yCentre) {
         return CLES[i].ligne(CLE_TXT[i], CLE_PONCT[i] ? TexteCache.Style.TOUCHE_PONCT : TexteCache.Style.TOUCHE,
-            15 * k, k, 0, cx, yCentre);
+            CAP_TOUCHE * k, k, 0, cx, yCentre);
     }
 
     /**
@@ -184,7 +212,7 @@ public final class MudraHud {
         g.pose().popMatrix();
     }
 
-    /** Apparition du médaillon i (0 à 1), en cascade de gauche à droite. */
+    /** Apparition de la case i (0 à 1), en cascade de gauche à droite. */
     private static float entree(long now, long t0, int i) {
         float t = (now - t0 - i * CASCADE_MS) / (float) ENTREE_MS;
         if (t <= 0f) return 0f;
@@ -192,7 +220,7 @@ public final class MudraHud {
         return 1f - (1f - t) * (1f - t);
     }
 
-    /** Sursaut du médaillon i après un signe (0 à 1 à 0 sur {@value #APPUI_MS} ms). */
+    /** Sursaut de la case i après un signe (0 à 1 à 0 sur {@value #APPUI_MS} ms). */
     private static float bosse(long now, int i) {
         long age = now - MudraClient.appui(i);
         if (age < 0 || age >= APPUI_MS) return 0f;
@@ -200,8 +228,8 @@ public final class MudraHud {
     }
 
     /**
-     * Ce qui s'écrit sous chaque médaillon : les chiffres 1 à 9 puis 0 pour la rangée des chiffres (sur un clavier AZERTY
-     * la touche porte « &amp; », « é »… mais chacun l'appelle par son chiffre), et le vrai nom des deux touches à droite du
+     * Ce qui s'écrit sous chaque case : les chiffres 1 à 9 puis 0 pour la rangée des chiffres (sur un clavier AZERTY la
+     * touche porte « &amp; », « é »… mais chacun l'appelle par son chiffre), et le vrai nom des deux touches à droite du
      * zéro. Relu à chaque ouverture (le joueur a pu changer de clavier).
      */
     private static void nommerTouches() {

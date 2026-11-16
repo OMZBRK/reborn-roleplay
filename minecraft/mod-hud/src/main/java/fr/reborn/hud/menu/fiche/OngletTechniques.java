@@ -230,7 +230,8 @@ final class OngletTechniques implements Onglet {
             dMaitrise = l.mot();
             if (p != null && p.mudras() != null) {
                 for (String m : p.mudras()) {
-                    if (dMudras.size() >= 4) break;
+                    // 4 signes au plus (une ligne) ; « … » s'il en reste : la suite entière est sur le parchemin
+                    if (dMudras.size() >= 4) { dMudras.add("…"); break; }
                     dMudras.add(m);
                 }
                 if (!dMudras.isEmpty()) dMudrasTxt = FicheArt.paragraphe(f, String.join("  ·  ", dMudras), X1 - 70, false, 12, 2);

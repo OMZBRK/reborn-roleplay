@@ -165,7 +165,7 @@ public final class MudraClient {
             echeance = Math.min(now + temps, echeance + gain);
         }
         MudraCanal.signe(session, s);
-        RebornSounds.playReborn("mudra.signe", 0.96f + 0.02f * (s % 5), 0.85f);
+        RebornSounds.playReborn("mudra.signe", 0.96f + 0.02f * (s % 5), 0.7f);
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
             TirageAnimations.INSTANCE.playSigne(mc.player);

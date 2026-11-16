@@ -527,11 +527,16 @@ public final class RappelsTouches {
         return g.largeurCase;
     }
 
+    /** Lot de cases de touche pour un autre élément du HUD (barre de mudras) : à remplir par {@link #caseTouche}, puis à fermer. */
+    public static LotBlit lotCases(GuiGraphicsExtractor ctx) {
+        return LotBlit.ouvrir(ctx, ATLAS, ATLAS_L, ATLAS_H);
+    }
+
     /**
      * Case de touche w × h (ombre d'1 px en plus, à droite et en bas) en 9 tranches de l'atlas : les coins de 3 × 3
      * (coin rogné de 2 px, liseré, ombre) tels quels, bords et centre étirés — la case des maquettes à toute taille.
      */
-    private static void caseTouche(LotBlit l, int x, int y, int w, int h, int col) {
+    public static void caseTouche(LotBlit l, int x, int y, int w, int h, int col) {
         int t = TRANCHE, cx = w + 1 - 2 * t, cy = h + 1 - 2 * t;
         int xd = x + t + cx, yb = y + t + cy;
         l.blit(x, y, 0, 0, t, t, col);

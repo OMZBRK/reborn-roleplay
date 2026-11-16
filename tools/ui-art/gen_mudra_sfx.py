@@ -1,6 +1,7 @@
 """Sons des mudras et de la porte scellée (mod reborn-hud, 14/11) : synthèse à nous, aucun échantillon repris.
 
-  mudra/signe.ogg    : deux mains qui claquent, sec et court (0,16 s).
+  mudra/signe.ogg    : deux paumes qui se joignent, feutré et court (0,12 s). Adouci le 16/11 (« un son plus
+                       subtil ») : plus de claquement sec, médiums seulement, niveau baissé de 9 dB.
   mudra/barre.ogg    : un souffle léger quand la barre s'ouvre (0,3 s).
   mudra/reussite.ogg : la suite est bonne : un bol grave et doux sur un fond sourd (1,2 s).
   mudra/echec.ogg    : les signes se dissipent : un souffle qui retombe (0,35 s).
@@ -52,15 +53,16 @@ def lent(rng, n, hz):
 
 def signe():
     rng = np.random.default_rng(1401)
-    t = temps(0.16)
-    claque = bande(rng.standard_normal(len(t)), 900, 7000) * np.exp(-t / 0.022)
+    t = temps(0.12)
+    # paumes feutrées : médiums seulement (plus rien au-dessus de 2,4 kHz), chute très courte
+    claque = bande(rng.standard_normal(len(t)), 350, 2400) * np.exp(-t / 0.014)
     # second contact, 9 ms après : deux paumes ne se touchent jamais d'un seul coup
     d = int(0.009 * SR)
     echo = np.zeros_like(t)
-    echo[d:] = bande(rng.standard_normal(len(t)), 600, 3500)[:-d] * np.exp(-t[:-d] / 0.03)
-    creux = np.sin(2 * np.pi * 210 * t) * np.exp(-t / 0.03)
-    son = claque + 0.55 * echo + 0.35 * creux
-    return son * np.clip(t / 0.0015, 0, 1) * np.clip((t[-1] - t) / 0.02, 0, 1)
+    echo[d:] = bande(rng.standard_normal(len(t)), 300, 1500)[:-d] * np.exp(-t[:-d] / 0.02)
+    creux = np.sin(2 * np.pi * 165 * t) * np.exp(-t / 0.035)
+    son = claque + 0.4 * echo + 0.55 * creux
+    return son * np.clip(t / 0.004, 0, 1) * np.clip((t[-1] - t) / 0.02, 0, 1)
 
 
 def barre():
@@ -140,9 +142,9 @@ def ecrire(nom, son, crete):
 
 
 if __name__ == "__main__":
-    ecrire("signe", signe(), 0.60)
-    ecrire("barre", barre(), 0.22)
-    ecrire("reussite", reussite(), 0.50)
-    ecrire("echec", echec(), 0.30)
+    ecrire("signe", signe(), 0.21)       # −13,5 dBFS (−4,4 avant le 16/11)
+    ecrire("barre", barre(), 0.14)
+    ecrire("reussite", reussite(), 0.36)
+    ecrire("echec", echec(), 0.22)
     ecrire("dalle", dalle(), 0.62)
     ecrire("choc", choc(), 0.75)
