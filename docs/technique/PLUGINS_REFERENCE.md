@@ -1263,6 +1263,65 @@ ATA, douleur, garde, prison…) : `startMudra` arrête la séance sans la compte
   plugin : la ligne « issued server command » du journal de la console du serveur (`logs/latest.log`), qui garde la
   commande entière ; elle n'est lue que par ceux qui ont accès aux fichiers du serveur.
 
+### 4 terdecies.7 Outil « Portes » du Poste de garde (16/11, hud 0.4.206)
+
+Actions `porte*` du canal `reborn:staff` (JSON UTF-8 brut, C → S champ `a`, S → C champ `t`, comme l'outil Plaques).
+`StaffPanel.handle` envoie toute action dont `a` commence par `porte` à `MudraModule.panel` → `mudra/PortesPanel.handle`,
+**avant** le filtre de grade : le panneau refait le contrôle Helper (« Réservé au staff. »). Le grade est relu à chaque
+message ; les droits fins sont revérifiés par `PorteService` / `MudraService`, qui journalisent les refus
+(`STAFF` / `PORTE_REFUS`). Chaque action de modification répond par un `toast` puis par la liste `portes`.
+
+| `a` | Grade | Champs | Effet |
+|---|---|---|---|
+| `portes` | Helper | `r` (rayon des proches, 4 à 256, défaut 64 ; gardé par staff jusqu'à sa déconnexion) | renvoie `portes` |
+| `porte_verifier` | Modo | `n` (numéro de demande), `boite` | renvoie `porte_verif` seul : taille, distance, contenu, recoupe ; sans effet ni journal |
+| `porte_creer` | Modo | `boite`, `nom`, `signes`, `leve` (0 = toute la hauteur ; hors bornes = refus) | crée la porte |
+| `porte_signes` · `porte_nom` · `porte_leve` | Modo | `id` + `signes` / `nom` / `leve` | retouche |
+| `porte_ouvrir` · `porte_fermer` | Modo | `id` | essai sans composer |
+| `porte_retirer` | Modo | `id` | retire le sceau (définitif) |
+| `porte_tp` | Helper | `id` | téléporte devant |
+| `porte_systeme` | Admin | `on` (booléen JSON, sinon ignoré) | allume / éteint le système |
+| `porte_debloquer` | Modo | `id`, `joueur` (UUID du compte) | lève le blocage de ce joueur devant cette porte |
+
+`boite` = `{"x","y","z","dx","dy","dz"}` (six entiers, coin bas + taille, monde du staff). `signes` = ordinaux 0 à 11,
+2 à 12 cases. Les nombres doivent être des nombres JSON entiers. Une action `porte*` inconnue est ignorée.
+
+Réponses :
+
+- `{"t":"portes","actif":bool,"peutGerer":bool,"peutSysteme":bool,"bloque":bool,"r":64,"dernier":"D3","l":[…]}` : toutes
+  les portes (200 au plus), monde du staff d'abord, de la plus proche à la plus lointaine. `bloque` : `mudras.yml`
+  illisible. `dernier` : la porte touchée par l'action (absent pour `portes`, pour un échec et pour `porte_systeme`).
+- Une porte : `id`, `nom`, `monde`, `x`, `y`, `z`, `dx`, `dy`, `dz`, `leve`, `n` (nombre de signes), `signes`
+  (**Modo et plus seulement : la clé n'existe pas pour un Helper**, `PortesPanel.porteJson`, testé), `etat`
+  (`fermee`, `leve`, `levee`, `redescend`, `remettre`), `reste` (secondes avant la redescente pendant le maintien ;
+  −1 sinon, passage occupé et échéance dépassée compris), `dist` (blocs, −1 dans un autre monde), `cree` et `modif`
+  `{par, le}` (`modif` toujours présent : `par` vide et `le` 0 si jamais retouchée), `blocages` `[{u, nom, reste}]`
+  (visibles des Helpers ; `nom` = personnage actif si le joueur est en ligne, sinon dernier pseudo connu).
+- `{"t":"porte_verif","n":7,"ok":bool,"m":"…"}`.
+
+Règles :
+
+- **Distance** : la boîte doit être dans le monde du staff et à 8 + 1 blocs au plus de ses yeux (`MudraRegles.tropLoin`,
+  « Trop loin : approche-toi à 8 blocs. ») ; `/porte creer` (coins visés) garde son comportement.
+- Mêmes validations que `/porte creer`, dans le même ordre (`PorteService.dalleRefusee` et `sceller`, partagés avec la
+  commande) ; mêmes lignes de journal (`PORTE_POSEE`, `PORTE_MODIFIEE`, `PORTE_RETIREE`, `PORTE_ESSAI`, `PORTE_TP`,
+  `MUDRAS_SYSTEME`). **Aucune ne porte la suite**, pas plus que les toasts (nombre de signes seulement).
+- Nouveau : `STAFF` / `PORTE_DEBLOCAGE` (acteur = le staff, cible = le compte du joueur, détail = porte et secondes qui
+  restaient). `MudraService.blocages()` liste les blocages par porte et purge les comptes éteints ;
+  `MudraService.debloquer` ne lève que celui de ce joueur devant cette porte, sans rien lui dire.
+- **Débit** : 10 messages `porte*` par seconde et par joueur (`PlaqueRegles.Limiteur`), au-delà ignorés sans réponse ; le
+  rafraîchissement de 2 s du mod et ses `porte_verifier` comptent dedans. Un message traité après la déconnexion de son
+  auteur est ignoré.
+- Les erreurs du service sont redites sans renvoi à une commande (`MudraRegles.pourOutil`). « Le passage est occupé : la
+  dalle redescendra dès qu'il sera libre. » est une information, envoyée avec `dernier`.
+- Chaque retouche écrit `mudras.yml` tout de suite, comme la commande. La liste n'est poussée à personne d'autre : un
+  second staff voit le changement à son prochain rafraîchissement.
+
+Tests : `MudraReglesTest` (blocages, distance, levée demandée, états, secondes restantes, rayon, textes reformulés) et
+`PortesPanelTest` (suite absente du JSON d'un Helper, drapeaux par grade, lecture stricte de `boite`, `signes`, `id`).
+`PortesPanel.handle`, `PorteService.creer(Boite)` / `verifier` et `MudraService.debloquer` demandent un serveur : ils ne
+sont couverts que par la relecture et l'essai en jeu. Côté mod : MOD_HUD §1 sexies.
+
 ## 4 ter. Nourriture et modificateurs — protocole (14/10)
 
 > ShinobiCore `nourriture/` et `modificateur/` ⇄ mod `fr.reborn.hud.nourriture`. JSON UTF-8 brut, champs optionnels,

@@ -16,6 +16,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.SoundCategory;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -140,7 +141,8 @@ public final class MudraService implements PluginMessageListener, Listener {
 
     /**
      * Joueur → identifiant de porte → essais. Gardé à la déconnexion (se reconnecter ne lève pas un blocage) ; vidé à
-     * l'arrêt et à {@code /sc reload} (le moyen du staff de lever un blocage sans redémarrer).
+     * l'arrêt et à {@code /sc reload} (qui lève tous les blocages d'un coup). L'outil du Poste de garde les liste
+     * ({@link #blocages}) et en lève un seul ({@link #debloquer}).
      */
     private final Map<UUID, Map<String, MudraRegles.Essais>> essais = new HashMap<>();
     private int tache = -1;
@@ -458,6 +460,36 @@ public final class MudraService implements PluginMessageListener, Listener {
         m.values().removeIf(e -> e.eteint(now, fenetre));
         return m.computeIfAbsent(d.id, k -> new MudraRegles.Essais())
                 .compter(now, reglages.essaisMax(), fenetre, reglages.blocageS() * 1000L);
+    }
+
+    /**
+     * Outil du Poste de garde : les blocages en cours, par identifiant de porte (le plus long d'abord). Les comptes
+     * éteints de la table sont purgés au passage (ils ne l'étaient qu'au prochain essai du même joueur).
+     */
+    public Map<String, List<MudraRegles.Blocage<UUID>>> blocages() {
+        return MudraRegles.blocages(essais, System.currentTimeMillis(), reglages.essaisFenetreS() * 1000L);
+    }
+
+    /**
+     * Outil du Poste de garde : lève le blocage d'un joueur devant une porte (Modérateur et plus), sans toucher à ceux
+     * des autres ni aux autres portes ; son compte d'essais devant elle repart de zéro. {@code STAFF} /
+     * {@code PORTE_DEBLOCAGE}, cible = le joueur. Rien ne lui est dit : il ne savait pas qu'il était bloqué.
+     */
+    public PorteService.Resultat debloquer(CommandSender s, String id, UUID joueur) {
+        PorteScellee d = portes.get(id);
+        if (d == null) return PorteService.Resultat.ko("Porte introuvable : " + id + ".");
+        if (!MudraRegles.peutGerer(PorteService.grade(s))) return portes.refus(s, "débloquer " + d.id, "Réservé aux modérateurs.");
+        if (joueur == null) return PorteService.Resultat.ko("Joueur inconnu.");
+        long reste = MudraRegles.leverBlocage(essais, joueur, d.id, System.currentTimeMillis());
+        if (reste <= 0) return PorteService.Resultat.ko("Ce joueur n'est pas bloqué devant la porte " + d.id + ".");
+        if (plugin.journal() != null) {
+            JournalService.Entree e = plugin.journal().entree(JournalService.Categorie.STAFF, "PORTE_DEBLOCAGE").acteur(s)
+                    .cible(joueur).detail(d.libelle() + " · blocage levé (il restait " + (reste + 999) / 1000 + " s)");
+            Location l = PorteService.lieu(d);
+            if (l != null) e.lieu(l);
+            e.ecrire();
+        }
+        return new PorteService.Resultat(d, null);
     }
 
     /* ================================================================ tâche des sessions */

@@ -73,6 +73,12 @@ public final class PorteService implements Listener {
 
     private static final String BLOQUE = "mudras.yml n'a pas pu être lu : modifications bloquées (voir la console, puis /sc reload).";
     private static final String ECRITURE = "mudras.yml ne s'écrit pas : rien n'est changé (voir la console).";
+    /**
+     * Réponse de {@link #essaiFermer} quand quelqu'un se tient dans le passage : rendue comme une erreur, mais la descente
+     * est bien planifiée. L'outil du Poste de garde la montre comme une information.
+     */
+    static final String PASSAGE_OCCUPE = "Le passage est occupé : la dalle redescendra dès qu'il sera libre.";
+    private static final String TROP_LOIN = "Trop loin : approche-toi à " + MudraRegles.VISEE_STAFF + " blocs.";
     private static final String SON_DALLE = "reborn:mudra.dalle", SON_CHOC = "reborn:mudra.choc";
 
     /** Un bloc de la dalle rendu par un affichage : l'entité et la place d'origine du bloc. */
@@ -119,6 +125,11 @@ public final class PorteService implements Listener {
     private final Map<String, List<Piece>> levees = new HashMap<>();
     /** Portes levées : tâche de la prochaine tentative de descente. */
     private final Map<String, Integer> fermetures = new HashMap<>();
+    /**
+     * Portes levées : instant (epoch ms) de la redescente prévue à la fin du maintien. Absent quand la dalle attend que
+     * le passage se libère (réessai chaque seconde, échéance inconnue).
+     */
+    private final Map<String, Long> descenteLe = new HashMap<>();
     /** Portes {@code ouverte: true} dont la dalle n'a pas pu être remise (monde absent) : réessai au chargement du monde. */
     private final Set<String> aRemettre = new HashSet<>();
     private final Map<UUID, Coins> coins = new HashMap<>();
@@ -173,6 +184,12 @@ public final class PorteService implements Listener {
     /** L'interrupteur du système ({@code actif} de mudras.yml) : livré éteint. */
     public boolean actif() { return store.actif(); }
 
+    /**
+     * {@code mudras.yml} n'a pas pu être lu : créations, retouches, retraits et ouvertures échouent tant qu'il n'est pas
+     * corrigé puis rechargé ({@code /sc reload}). L'outil du Poste de garde l'annonce d'avance.
+     */
+    public boolean bloque() { return store.bloque(); }
+
     public MudraRegles.Reglages reglages() { return reglages; }
 
     public Map<String, PorteScellee> portes() { return store.portes; }
@@ -209,11 +226,23 @@ public final class PorteService implements Listener {
     public boolean fermee(PorteScellee d) { return !d.ouverte && !mouvements.containsKey(d.id); }
 
     /** État en clair pour le staff. */
-    public String etat(PorteScellee d) {
+    public String etat(PorteScellee d) { return etatDe(d).texte(); }
+
+    /** État de la porte ({@link MudraRegles.Etat#code} part vers l'outil du Poste de garde). */
+    public MudraRegles.Etat etatDe(PorteScellee d) {
         Mouvement m = mouvements.get(d.id);
-        if (m != null) return m.levee ? "se lève" : "redescend";
-        if (aRemettre.contains(d.id)) return "dalle à remettre (monde absent)";
-        return d.ouverte ? "levée" : "fermée";
+        return MudraRegles.etat(m == null ? null : m.levee, aRemettre.contains(d.id), d.ouverte);
+    }
+
+    /**
+     * Secondes avant la redescente d'une porte levée ; -1 si elle n'est pas levée, si la dalle attend que le passage
+     * se libère (elle redescendra dès qu'il sera libre), ou si l'échéance est passée sans que la redescente soit partie
+     * (elle est planifiée en ticks : un serveur sous 20 TPS la fait plus tard que l'horloge).
+     */
+    public int resteAvantDescente(PorteScellee d) {
+        if (etatDe(d) != MudraRegles.Etat.LEVEE) return -1;
+        long le = descenteLe.getOrDefault(d.id, 0L), now = System.currentTimeMillis();
+        return le <= now ? -1 : MudraRegles.resteS(le, now);
     }
 
     public static Location lieu(PorteScellee d) {
@@ -405,7 +434,7 @@ public final class PorteService implements Listener {
         }
         levees.put(d.id, hauts);
         son(w, d, SON_CHOC);
-        planifierDescente(d, reglages.ouverteS() * 20L);
+        planifierDescente(d, reglages.ouverteS() * 20L, true);
     }
 
     private void finDescente(Mouvement m, World w) {
@@ -422,15 +451,22 @@ public final class PorteService implements Listener {
         son(w, d, SON_CHOC);
     }
 
-    private void planifierDescente(PorteScellee d, long delai) {
+    /**
+     * {@code maintien} : la fin du maintien normal, dont l'échéance se lit ({@link #resteAvantDescente}) ; faux pour un
+     * réessai, passage occupé.
+     */
+    private void planifierDescente(PorteScellee d, long delai, boolean maintien) {
         annulerDescente(d.id);
+        if (maintien) descenteLe.put(d.id, System.currentTimeMillis() + delai * 50L);
         fermetures.put(d.id, Bukkit.getScheduler().runTaskLater(plugin, () -> {
             fermetures.remove(d.id);
+            descenteLe.remove(d.id);
             tenterDescente(d);
         }, delai).getTaskId());
     }
 
     private void annulerDescente(String id) {
+        descenteLe.remove(id);
         Integer t = fermetures.remove(id);
         if (t != null) Bukkit.getScheduler().cancelTask(t);
     }
@@ -451,8 +487,8 @@ public final class PorteService implements Listener {
             return "Monde absent : " + d.monde + ".";
         }
         if (occupee(d, w)) {
-            planifierDescente(d, 20L);
-            return "Le passage est occupé : la dalle redescendra dès qu'il sera libre.";
+            planifierDescente(d, 20L, false);
+            return PASSAGE_OCCUPE;
         }
         annulerDescente(d.id);
         return descendre(d, w);
@@ -672,9 +708,49 @@ public final class PorteService implements Listener {
         World w = s.getWorld();
         if (!w.getName().equals(c.monde)) return Resultat.ko("Les deux coins sont dans un autre monde : repose-les ici.");
         MudraRegles.Boite b = MudraRegles.Boite.entre(c.a[0], c.a[1], c.a[2], c.b[0], c.b[1], c.b[2]);
-        String e = MudraRegles.validerBoite(b.dx(), b.dy(), b.dz());
+        String e = dalleRefusee(w, b, null);
         if (e != null) return Resultat.ko(e);
-        if (b.y() < w.getMinHeight() || b.y() + b.dy() > w.getMaxHeight()) return Resultat.ko("Dalle hors du monde.");
+        Resultat r = sceller(s, w, b, nom, signes, 0);
+        if (r.ok()) coins.remove(s.getUniqueId());
+        return r;
+    }
+
+    /**
+     * Outil du Poste de garde : la dalle choisie à la souris devient une porte scellée. La boîte vient du client, tout est
+     * donc revérifié ici : elle est dans le monde du staff, à {@link MudraRegles#VISEE_STAFF} + 1 blocs au plus de ses
+     * yeux, puis les mêmes contrôles que {@code /porte creer}. {@code leve} : 0 = toute la hauteur de la dalle.
+     */
+    public Resultat creer(Player s, MudraRegles.Boite b, String nom, List<Mudra> signes, int leve) {
+        if (store.bloque()) return Resultat.ko(BLOQUE);
+        if (!MudraRegles.peutGerer(StaffGrades.of(s))) return refus(s, "créer", "Réservé aux modérateurs.");
+        if (b == null) return Resultat.ko("Choisis d'abord la dalle.");
+        String e = dalleRefusee(s.getWorld(), b, s.getEyeLocation());
+        if (e != null) return Resultat.ko(e);
+        if (MudraRegles.leveDemandee(leve, b.dy()) < 0)
+            return Resultat.ko("Levée : de 1 à " + b.dy() + " blocs (la hauteur de la dalle).");
+        return sceller(s, s.getWorld(), b, nom, signes == null ? List.of() : signes, leve);
+    }
+
+    /**
+     * Outil du Poste de garde : cette dalle pourrait-elle devenir une porte ? null si oui, sinon la raison (taille,
+     * distance, contenu, recoupe). Rien n'est créé ni journalisé : l'outil le demande à chaque dalle dessinée.
+     */
+    public String verifier(Player s, MudraRegles.Boite b) {
+        if (!MudraRegles.peutGerer(StaffGrades.of(s))) return "Réservé aux modérateurs.";
+        if (b == null) return "Choisis d'abord la dalle.";
+        return dalleRefusee(s.getWorld(), b, s.getEyeLocation());
+    }
+
+    /**
+     * Pourquoi cette boîte ne peut pas devenir une dalle, null si elle le peut : taille, distance aux yeux du staff
+     * ({@code yeux} non null : la boîte vient de l'outil), place dans le monde, contenu, recoupe d'une autre porte. La
+     * taille et la distance passent avant toute lecture de bloc.
+     */
+    private String dalleRefusee(World w, MudraRegles.Boite b, Location yeux) {
+        String e = MudraRegles.validerBoite(b.dx(), b.dy(), b.dz());
+        if (e != null) return e;
+        if (yeux != null && MudraRegles.tropLoin(b, yeux.getX(), yeux.getY(), yeux.getZ())) return TROP_LOIN;
+        if (b.y() < w.getMinHeight() || b.y() + b.dy() > w.getMaxHeight()) return "Dalle hors du monde.";
         int nonVides = 0, etats = 0;
         for (int i = 0; i < b.volume(); i++) {
             Block bl = bloc(w, b, i);
@@ -682,12 +758,20 @@ public final class PorteService implements Listener {
             if (bl.getState(false) instanceof TileState) etats++;
         }
         e = MudraRegles.validerContenu(nonVides, etats, accrochees(w, b));
-        if (e != null) return Resultat.ko(e);
+        if (e != null) return e;
         for (PorteScellee o : store.portes.values())
-            if (o.monde.equals(w.getName()) && o.boite.recoupe(b)) return Resultat.ko("Cette dalle recoupe la porte " + o.id + ".");
+            if (o.monde.equals(w.getName()) && o.boite.recoupe(b)) return "Cette dalle recoupe la porte " + o.id + ".";
+        return null;
+    }
+
+    /**
+     * La dalle, déjà vérifiée ({@link #dalleRefusee}), devient une porte : nom, suite, écriture, journal. {@code leve} :
+     * 0 = toute la hauteur.
+     */
+    private Resultat sceller(Player s, World w, MudraRegles.Boite b, String nom, List<Mudra> signes, int leve) {
         String n = MudraRegles.nom(nom);
         if (n.isEmpty()) return Resultat.ko("Donne un nom à la porte.");
-        e = MudraRegles.validerSuite(signes.size());
+        String e = MudraRegles.validerSuite(signes.size());
         if (e != null) return Resultat.ko(e);
         long now = System.currentTimeMillis();
         PorteScellee d = new PorteScellee(store.nouvelId());
@@ -695,7 +779,7 @@ public final class PorteService implements Listener {
         d.monde = w.getName();
         d.boite = b;
         d.signes = List.copyOf(signes);
-        d.leve = b.dy();
+        d.leve = MudraRegles.bornerLeve(leve, b.dy());
         d.creeLe = now;
         d.creePar = s.getUniqueId();
         d.creePseudo = s.getName();
@@ -707,7 +791,6 @@ public final class PorteService implements Listener {
             reindexer();
             return Resultat.ko(ECRITURE);
         }
-        coins.remove(s.getUniqueId());
         // la suite elle-même ne va ni au tchat public ni au journal (lu des Helpers) : son nombre de signes seulement.
         // La ligne de commande, journalisée à part (JournalEcouteur), y passe masquée : MudraRegles.masquerCommande.
         journal(JournalService.Categorie.STAFF, "PORTE_POSEE", s, d, d.libelle() + " · " + b.libelle(d.monde) + " · "
@@ -906,7 +989,8 @@ public final class PorteService implements Listener {
         return null;
     }
 
-    private Resultat refus(CommandSender s, String quoi, String msg) {
+    /** Refus de grade : {@code STAFF} / {@code PORTE_REFUS}, puis le message rendu au staff. */
+    Resultat refus(CommandSender s, String quoi, String msg) {
         if (plugin.journal() != null) {
             JournalService.Entree e = plugin.journal().entree(JournalService.Categorie.STAFF, "PORTE_REFUS").acteur(s)
                     .detail(quoi + " · grade " + StaffGrades.name(grade(s)));

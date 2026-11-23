@@ -5,7 +5,10 @@ import com.reborn.shinobicore.technique.Mudra;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayDeque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -542,5 +545,206 @@ class MudraReglesTest {
                 "le cadre avant la matrice");
         assertEquals("Entravé : pas de mudra.", MudraRegles.refus(new MudraRegles.Contexte(false, false, false, false, false, false, false, false, "Entravé : pas de mudra.")));
         assertNull(MudraRegles.refus(new MudraRegles.Contexte(false, false, false, false, false, false, false, false, " ")));
+    }
+
+    /* ================================================================ outil du Poste de garde : blocages */
+
+    /** Une table d'essais où {@code joueur} vient de se bloquer devant {@code porte} à l'instant {@code t} (2 essais, 120 s). */
+    private static void bloquer(Map<UUID, Map<String, MudraRegles.Essais>> table, UUID joueur, String porte, long t) {
+        MudraRegles.Essais e = table.computeIfAbsent(joueur, k -> new HashMap<>()).computeIfAbsent(porte, k -> new MudraRegles.Essais());
+        assertFalse(e.compter(t - 1, 2, 60_000, 120_000));
+        assertTrue(e.compter(t, 2, 60_000, 120_000));
+    }
+
+    @Test
+    void essais_resteDuBlocage() {
+        MudraRegles.Essais e = new MudraRegles.Essais();
+        assertEquals(0, e.resteMs(1000), "jamais bloqué");
+        e.compter(1000, 2, 60_000, 120_000);
+        assertEquals(0, e.resteMs(1500), "un essai ne bloque pas");
+        assertTrue(e.compter(2000, 2, 60_000, 120_000));
+        assertEquals(120_000, e.resteMs(2000));
+        assertEquals(40_000, e.resteMs(82_000));
+        assertEquals(0, e.resteMs(122_000), "fini pile à l'échéance");
+        assertEquals(0, e.resteMs(999_999), "jamais négatif");
+    }
+
+    @Test
+    void blocages_parPorteLePlusLongDAbord() {
+        Map<UUID, Map<String, MudraRegles.Essais>> table = new HashMap<>();
+        UUID a = new UUID(0, 1), b = new UUID(0, 2), c = new UUID(0, 3);
+        bloquer(table, a, "D3", 10_000);
+        bloquer(table, b, "D3", 30_000);
+        bloquer(table, c, "D7", 20_000);
+        Map<String, List<MudraRegles.Blocage<UUID>>> l = MudraRegles.blocages(table, 40_000, 60_000);
+        assertEquals(2, l.size());
+        assertEquals(List.of(new MudraRegles.Blocage<>(b, 110_000), new MudraRegles.Blocage<>(a, 90_000)), l.get("D3"),
+                "le blocage le plus récent (le plus long) d'abord");
+        assertEquals(List.of(new MudraRegles.Blocage<>(c, 100_000)), l.get("D7"));
+        assertNull(l.get("D1"), "aucune entrée pour une porte sans blocage");
+    }
+
+    @Test
+    void blocages_memeResteOrdreStable() {
+        Map<UUID, Map<String, MudraRegles.Essais>> table = new HashMap<>();
+        UUID a = new UUID(0, 9), b = new UUID(0, 4);
+        bloquer(table, a, "D3", 10_000);
+        bloquer(table, b, "D3", 10_000);
+        List<MudraRegles.Blocage<UUID>> l = MudraRegles.blocages(table, 11_000, 60_000).get("D3");
+        assertEquals(List.of(b, a), List.of(l.get(0).joueur(), l.get(1).joueur()), "à reste égal : l'ordre des joueurs");
+    }
+
+    @Test
+    void blocages_unEssaiSansBlocageNEstPasListe() {
+        Map<UUID, Map<String, MudraRegles.Essais>> table = new HashMap<>();
+        UUID a = new UUID(0, 1);
+        table.computeIfAbsent(a, k -> new HashMap<>()).computeIfAbsent("D3", k -> new MudraRegles.Essais()).compter(10_000, 5, 60_000, 120_000);
+        assertTrue(MudraRegles.blocages(table, 11_000, 60_000).isEmpty());
+        assertEquals(1, table.size(), "le compte en cours est gardé : il n'est pas éteint");
+    }
+
+    @Test
+    void blocages_purgeLesComptesEteints() {
+        Map<UUID, Map<String, MudraRegles.Essais>> table = new HashMap<>();
+        UUID a = new UUID(0, 1), b = new UUID(0, 2);
+        bloquer(table, a, "D3", 10_000);
+        bloquer(table, a, "D4", 100_000);
+        bloquer(table, b, "D3", 10_000);
+        // à 200 s : les blocages posés à 10 s sont finis (130 s) et sans essai dans la fenêtre, celui de 100 s tient
+        Map<String, List<MudraRegles.Blocage<UUID>>> l = MudraRegles.blocages(table, 200_000, 60_000);
+        assertEquals(List.of(new MudraRegles.Blocage<>(a, 20_000)), l.get("D4"));
+        assertNull(l.get("D3"));
+        assertEquals(1, table.size(), "le joueur sans plus aucun compte quitte la table");
+        assertEquals(List.of("D4"), List.copyOf(table.get(a).keySet()), "ses comptes éteints sont retirés");
+        assertTrue(MudraRegles.blocages(table, 999_000, 60_000).isEmpty());
+        assertTrue(table.isEmpty(), "tout est éteint : la table est vide");
+    }
+
+    @Test
+    void leverBlocage_unJoueurUnePorte() {
+        Map<UUID, Map<String, MudraRegles.Essais>> table = new HashMap<>();
+        UUID a = new UUID(0, 1), b = new UUID(0, 2);
+        bloquer(table, a, "D3", 10_000);
+        bloquer(table, a, "D4", 10_000);
+        bloquer(table, b, "D3", 10_000);
+        assertEquals(80_000, MudraRegles.leverBlocage(table, a, "D3", 50_000), "rend ce qui restait");
+        Map<String, List<MudraRegles.Blocage<UUID>>> l = MudraRegles.blocages(table, 50_000, 60_000);
+        assertEquals(List.of(new MudraRegles.Blocage<>(b, 80_000)), l.get("D3"), "le blocage de l'autre joueur tient");
+        assertEquals(List.of(new MudraRegles.Blocage<>(a, 80_000)), l.get("D4"), "son blocage devant l'autre porte tient");
+        assertEquals(0, MudraRegles.leverBlocage(table, a, "D3", 50_000), "déjà levé");
+        // le compte repart de zéro : il faut de nouveau deux essais manqués pour le bloquer
+        MudraRegles.Essais e = table.get(a).computeIfAbsent("D3", k -> new MudraRegles.Essais());
+        assertFalse(e.compter(51_000, 2, 60_000, 120_000));
+        assertTrue(e.compter(52_000, 2, 60_000, 120_000));
+    }
+
+    @Test
+    void leverBlocage_rienATouche() {
+        Map<UUID, Map<String, MudraRegles.Essais>> table = new HashMap<>();
+        UUID a = new UUID(0, 1);
+        assertEquals(0, MudraRegles.leverBlocage(table, a, "D3", 1000), "joueur inconnu");
+        assertEquals(0, MudraRegles.leverBlocage(table, null, "D3", 1000));
+        bloquer(table, a, "D3", 10_000);
+        assertEquals(0, MudraRegles.leverBlocage(table, a, "D9", 20_000), "autre porte");
+        assertEquals(0, MudraRegles.leverBlocage(table, a, "D3", 130_000), "blocage déjà fini : rien n'est retiré");
+        assertEquals(1, table.get(a).size());
+        assertEquals(1, MudraRegles.leverBlocage(table, a, "D3", 129_999));
+        assertTrue(table.isEmpty(), "le joueur sans plus aucun compte quitte la table");
+    }
+
+    /* ================================================================ outil du Poste de garde : dalle, état, textes */
+
+    @Test
+    void suiteDepuisOrdinaux_lesCasesDeLaGrille() {
+        MudraRegles.Suite s = MudraRegles.suiteDepuisOrdinaux(List.of(2, 5, 10));
+        assertTrue(s.ok());
+        assertEquals(List.of(Mudra.TIGER, Mudra.SNAKE, Mudra.DOG), s.signes());
+        assertEquals(List.of(Mudra.RAT, Mudra.RAT, Mudra.BOAR), MudraRegles.suiteDepuisOrdinaux(List.of(0, 0, 11)).signes(),
+                "un signe peut revenir ; bornes 0 et 11 comprises");
+        assertEquals("Il faut au moins 2 signes.", MudraRegles.suiteDepuisOrdinaux(List.of(3)).erreur());
+        assertEquals("Il faut au moins 2 signes.", MudraRegles.suiteDepuisOrdinaux(null).erreur());
+        assertEquals("Il faut au moins 2 signes.", MudraRegles.suiteDepuisOrdinaux(List.of()).erreur());
+        assertEquals("Pas plus de 12 signes.", MudraRegles.suiteDepuisOrdinaux(List.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0)).erreur());
+        assertTrue(MudraRegles.suiteDepuisOrdinaux(List.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)).ok());
+        assertEquals("Signe inconnu.", MudraRegles.suiteDepuisOrdinaux(List.of(2, 12)).erreur());
+        assertEquals("Signe inconnu.", MudraRegles.suiteDepuisOrdinaux(List.of(-1, 2)).erreur());
+        assertEquals("Signe inconnu.", MudraRegles.suiteDepuisOrdinaux(java.util.Arrays.asList(2, null)).erreur());
+        assertTrue(MudraRegles.suiteDepuisOrdinaux(List.of(2, 12)).signes().isEmpty(), "aucune suite partielle");
+    }
+
+    @Test
+    void tropLoin_huitBlocsPlusUnDesYeux() {
+        MudraRegles.Boite b = new MudraRegles.Boite(10, 64, 0, 3, 2, 1);
+        assertFalse(MudraRegles.tropLoin(b, 11.5, 65.0, 0.5), "les yeux dans la dalle");
+        assertFalse(MudraRegles.tropLoin(b, 1.0, 65.0, 0.5), "à 9 blocs pile de la face ouest");
+        assertTrue(MudraRegles.tropLoin(b, 0.99, 65.0, 0.5), "un rien au-delà de 9 blocs");
+        assertFalse(MudraRegles.tropLoin(b, 22.0, 65.0, 0.5), "à 9 blocs de la face est (x + dx)");
+        assertTrue(MudraRegles.tropLoin(b, 22.01, 65.0, 0.5));
+        assertTrue(MudraRegles.tropLoin(b, 11.5, 76.0, 0.5), "10 blocs au-dessus");
+        assertTrue(MudraRegles.tropLoin(new MudraRegles.Boite(30_000_000, 64, 0, 1, 1, 1), 0, 65, 0), "au bout du monde");
+        assertTrue(MudraRegles.tropLoin(new MudraRegles.Boite(Integer.MAX_VALUE, 64, 0, 9, 1, 1), 0, 65, 0),
+                "un coin démesuré ne passe pas par débordement");
+    }
+
+    @Test
+    void leveDemandee_zeroVautTouteLaHauteur() {
+        assertEquals(4, MudraRegles.leveDemandee(0, 4));
+        assertEquals(1, MudraRegles.leveDemandee(1, 4));
+        assertEquals(4, MudraRegles.leveDemandee(4, 4));
+        assertEquals(-1, MudraRegles.leveDemandee(5, 4), "plus haut que la dalle : refusé");
+        assertEquals(-1, MudraRegles.leveDemandee(-1, 4));
+    }
+
+    @Test
+    void etat_codesDeLOutilEtTextesDeLaCommande() {
+        assertEquals(MudraRegles.Etat.FERMEE, MudraRegles.etat(null, false, false));
+        assertEquals(MudraRegles.Etat.LEVEE, MudraRegles.etat(null, false, true));
+        assertEquals(MudraRegles.Etat.LEVE, MudraRegles.etat(true, false, true));
+        assertEquals(MudraRegles.Etat.REDESCEND, MudraRegles.etat(false, false, true));
+        assertEquals(MudraRegles.Etat.REMETTRE, MudraRegles.etat(null, true, true));
+        assertEquals(MudraRegles.Etat.LEVE, MudraRegles.etat(true, true, true), "le mouvement passe avant la dalle à remettre");
+        assertEquals(MudraRegles.Etat.REMETTRE, MudraRegles.etat(null, true, false), "la dalle à remettre passe avant « ouverte »");
+        assertEquals(List.of("fermee", "leve", "levee", "redescend", "remettre"),
+                java.util.Arrays.stream(MudraRegles.Etat.values()).map(MudraRegles.Etat::code).toList(), "codes du cahier");
+        // les textes de /porte n'ont pas bougé
+        assertEquals(List.of("fermée", "se lève", "levée", "redescend", "dalle à remettre (monde absent)"),
+                java.util.Arrays.stream(MudraRegles.Etat.values()).map(MudraRegles.Etat::texte).toList());
+    }
+
+    @Test
+    void resteS_secondesArrondiesAuDessus() {
+        assertEquals(-1, MudraRegles.resteS(0, 5000), "échéance inconnue");
+        assertEquals(-1, MudraRegles.resteS(-3, 5000));
+        assertEquals(8, MudraRegles.resteS(13_000, 5000));
+        assertEquals(8, MudraRegles.resteS(12_001, 5000), "7,001 s = encore 8");
+        assertEquals(1, MudraRegles.resteS(5001, 5000));
+        assertEquals(0, MudraRegles.resteS(5000, 5000));
+        assertEquals(0, MudraRegles.resteS(4000, 5000), "échéance passée : jamais négatif");
+    }
+
+    @Test
+    void bornerRayon_deQuatreADeuxCentCinquanteSix() {
+        assertEquals(64, MudraRegles.bornerRayon(MudraRegles.OUTIL_RAYON));
+        assertEquals(4, MudraRegles.bornerRayon(0));
+        assertEquals(4, MudraRegles.bornerRayon(-50));
+        assertEquals(256, MudraRegles.bornerRayon(100_000));
+        assertEquals(24, MudraRegles.bornerRayon(24));
+    }
+
+    @Test
+    void pourOutil_retireLesRenvoisAUneCommande() {
+        assertEquals("Système éteint : les portes restent fermées.",
+                MudraRegles.pourOutil("Système éteint : les portes restent fermées (/porte systeme on)."));
+        assertEquals("La porte D3 doit être fermée (elle levée).",
+                MudraRegles.pourOutil("La porte D3 doit être fermée (elle levée) : /porte fermer D3."));
+        assertEquals("Aucune place libre devant la porte D3.",
+                MudraRegles.pourOutil("Aucune place libre devant la porte D3 : /porte info D3 pour ses coordonnées."));
+        // tout le reste passe tel quel
+        for (String m : List.of("Porte introuvable : D9.", "Réservé aux modérateurs.", "Cette dalle recoupe la porte D2.",
+                "Dalle trop grande : 9 blocs par côté au plus (10×2×1).", "La porte D3 se lève : attends la fin du mouvement.",
+                "mudras.yml n'a pas pu être lu : modifications bloquées (voir la console, puis /sc reload).",
+                "Le passage est occupé : la dalle redescendra dès qu'il sera libre."))
+            assertEquals(m, MudraRegles.pourOutil(m));
+        assertNull(MudraRegles.pourOutil(null));
     }
 }

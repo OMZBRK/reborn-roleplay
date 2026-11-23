@@ -1,7 +1,9 @@
 package com.reborn.shinobicore.mudra;
 
+import com.google.gson.JsonObject;
 import com.reborn.shinobicore.ShinobiCore;
 import com.reborn.shinobicore.technique.Mudra;
+import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -11,7 +13,8 @@ import java.util.function.Consumer;
 
 /**
  * Mudras au clavier et portes scellées (demande du 14/11). Rassemble le canal joueur {@link MudraService}
- * ({@code reborn:mudra}), les portes ({@link PorteService}, {@code mudras.yml}) et {@code /porte}.
+ * ({@code reborn:mudra}), les portes ({@link PorteService}, {@code mudras.yml}), {@code /porte} et l'outil « Portes » du
+ * Poste de garde ({@link PortesPanel}, actions {@code porte*} de {@code reborn:staff}).
  *
  * <p>Le système est <b>livré éteint</b> : l'interrupteur n'est pas dans {@code config.yml}, c'est la clé {@code actif} de
  * {@code plugins/ShinobiCore/mudras.yml} (absente = false), basculée en jeu par {@code /porte systeme on|off}. Éteint, la
@@ -25,18 +28,21 @@ public final class MudraModule {
     private final ShinobiCore plugin;
     private final PorteService portes;
     private final MudraService mudras;
+    private final PortesPanel panel;
 
     public MudraModule(ShinobiCore plugin) {
         this.plugin = plugin;
         this.portes = new PorteService(plugin);
         this.mudras = new MudraService(plugin, portes);
         this.portes.surBascule(mudras::systemeChange);
+        this.panel = new PortesPanel(plugin, portes, mudras);
     }
 
     public void demarrer() {
         MudraRegles.Reglages r = lireReglages();
         portes.demarrer(r);
         mudras.demarrer(r);
+        Bukkit.getPluginManager().registerEvents(panel, plugin);
         PluginCommand pc = plugin.getCommand("porte");
         if (pc == null) plugin.getLogger().warning("Commande 'porte' absente du plugin.yml.");
         else {
@@ -81,6 +87,12 @@ public final class MudraModule {
 
     /** L'interrupteur du système ({@code /porte systeme on|off}). */
     public boolean actif() { return portes.actif(); }
+
+    /**
+     * Actions {@code porte*} du Poste de garde (appelé par {@code StaffPanel.handle}, grade déjà relu, <b>joueur sans
+     * grade compris</b> : {@link PortesPanel} refait le contrôle Helper).
+     */
+    public void panel(Player p, int grade, String a, JsonObject in) { panel.handle(p, grade, a, in); }
 
     /* ================================================================ API pour les autres plugins */
 

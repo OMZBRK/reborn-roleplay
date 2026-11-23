@@ -5,9 +5,14 @@ import com.reborn.shinobicore.technique.Mudra;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Deque;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Règles pures des mudras au clavier et des portes scellées (demande du 14/11) : minuterie de composition, lecture d'une
@@ -41,6 +46,10 @@ public final class MudraRegles {
     public static final double INFO_RAYON = 16;
     /** Délai par signe d'une barre guidée (ms) : bornes de ce que l'appelant peut demander. */
     public static final long GUIDE_MIN_MS = 500, GUIDE_MAX_MS = 60_000;
+    /** Outil « Portes » du Poste de garde : messages {@code porte*} par seconde et par staff. */
+    public static final int OUTIL_PAR_S = 10;
+    /** Outil « Portes » : rayon des portes « proches » (défaut, bornes) et nombre de portes d'une liste. */
+    public static final int OUTIL_RAYON = 64, OUTIL_RAYON_MIN = 4, OUTIL_RAYON_MAX = 256, OUTIL_LISTE_MAX = 200;
 
     private MudraRegles() {}
 
@@ -203,6 +212,49 @@ public final class MudraRegles {
         public boolean eteint(long now, long fenetreMs) {
             return !bloquee(now) && (instants.isEmpty() || now - instants.peekLast() > fenetreMs);
         }
+
+        /** Millisecondes avant la fin du blocage ; 0 hors blocage. */
+        public long resteMs(long now) { return Math.max(0, bloqueJusqua - now); }
+    }
+
+    /** Un blocage en cours devant une porte : le joueur et ce qui reste (ms). */
+    public record Blocage<K>(K joueur, long resteMs) { }
+
+    /**
+     * Les blocages en cours, rangés par porte, lus dans la table des essais (joueur → identifiant de porte → essais).
+     * Dans chaque porte : le blocage le plus long d'abord, puis l'ordre des joueurs (un ordre qui ne bouge pas d'une
+     * lecture à l'autre). Les comptes éteints sont retirés de la table au passage, les joueurs vidés aussi.
+     */
+    public static <K extends Comparable<K>> Map<String, List<Blocage<K>>> blocages(Map<K, Map<String, Essais>> table, long now,
+                                                                                long fenetreMs) {
+        Map<String, List<Blocage<K>>> out = new LinkedHashMap<>();
+        for (Iterator<Map.Entry<K, Map<String, Essais>>> it = table.entrySet().iterator(); it.hasNext(); ) {
+            Map.Entry<K, Map<String, Essais>> j = it.next();
+            j.getValue().values().removeIf(e -> e.eteint(now, fenetreMs));
+            if (j.getValue().isEmpty()) { it.remove(); continue; }
+            for (Map.Entry<String, Essais> e : j.getValue().entrySet()) {
+                if (!e.getValue().bloquee(now)) continue;
+                out.computeIfAbsent(e.getKey(), k -> new ArrayList<>()).add(new Blocage<>(j.getKey(), e.getValue().resteMs(now)));
+            }
+        }
+        Comparator<Blocage<K>> ordre = Comparator.<Blocage<K>>comparingLong(Blocage::resteMs).reversed()
+                .thenComparing(Blocage::joueur);
+        for (List<Blocage<K>> l : out.values()) l.sort(ordre);
+        return out;
+    }
+
+    /**
+     * Le staff lève le blocage d'un joueur devant une porte : son compte d'essais devant elle est oublié (il repart de
+     * zéro). Rend les millisecondes qui restaient ; 0 s'il n'était pas bloqué (rien n'est alors touché).
+     */
+    public static <K> long leverBlocage(Map<K, Map<String, Essais>> table, K joueur, String porte, long now) {
+        Map<String, Essais> m = joueur == null ? null : table.get(joueur);
+        Essais e = m == null ? null : m.get(porte);
+        if (e == null || !e.bloquee(now)) return 0;
+        long reste = e.resteMs(now);
+        m.remove(porte);
+        if (m.isEmpty()) table.remove(joueur);
+        return reste;
     }
 
     /**
@@ -255,6 +307,22 @@ public final class MudraRegles {
         }
         String e = validerSuite(out.size());
         return e != null ? new Suite(List.of(), e) : new Suite(List.copyOf(out), null);
+    }
+
+    /**
+     * Suite reçue de l'outil du Poste de garde : ordinaux de 0 à 11 (les cases de la grille), de {@link #SUITE_MIN} à
+     * {@link #SUITE_MAX} signes. Un même signe peut se répéter.
+     */
+    public static Suite suiteDepuisOrdinaux(List<Integer> ordinaux) {
+        int n = ordinaux == null ? 0 : ordinaux.size();
+        String e = validerSuite(n);
+        if (e != null) return new Suite(List.of(), e);
+        List<Mudra> out = new ArrayList<>(n);
+        for (Integer o : ordinaux) {
+            if (o == null || o < 0 || o >= NB_MUDRAS) return new Suite(List.of(), "Signe inconnu.");
+            out.add(Mudra.values()[o]);
+        }
+        return new Suite(List.copyOf(out), null);
     }
 
     /** Longueur d'une suite de porte : null si acceptée, sinon l'erreur. */
@@ -416,6 +484,23 @@ public final class MudraRegles {
         return null;
     }
 
+    /**
+     * La dalle est-elle hors d'atteinte du staff qui la choisit à la souris : à plus de {@link #VISEE_STAFF} + 1 blocs de
+     * ses yeux (la règle de l'ancre d'une plaque) ? Un client modifié ne pose pas une porte au bout du monde.
+     */
+    public static boolean tropLoin(Boite b, double ox, double oy, double oz) {
+        return b.distance(ox, oy, oz) > VISEE_STAFF + 1;
+    }
+
+    /**
+     * Levée demandée à la création par l'outil : 0 = toute la hauteur de la dalle, sinon de 1 à {@code dy}. -1 hors
+     * bornes (refusée, comme {@code /porte leve}).
+     */
+    public static int leveDemandee(int leve, int dy) {
+        if (leve == 0) return Math.max(1, dy);
+        return leve < 0 || leve > dy ? -1 : leve;
+    }
+
     /** Blocs de levée : de 1 à la hauteur de la dalle ; 0 ou moins = toute la hauteur. */
     public static int bornerLeve(int leve, int dy) {
         if (leve <= 0) return Math.max(1, dy);
@@ -441,6 +526,62 @@ public final class MudraRegles {
     public static int tickPose(int r, int duree, int leve) {
         int t = tickLiberation(r, duree, leve);
         return t < 0 ? -1 : duree - t;
+    }
+
+    /* ================================================================ état d'une porte */
+
+    /** État d'une porte : le code envoyé à l'outil du Poste de garde et le texte en clair des réponses de {@code /porte}. */
+    public enum Etat {
+        FERMEE("fermee", "fermée"),
+        LEVE("leve", "se lève"),
+        LEVEE("levee", "levée"),
+        REDESCEND("redescend", "redescend"),
+        REMETTRE("remettre", "dalle à remettre (monde absent)");
+
+        private final String code, texte;
+
+        Etat(String code, String texte) {
+            this.code = code;
+            this.texte = texte;
+        }
+
+        public String code() { return code; }
+
+        public String texte() { return texte; }
+    }
+
+    /**
+     * L'état d'une porte. {@code mouvement} : null = immobile, vrai = la dalle monte, faux = elle descend ; le mouvement
+     * passe avant la dalle à remettre, qui passe avant {@code ouverte}.
+     */
+    public static Etat etat(Boolean mouvement, boolean aRemettre, boolean ouverte) {
+        if (mouvement != null) return mouvement ? Etat.LEVE : Etat.REDESCEND;
+        if (aRemettre) return Etat.REMETTRE;
+        return ouverte ? Etat.LEVEE : Etat.FERMEE;
+    }
+
+    /** Secondes (arrondies au-dessus) avant une échéance ; -1 si elle est inconnue ({@code echeance} à 0 ou moins). */
+    public static int resteS(long echeance, long now) {
+        if (echeance <= 0) return -1;
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0, (echeance - now + 999) / 1000));
+    }
+
+    /* ================================================================ outil du Poste de garde */
+
+    /** Rayon des portes « proches » demandé par l'outil, borné. */
+    public static int bornerRayon(int r) { return Math.max(OUTIL_RAYON_MIN, Math.min(OUTIL_RAYON_MAX, r)); }
+
+    private static final Pattern RENVOI_PARENTHESE = Pattern.compile("\\s*\\(/porte [^)]*\\)");
+    private static final Pattern RENVOI_FINAL = Pattern.compile("\\s*:\\s*/porte [^.]*\\.$");
+
+    /**
+     * Une erreur du service redite dans l'outil du Poste de garde : les renvois à une commande ({@code (/porte systeme
+     * on)}, {@code : /porte fermer D3.}) n'ont pas de sens dans un volet à la souris, ils sont retirés. Le reste de la
+     * phrase est gardé tel quel.
+     */
+    public static String pourOutil(String message) {
+        if (message == null) return null;
+        return RENVOI_FINAL.matcher(RENVOI_PARENTHESE.matcher(message).replaceAll("")).replaceAll(".");
     }
 
     /* ================================================================ droits */

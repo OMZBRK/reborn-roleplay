@@ -191,6 +191,12 @@ public final class StaffPanel implements Listener, PluginMessageListener {
             if (plugin.concentration() != null) plugin.concentration().panel(p, grade, a, in);
             return;
         }
+        // outil « Portes » (16/11) : routé avant le filtre de grade, PortesPanel refait le contrôle Helper et répond
+        // « Réservé au staff. » à qui n'en a pas ; aucune autre action du canal ne commence par « porte »
+        if (a.startsWith("porte")) {
+            if (plugin.mudras() != null) plugin.mudras().panel(p, grade, a, in);
+            return;
+        }
         if (grade == StaffGrades.NONE) return;
         switch (a) {
             case "open" -> openFor(p);
@@ -291,7 +297,9 @@ public final class StaffPanel implements Listener, PluginMessageListener {
 
     static String str(JsonObject o, String k) {
         JsonElement e = o.get(k);
-        return e == null || e.isJsonNull() ? "" : e.getAsString();
+        // un champ qui n'est pas un texte (objet, tableau : client modifié) vaut vide, sans exception sur le fil principal
+        try { return e == null || e.isJsonNull() ? "" : e.getAsString(); }
+        catch (RuntimeException ex) { return ""; }
     }
 
     static UUID uuid(JsonObject o, String k) {

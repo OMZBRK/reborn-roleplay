@@ -41,7 +41,23 @@
   s'ouvre (un pas trop loin, dalle encore en mouvement) n'est pas compté.
 - La dalle ne se casse pas, ne se pousse pas, n'explose pas.
 
-**Côté staff** — commande `/porte` (Modo et plus pour créer ; Helper pour lister) :
+**Côté staff** — l'outil **Portes scellées** du Poste de garde (F7 › Outils › Monde, depuis la 0.4.206), ou la
+commande `/porte` (Modo et plus pour créer ; Helper pour lister).
+
+Avec l'outil, tout se fait à la souris :
+
+- **Liste** : les portes proches, leur état (fermée, levée, « redescend dans 5 s »), le nombre de joueurs bloqués ;
+  elles sont cernées dans le monde, pour toi seul. L'interrupteur du système est en tête (Admin).
+- **Nouvelle porte** : clic sur un bloc pour le premier coin, Maj + clic pour le second ; l'outil dit tout de suite
+  si la dalle est valable ou pourquoi elle est refusée. Puis un nom, la suite (on clique les dessins des signes,
+  dans l'ordre), la hauteur de levée, « Sceller la porte ». Il faut se tenir à 8 blocs de la dalle.
+- **Fiche** : ouvrir pour essai, fermer, changer la suite, renommer, changer la levée, aller devant, retirer le
+  sceau. La ligne **Blocages** nomme les joueurs que la porte ne reconnaît plus et le temps qui reste ; « Lever »
+  rend la porte à un joueur sans toucher aux autres.
+- Un **Helper** voit les portes, leur état, le nombre de signes et les blocages ; jamais la suite, et il ne modifie
+  rien (il peut seulement « Aller devant »).
+
+La commande reste disponible :
 
 | Commande | Effet |
 |---|---|
@@ -99,7 +115,9 @@ maintenant le nom des signes de la technique.
 - La **pose** du personnage : une seule pour les douze signes (celle du Test de la Feuille).
 - Les **sons** : synthèse (`tools/ui-art/gen_mudra_sfx.py`), adoucis le 16/11 à la demande du propriétaire (« un son
   plus subtil ») ; à juger en jeu.
-- L'**outil du Poste de garde** (F7) pour poser les portes à la souris n'existe pas encore : commande seulement.
+- L'**outil du Poste de garde** (F7 › Outils › Portes scellées) existe depuis la 0.4.206 (maquettes validées le
+  16/11 : « 3A et on garde les blocages »). Il ne déplace pas la dalle d'une porte existante : on la retire et on la
+  repose.
 
 ## 5. Allumer le système pour l'essayer
 
