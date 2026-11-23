@@ -38,6 +38,11 @@ final class SelecteurPlaque {
     private static final double RAYON = 24.0;
 
     boolean actif;
+    /**
+     * Blocs seulement (dalle d'une porte scellée, {@link GardePortes}) : les entités ne sont ni survolées ni choisies.
+     * Faux pour l'outil « Plaques ».
+     */
+    boolean blocsSeuls;
     /** Pourquoi : « creer » (ancre de la nouvelle plaque) ou l'id d'une plaque à déplacer. */
     String but = "creer";
 
@@ -89,7 +94,7 @@ final class SelecteurPlaque {
         viseK = 0;
         viseFace = null;
         if (mc.player == null || mc.level == null) return;
-        HitResult h = CursorRaycast.raycast(mc, gx, gy, RAYON);
+        HitResult h = CursorRaycast.raycast(mc, gx, gy, RAYON, !blocsSeuls);
         Vec3 eye = mc.player.getEyePosition();
         if (h instanceof EntityHitResult eh && !(eh.getEntity() instanceof Player)) {
             Entity e = eh.getEntity();

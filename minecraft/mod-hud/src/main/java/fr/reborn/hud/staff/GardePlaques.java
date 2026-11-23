@@ -1117,8 +1117,8 @@ final class GardePlaques {
     /** Banc : Maj tenue pour enfoncée. */
     static boolean debugMaj;
 
-    /** Maj enfoncée (aperçu de la boîte de deux coins). */
-    private static boolean majEnfoncee(Minecraft mc) {
+    /** Maj enfoncée (aperçu de la boîte de deux coins) ; partagé avec le sélecteur de dalle ({@link GardePortes}). */
+    static boolean majEnfoncee(Minecraft mc) {
         if (debugMaj) return true;
         long w = mc.getWindow().handle();
         return GLFW.glfwGetKey(w, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS
@@ -1301,7 +1301,8 @@ final class GardePlaques {
         return false;
     }
 
-    private static void relacherTouches() {
+    /** Touches de déplacement relâchées (fin d'un sélecteur) ; partagé avec {@link GardePortes}. */
+    static void relacherTouches() {
         var o = Minecraft.getInstance().options;
         for (var k : new net.minecraft.client.KeyMapping[]{o.keyUp, o.keyDown, o.keyLeft, o.keyRight, o.keyJump}) k.setDown(false);
     }

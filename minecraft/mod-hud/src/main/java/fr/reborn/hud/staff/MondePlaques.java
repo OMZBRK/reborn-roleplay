@@ -19,8 +19,10 @@ import net.minecraft.world.phys.Vec3;
  *   <li>{@link #OR_PLEIN} : contour d'or plus épais de ce qui est choisi (bloc, boîte, entité, plaque ouverte) ;</li>
  *   <li>{@link #HORS} : gris, survol hors de portée (8 blocs : le serveur refuserait l'ancre) ;</li>
  *   <li>{@link #APERCU} : or à 55 %, 1 px, la boîte jusqu'au bloc survolé tant que Maj est enfoncée (planche c5-b) ;</li>
+ *   <li>{@link #ROUGE_PLEIN} : contour rouge épais d'une dalle de porte refusée (outil « Portes », {@link GardePortes}) ;</li>
  *   <li>{@link #voile} : voile plein, crème à 14 % sur la face visée ({@link #VOILE_FACE}), or à 9 % sur ce qui est
- *       choisi ({@link #VOILE_CHOIX}) — une seconde passe {@code RenderTypes.debugQuads()}.</li>
+ *       choisi ({@link #VOILE_CHOIX}), rouge à 12 % sur une dalle refusée ({@link #VOILE_REFUS}) : une seconde passe
+ *       {@code RenderTypes.debugQuads()}.</li>
  * </ul>
  * L'écran remplit la liste à chaque image ({@link #debut}, {@link #boite}) ; elle est copiée au moment de la collecte
  * (le dessin différé ne voit jamais une liste à moitié remplie) et oubliée 250 ms après la dernière image du volet.
@@ -28,11 +30,12 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class MondePlaques {
 
-    public static final int COINS = 0, FIL = 1, OR_PLEIN = 2, HORS = 3, APERCU = 4;
-    /** Voiles : crème à 14 % (face visée), or à 9 % (choisi). */
-    public static final int VOILE_FACE = 0x24EEE4D2, VOILE_CHOIX = 0x17E8C27A;
+    public static final int COINS = 0, FIL = 1, OR_PLEIN = 2, HORS = 3, APERCU = 4, ROUGE_PLEIN = 5;
+    /** Voiles : crème à 14 % (face visée), or à 9 % (choisi), rouge à 12 % (dalle refusée). */
+    public static final int VOILE_FACE = 0x24EEE4D2, VOILE_CHOIX = 0x17E8C27A, VOILE_REFUS = 0x1FE46676;
     private static final int MAX = 48, MAX_VOILES = 4;
-    private static final int CREME = 0xF0EEE4D2, OR_DOUX = 0xE6C8A05A, OR = 0xFFE8C27A, GRIS = 0xB0807470, OR_55 = 0x8CE8C27A;
+    private static final int CREME = 0xF0EEE4D2, OR_DOUX = 0xE6C8A05A, OR = 0xFFE8C27A, GRIS = 0xB0807470, OR_55 = 0x8CE8C27A,
+        ROUGE = 0xFFE46676;
 
     /* liste remplie par l'écran */
     private static final double[][] B = new double[MAX][6];
@@ -143,7 +146,7 @@ public final class MondePlaques {
             double[] b = BR[i];
             int st = SR[i];
             // un rien plus grand que la boîte : pas de scintillement contre les faces du bloc
-            double e = st == OR_PLEIN ? 0.012 : 0.006;
+            double e = st == OR_PLEIN || st == ROUGE_PLEIN ? 0.012 : 0.006;
             float x0 = (float) (b[0] - e - camX), y0 = (float) (b[1] - e - camY), z0 = (float) (b[2] - e - camZ);
             float x1 = (float) (b[3] + e - camX), y1 = (float) (b[4] + e - camY), z1 = (float) (b[5] + e - camZ);
             switch (st) {
@@ -151,6 +154,10 @@ public final class MondePlaques {
                 case FIL -> aretes(pose, vc, x0, y0, z0, x1, y1, z1, CREME, 2.0f);
                 case HORS -> aretes(pose, vc, x0, y0, z0, x1, y1, z1, GRIS, 1.5f);
                 case APERCU -> aretes(pose, vc, x0, y0, z0, x1, y1, z1, OR_55, 1.0f);
+                case ROUGE_PLEIN -> {
+                    aretes(pose, vc, x0, y0, z0, x1, y1, z1, ROUGE, 3.0f);
+                    coins(pose, vc, x0, y0, z0, x1, y1, z1, ROUGE, 4.0f);
+                }
                 default -> {
                     aretes(pose, vc, x0, y0, z0, x1, y1, z1, OR, 3.0f);
                     coins(pose, vc, x0, y0, z0, x1, y1, z1, OR, 4.0f);

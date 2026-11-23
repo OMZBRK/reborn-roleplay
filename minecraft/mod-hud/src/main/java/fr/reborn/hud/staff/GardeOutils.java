@@ -26,7 +26,7 @@ class GardeOutils {
             {"seisme", "seisme", "Séisme"},
             {"", "", "Infirmerie"}, {"blesses", "infirmerie", "Blessés"}, {"zones", "zones", "Zones d'entraînement et de repos"},
             {"hopitaux", "hopital", "Hôpitaux et lits"}, {"reglages", "reglages", "Réglages du KO"},
-            {"", "", "Monde"}, {"plaques", "dossier", "Plaques lues en concentration"},
+            {"", "", "Monde"}, {"plaques", "dossier", "Plaques lues en concentration"}, {"portes", "porte", "Portes scellées"},
             {"", "", "Factions"}, {"factions", "drapeau", "Factions et sections"},
             {"", "", "Modes et aide"}, {"modes", "bouclier", "Mode staff et mode animation"}, {"cmds", "commandes", "Commandes"}};
 
@@ -38,12 +38,15 @@ class GardeOutils {
     final GardeNarration narrationVue;
     /** Outil Plaques (lot 4, étape B) : textes lus en concentration, sélecteur façon Axiom. */
     final GardePlaques plaquesVue;
+    /** Outil Portes (16/11) : portes scellées par une suite de signes, dalle choisie au sélecteur. */
+    final GardePortes portesVue;
 
     GardeOutils(StaffScreen s) {
         this.s = s;
         this.factionsVue = new GardeFactions(s);
         this.narrationVue = new GardeNarration(s);
         this.plaquesVue = new GardePlaques(s);
+        this.portesVue = new GardePortes(s);
     }
 
     void init() {
@@ -51,6 +54,7 @@ class GardeOutils {
         cmdBox = s.box(cmdBox, "Chercher : ata, zone, météo…", 40);
         narrationVue.init();
         plaquesVue.init();
+        portesVue.init();
     }
 
     String titre(String id) {
@@ -61,7 +65,8 @@ class GardeOutils {
     int hauteurOutils() { return s.outil == null ? 0 : "cmds".equals(s.outil) ? 38 : 16; }
 
     boolean pleineHauteur() { return s.outil != null && ("chat".equals(s.outil) || "cmds".equals(s.outil) || "blesses".equals(s.outil) || "factions".equals(s.outil)
-            || "narration".equals(s.outil) || "plaques".equals(s.outil) && plaquesVue.pleineHauteur()); }
+            || "narration".equals(s.outil) || "plaques".equals(s.outil) && plaquesVue.pleineHauteur()
+            || "portes".equals(s.outil) && portesVue.pleineHauteur()); }
 
     String pied() {
         if (s.outil == null) return "Clic : ouvrir l'outil";
@@ -71,6 +76,7 @@ class GardeOutils {
             case "factions" -> factionsVue.pied();
             case "narration" -> "Ctrl + Entrée : envoyer  ·  Échap : retour aux outils";
             case "plaques" -> plaquesVue.pied();
+            case "portes" -> portesVue.pied();
             default -> "Échap : retour aux outils";
         };
     }
@@ -79,6 +85,7 @@ class GardeOutils {
     void outils(JsonObject snap, int y) {
         if (s.outil == null) return;
         if ("plaques".equals(s.outil)) { plaquesVue.fil(y); return; }
+        if ("portes".equals(s.outil)) { portesVue.fil(y); return; }
         GardeArt.Pinceau pz = s.pz;
         int ix = s.ix(), iw = s.iw();
         boolean hov = s.hover(ix - 3, y - 2, 40, 12);
@@ -97,6 +104,7 @@ class GardeOutils {
             case "annonces" -> s.annoncesVue.annonces(snap, y + 2);
             case "narration" -> narrationVue.corps(snap, y + 2);
             case "plaques" -> plaquesVue.corps(snap, y);
+            case "portes" -> portesVue.corps(y);
             case "seisme" -> s.annoncesVue.seisme(snap, y + 2);
             case "chat" -> chat(snap, y);
             case "cmds" -> commandes(snap, y);
@@ -134,6 +142,7 @@ class GardeOutils {
                 int n = StaffScreen.arr(StaffClient.plaques(), "l").size();
                 yield new Object[]{n, n > 0 ? n + " autour de toi · textes lus face à l'objet" : "Textes lus en concentration, face à l'objet"};
             }
+            case "portes" -> portesVue.resume();
             case "factions" -> factionsVue.resume();
             default -> s instanceof GardeScreen g ? g.resumeKo(id) : new Object[]{0, ""};
         };
@@ -175,6 +184,7 @@ class GardeOutils {
         if ("factions".equals(id)) factionsVue.ouvrir();
         if ("narration".equals(id)) narrationVue.ouvrir();
         if ("plaques".equals(id)) plaquesVue.ouvrir();
+        if ("portes".equals(id)) portesVue.ouvrir();
         RebornSounds.uiClick();
     }
 

@@ -42,6 +42,19 @@ public final class StaffClient {
     /** Dernière liste {@code plaques} (outil « Plaques », lot 4 : PLUGINS_REFERENCE §4 undecies.3) et son heure d'arrivée. */
     private static volatile JsonObject plaques;
     private static volatile long plaquesA;
+    /**
+     * Dernière liste {@code portes} (outil « Portes » : portes scellées par une suite de signes) et son heure d'arrivée ;
+     * dernière réponse {@code porte_verif} (la dalle choisie au sélecteur est-elle valable). La liste porte la suite de
+     * chaque porte pour un modérateur : elle n'est jamais écrite dans un journal ni dans un toast.
+     */
+    private static volatile JsonObject portes, porteVerif;
+    private static volatile long portesA;
+    /**
+     * Dernier {@code dernier} porté par une liste {@code portes} (réponse à une action) et son heure : la liste du
+     * rafraîchissement, qui n'en porte pas, peut arriver dans le même tick et ne doit pas l'effacer.
+     */
+    private static volatile String portesDernier = "";
+    private static volatile long portesDernierA;
     /** Son des nouvelles alertes quand le Poste de garde est ouvert (cloche de l'onglet Alertes). */
     static boolean cloche = true;
     /** Modes du joueur local (message {@code mode} du serveur) : indicateur discret en jeu. */
@@ -69,6 +82,7 @@ public final class StaffClient {
                 (payload, ctx) -> ctx.client().execute(() -> receive(payload.json())));
         ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> {
             snapshot = null; profile = null; journal = null; cherche = null; narrations = null;
+            portes = null; porteVerif = null; portesDernier = "";
             modeStaff = false; modeAnim = false;
             ficheDemandee = null; actionDemandee = null; actionEnAttente = null; horsGarde = 0;
             synchronized (ALERTES_VUES) { ALERTES_VUES.clear(); }
@@ -130,6 +144,13 @@ public final class StaffClient {
             case "persos" -> persos = o;
             case "narrations" -> { narrations = o; narrationsA = System.currentTimeMillis(); }
             case "plaques" -> { plaques = o; plaquesA = System.currentTimeMillis(); }
+            case "portes" -> {
+                portes = o;
+                portesA = System.currentTimeMillis();
+                String dn = StaffScreen.str(o, "dernier");
+                if (!dn.isEmpty()) { portesDernier = dn; portesDernierA = portesA; }
+            }
+            case "porte_verif" -> porteVerif = o;
             case "journal" -> journal = o;
             case "notes" -> {
                 String pid = o.has("pid") ? o.get("pid").getAsString() : "";
@@ -221,6 +242,21 @@ public final class StaffClient {
     /** Heure d'arrivée (ms) de la dernière liste {@code plaques}. */
     static long plaquesA() { return plaquesA; }
 
+    /** Dernière liste {@code portes} (outil « Portes »), null tant qu'elle n'est pas arrivée. */
+    static JsonObject portes() { return portes; }
+
+    /** Heure d'arrivée (ms) de la dernière liste {@code portes} : les « reste » (redescente, blocage) en partent. */
+    static long portesA() { return portesA; }
+
+    /** Id de la dernière porte touchée par une action de l'outil (« dernier »), vide s'il n'y en a pas eu. */
+    static String portesDernier() { return portesDernier; }
+
+    /** Heure d'arrivée (ms) de {@link #portesDernier()}. */
+    static long portesDernierA() { return portesDernierA; }
+
+    /** Dernière réponse {@code porte_verif} (numéro de demande {@code n}, {@code ok}, raison {@code m}), ou null. */
+    static JsonObject porteVerif() { return porteVerif; }
+
     /** Dernière réponse {@code journal} reçue (null si le serveur ne la gère pas encore). */
     public static JsonObject journal() { return journal; }
 
@@ -310,9 +346,14 @@ public final class StaffClient {
     /** Banc de l'étape B du lot 4 : les actions {@code plaque*} partent vers ce serveur simulé (null = réseau). */
     static java.util.function.Consumer<JsonObject> debugPlaques;
 
+    /** Banc de l'outil « Portes » : les actions {@code porte*} partent vers ce serveur simulé (null = réseau). */
+    static java.util.function.Consumer<JsonObject> debugPortes;
+
     public static void send(JsonObject o) {
         var d = debugPlaques;
         if (d != null && o.has("a") && o.get("a").getAsString().startsWith("plaque")) { d.accept(o); return; }
+        var dp = debugPortes;
+        if (dp != null && o.has("a") && o.get("a").getAsString().startsWith("porte")) { dp.accept(o); return; }
         if (demo) { StaffDemo.handle(o); return; }
         if (ClientPlayNetworking.canSend(StaffPayload.ID)) ClientPlayNetworking.send(new StaffPayload(o.toString()));
     }

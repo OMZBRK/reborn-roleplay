@@ -38,6 +38,14 @@ public final class CursorRaycast {
      * que la recherche d'entités ne parcoure pas une boîte de 64 blocs de côté 20 fois par seconde.
      */
     public static HitResult raycast(Minecraft mc, double cursorX, double cursorY, double portee) {
+        return raycast(mc, cursorX, cursorY, portee, true);
+    }
+
+    /**
+     * Même rayon ; {@code entites} faux : les blocs seulement (le sélecteur de dalle des portes scellées, qu'une entité
+     * devant le mur ne doit pas masquer).
+     */
+    public static HitResult raycast(Minecraft mc, double cursorX, double cursorY, double portee, boolean entites) {
         if (mc == null || mc.player == null || mc.level == null) return null;
 
         Camera camera = mc.gameRenderer.mainCamera();
@@ -73,6 +81,8 @@ public final class CursorRaycast {
             ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, mc.player));
         double blockDistSq = block.getType() == HitResult.Type.MISS
             ? portee * portee : block.getLocation().distanceToSqr(eye);
+
+        if (!entites) return block.getType() == HitResult.Type.MISS ? null : block;
 
         // Entités (plus proches que le bloc) — box couvrant tout le segment.
         AABB box = new AABB(eye, end).inflate(1.0);
