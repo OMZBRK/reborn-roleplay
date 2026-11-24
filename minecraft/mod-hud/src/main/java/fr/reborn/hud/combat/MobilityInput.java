@@ -33,6 +33,8 @@ public final class MobilityInput {
         if (CombatInput.INSTANCE.isBlocking()) { wasSpace = mc.options.keyJump.isDown(); return; }
         // Saut chargé en vol : aucune poussée en l'air, sinon l'aperçu d'arrivée mentirait (lot 5).
         if (ChakraJump.INSTANCE.enVol()) { wasSpace = mc.options.keyJump.isDown(); return; }
+        // Marche sur les murs (lot 5, essai C0) : au mur, Espace lâche la paroi, elle ne lance pas de double saut.
+        if (fr.reborn.hud.mur.MurClient.corpsPris) { wasSpace = mc.options.keyJump.isDown(); return; }
         long now = System.currentTimeMillis();
         boolean sneaking = mc.options.keyShift.isDown();
 

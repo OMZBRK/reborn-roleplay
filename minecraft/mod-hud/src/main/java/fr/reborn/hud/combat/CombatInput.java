@@ -107,6 +107,8 @@ public final class CombatInput {
         if (p == null || mc.level == null || mc.gui.screen() != null) return;
         // Pas de dash sous garde/parade : le joueur est immobilisé.
         if (blocking) return;
+        // Ni au mur (lot 5, essai C0) : la marche sur les murs possède le corps.
+        if (fr.reborn.hud.mur.MurClient.corpsPris) return;
         // L'état du serveur refuse la mobilité (FAIM, douleur, ATA, menottes…) : pas de dash fantôme ni de recharge.
         if (fr.reborn.hud.etat.EtatClient.refuse("mob")) return;
         long now = System.currentTimeMillis();

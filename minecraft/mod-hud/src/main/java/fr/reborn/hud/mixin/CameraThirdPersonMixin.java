@@ -2,10 +2,12 @@ package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.camera.RebornCamera;
 import fr.reborn.hud.immersion.PhotoMode;
+import fr.reborn.hud.mur.MurCamera;
 import net.minecraft.client.Camera;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -25,6 +27,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * on la décale latéralement/verticalement en over-the-shoulder, avec un clip
  * anti-mur (raycast). N'agit QUE si {@link RebornCamera#isEnabled()} et 3e
  * personne arrière. Le mode photo garde la priorité sur la caméra.
+ *
+ * <p>Marche sur les murs (lot 5, essai C0) : le temps du mur, {@link MurCamera} donne son propre foyer, son recul et son
+ * épaule (cadrage de paroi, sans roulis), en fondu ; hors du mur, une lecture de booléen et rien d'autre.
  *
  * <p>26.1 : {@code Camera#update} a pour signature {@code update(DeltaTracker)}
  * et ne passe plus (area, focusedEntity, thirdPerson, inverseView, tickDelta).
@@ -67,6 +72,10 @@ public abstract class CameraThirdPersonMixin {
 
         float tickDelta = deltaTracker.getGameTimeDeltaPartialTick(true);
 
+        // Cadrage de paroi : l'image est avancée AVANT la lecture de l'orbite (glissement unique de l'accroche).
+        // −1 = hors du mur, la suite est celle de toujours.
+        float paroi = MurCamera.actif && focusedEntity == mc.player ? MurCamera.image(focusedEntity, tickDelta) : -1f;
+
         // Orientation caméra = orbite Reborn (découplée du regard du joueur).
         float cy = (float) cam.camYaw();
         float cp = (float) cam.camPitch();
@@ -85,11 +94,18 @@ public abstract class CameraThirdPersonMixin {
         }
         Vec3 up = right.cross(viewDir).normalize();
 
-        Vec3 eye = focusedEntity.getEyePosition(tickDelta);
+        Vec3 eye = paroi < 0f ? focusedEntity.getEyePosition(tickDelta)
+            : new Vec3(MurCamera.foyerX, MurCamera.foyerY, MurCamera.foyerZ);
+        double recul = cam.distance(), epaule = cam.rightOffset(), hauteur = cam.upOffset() + cam.landImpact();
+        if (paroi > 0f) {
+            recul = Mth.lerp(paroi, recul, MurCamera.recul);
+            epaule = Mth.lerp(paroi, epaule, MurCamera.epaule);
+            hauteur = Mth.lerp(paroi, hauteur, 0.0);
+        }
         Vec3 target = eye
-            .add(backDir.scale(cam.distance()))
-            .add(right.scale(cam.rightOffset()))
-            .add(up.scale(cam.upOffset() + cam.landImpact()));
+            .add(backDir.scale(recul))
+            .add(right.scale(epaule))
+            .add(up.scale(hauteur));
 
         setRotation(cy, cp);
         setPosition(reborn$clip(focusedEntity, eye, target));

@@ -113,7 +113,7 @@ public final class MovementAnimations {
 
     /** État de détection par joueur (local comme distant). */
     private static final class Tracker {
-        double lastX, lastZ;
+        double lastX, lastY, lastZ;
         boolean hasLastPos;
         int idleGrace;
         MoveState applied = MoveState.NONE;   // anim actuellement posée sur l'avatar
@@ -415,8 +415,11 @@ public final class MovementAnimations {
     private MoveState computeState(AbstractClientPlayer player, Tracker t, boolean isLocal) {
         double dx = player.getX() - t.lastX;
         double dz = player.getZ() - t.lastZ;
+        double dy = player.getY() - t.lastY;
         double speedSq = t.hasLastPos ? (dx * dx + dz * dz) : 0.0;
+        double speed3dSq = t.hasLastPos ? speedSq + dy * dy : 0.0;
         t.lastX = player.getX();
+        t.lastY = player.getY();
         t.lastZ = player.getZ();
         t.hasLastPos = true;
 
@@ -430,6 +433,18 @@ public final class MovementAnimations {
         if (isEmotePlaying(player)) {
             t.idleGrace = 0;
             return MoveState.NONE;
+        }
+
+        // Marche sur les murs (lot 5, essai C0) : le corps couché ne touche pas le sol sans être en saut. On lit le
+        // déplacement en 3D (monter le long d'une paroi ne bouge ni X ni Z) et l'on garde marche et course.
+        if (fr.reborn.hud.mur.MurClient.auMur(player)) {
+            if (speed3dSq > MOVE_THRESHOLD_SQ) {
+                t.idleGrace = 0;
+                if (speed3dSq > 0.22 * 0.22 && run != null) return MoveState.RUN;
+                return (!walkAnims.isEmpty() && walkAnims.get(0) != null) ? MoveState.WALK : MoveState.NONE;
+            }
+            if (++t.idleGrace >= IDLE_GRACE_TICKS) return MoveState.NONE;
+            return t.applied == MoveState.WALK || t.applied == MoveState.RUN ? t.applied : MoveState.NONE;
         }
 
         // Saut / en l'air : prioritaire, indépendant du mouvement horizontal.

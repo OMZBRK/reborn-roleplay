@@ -178,6 +178,11 @@ public final class Allure {
      */
     private void courseDeChakra(Minecraft mc, boolean toucheCourse) {
         if (!toucheCourse || mc.gui.screen() != null) return;
+        // Au mur (lot 5, essai C0), la touche lâche la paroi au lieu de basculer la course.
+        if (fr.reborn.hud.mur.MurClient.corpsPris) {
+            fr.reborn.hud.mur.MurClient.toucheLache();
+            return;
+        }
         fr.reborn.hud.animation.NarutoRun run = fr.reborn.hud.animation.NarutoRun.INSTANCE;
         if (run.isActive()) run.arreter();
         else if (chakraSuffit()) run.demarrer();

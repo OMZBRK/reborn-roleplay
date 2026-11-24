@@ -133,6 +133,15 @@ public final class RebornCamera {
     }
 
     /**
+     * Décale l'orbite de quelques degrés, sans la remplacer : la souris garde la main. Sert au cadrage de paroi de la
+     * marche sur les murs ({@code mur/MurCamera} : un seul glissement, réparti sur les images de l'accroche).
+     */
+    public void decaler(double lacet, double tangage) {
+        this.camYaw = net.minecraft.util.Mth.wrapDegrees(this.camYaw + lacet);
+        this.camPitch = clamp(this.camPitch + tangage, -89.0, 89.0);
+    }
+
+    /**
      * Incline l'orbite caméra plein bas (regard sol). En vue épaule, la caméra
      * plonge ET la tête suit (le pitch de tête est asservi à {@link #camPitch}
      * par {@code LocalPlayerBodyMixin}). Snap unique : le joueur relève en bougeant

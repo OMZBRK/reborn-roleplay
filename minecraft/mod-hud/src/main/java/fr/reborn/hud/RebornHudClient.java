@@ -794,6 +794,10 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.audit.Lot5ByakDebug.init();   // banc du Byakugan (REBORN_LOT5_DEBUG=byak, dev)
         fr.reborn.hud.audit.Lot6MudraDebug.init();  // banc de la barre de mudras (REBORN_LOT6_DEBUG=mudra, dev)
         fr.reborn.hud.audit.Lot6PortesDebug.init(); // banc de l'outil « Portes » du Poste de garde (REBORN_LOT6_DEBUG=portes, dev)
+        // Marche sur les murs, essai technique C0 (lot 5, canal reborn:mur, ShinobiAbilities MurTest) : inerte tant qu'un
+        // membre du staff n'a pas fait /murtest on pour lui-même ; banc REBORN_MUR_SPIKE=1.
+        fr.reborn.hud.mur.MurClient.init();
+        fr.reborn.hud.audit.MurSpike.init();
         // Narration du staff (lot 2, étape 2d, canal reborn:narration, ShinobiCore Narrations) : type S2C enregistré (le
         // serveur sait que le joueur a le mod, sinon repli tchat), message passé au texte au centre ; oubli à la connexion.
         fr.reborn.hud.recit.NarrationClient.init();

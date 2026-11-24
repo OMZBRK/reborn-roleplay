@@ -60,6 +60,15 @@ public abstract class KeyboardInputMixin {
 
         float cyaw = (float) cam.camYaw();
 
+        // Marche sur les murs (lot 5, essai C0) : le déplacement est joué par MurClient (touches lues à part), le
+        // regard reste celui de la caméra, course de chakra comprise : le serveur voit la vraie visée.
+        if (fr.reborn.hud.mur.MurClient.corpsPris) {
+            player.setYRot(cyaw);
+            player.setXRot((float) cam.camPitch());
+            player.setYHeadRot(cyaw);
+            return;
+        }
+
         // AIM-MODE : attaquer (clic gauche) / utiliser (clic droit) → le perso
         // s'aligne sur la caméra pour que minage / combat / placement visent le
         // viseur. « Collant » ~10 ticks après le dernier clic pour un PVP fluide
