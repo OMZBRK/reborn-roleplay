@@ -78,6 +78,8 @@ public final class ShinobiAbilities extends JavaPlugin {
     private com.reborn.shinobiabilities.mobility.Allure allure;
     /** Marche sur l'eau, canal reborn:eau — 15/10. */
     private com.reborn.shinobiabilities.mobility.MarcheEau marcheEau;
+    /** Essai technique de la marche sur les murs, canal reborn:mur, commande /murtest : lot 5, étape C0. */
+    private com.reborn.shinobiabilities.mobility.MurTest murTest;
     private LearningShelfManager shelves;
     private LearningMinigame minigame;
     private TechniquesService techniques;
@@ -193,6 +195,11 @@ public final class ShinobiAbilities extends JavaPlugin {
         getServer().getMessenger().registerOutgoingPluginChannel(this, com.reborn.shinobiabilities.mobility.MarcheEau.CHANNEL);
         getServer().getPluginManager().registerEvents(marcheEau, this);
         marcheEau.start();
+
+        // Canal reborn:mur : essai technique de la marche sur les murs (lot 5, étape C0). Inerte tant qu'aucun membre du
+        // staff n'a tapé /murtest on : ni écouteur ni tâche, seuls la commande et le canal sont déclarés. Cf. MurTest.
+        this.murTest = new com.reborn.shinobiabilities.mobility.MurTest(this, core, mobility);
+        murTest.demarrer();
 
         // 4. Techniques / learning.
         this.shelves = new LearningShelfManager(this, abilities, guiRouter);
@@ -327,6 +334,12 @@ public final class ShinobiAbilities extends JavaPlugin {
             mob.setTabCompleter(exec);
         } else getLogger().warning("Commande 'mobility' absente du plugin.yml.");
 
+        PluginCommand mur = getCommand("murtest");
+        if (mur != null) {
+            mur.setExecutor(murTest);
+            mur.setTabCompleter(murTest);
+        } else getLogger().warning("Commande 'murtest' absente du plugin.yml.");
+
         // 7. HUD sections into ShinobiCore's pluggable sidebar.
         if (core.cooldownHud() != null) {
             JutsuHudSection jutsuSection = new JutsuHudSection(abilities, cooldowns);
@@ -371,6 +384,8 @@ public final class ShinobiAbilities extends JavaPlugin {
         if (hotbar != null) hotbar.closeAll();
         if (incantation != null) incantation.cancelAll();
         if (minigame != null) minigame.abortAll();
+        // avant le reste de la mobilité : pose, gravité et marqueur du mur sont rendus
+        if (murTest != null) murTest.arreter();
         if (mobility != null) mobility.disable();
         if (pathTwo != null) pathTwo.stop();
         if (allure != null) allure.stop();

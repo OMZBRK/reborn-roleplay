@@ -138,8 +138,9 @@ public final class MobilityPathTwoModule implements Listener {
      * Saut chargé en vol (ShinobiCombat, lot 5, métadonnée {@code reborn_bond}) : le mod joue un vol sans poussée et le
      * cercle d'arrivée ne dit vrai que si rien ne touche la vitesse. La Voie du Flux se retire donc pendant le bond : ni
      * pilotage en l'air, ni plafond de vitesse, ni gravité allégée, ni bond au double appui. La course et l'élan restent.
+     * Même retrait pendant la marche sur les murs (essai du lot 5, {@link MurTest}) : le mod tient le corps sur la paroi.
      */
-    private static boolean enBond(Player p) { return p.hasMetadata("reborn_bond"); }
+    private static boolean enBond(Player p) { return p.hasMetadata("reborn_bond") || MurTest.auMur(p); }
 
     /** Track real WASD movement from position deltas — {@code getVelocity()} is
      *  near-zero/stale for players, so it can't tell us which way they're going. */

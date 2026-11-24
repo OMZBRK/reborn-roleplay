@@ -36,6 +36,10 @@ commands:
     usage: /<command> path <personnage> <none|one|two>
     aliases: [mob, voie]
     permission: shinobiabilities.staff
+  murtest:
+    description: "Staff : essai technique de la marche sur les murs (lot 5, étape C0). Rien ne se passe tant qu'il est éteint."
+    usage: "/<command> <on|off|filet on|off|bilan|raz>"
+    permission: shinobiabilities.staff
   bibliotheque:
     description: "Bibliothèques de parchemins : bibliothèque personnelle, autorisations, journal ; staff : créer, régler, ouvrir, tirage, supprimer, liste."
     usage: "/<command> <perso [retirer]|autoriser <joueur>|retirer <joueur>|journal|creer <nom> <type> [propriétaire]|regler|ouvrir <minutes>|tirage|suppr|liste>"

@@ -5,6 +5,8 @@
 > **Saut chargé** (lot 5, étape A, 09/11) : §11, codé, **non publié** (`reborn-hud` 0.4.202, ShinobiCombat, ShinobiAbilities).
 > **Byakugan** (lot 5, étape B, 09/11) : §12, codé, **non publié** (`reborn-hud` 0.4.202, ShinobiCore). Ce n'est pas un
 > déplacement, mais il appartient au même lot « Mobilité ».
+> **Marche sur les murs, essai technique** (lot 5, étape C0, 24/11) : §13, codé, **non publié** (`reborn-hud` 0.4.207,
+> ShinobiAbilities). Éteint par défaut, réservé au staff (`/murtest`).
 > Elle décrit **ce qui est codé**. Décision : GAMEPLAN §7 et [`../pilotage/DECISIONS.md`](../pilotage/DECISIONS.md)
 > (14/10). Référence : RedLine *Player movements* (marche par défaut, jogging sur Shift maintenu, sprint sur double
 > Shift avec une barre qui n'apparaît qu'en sprint, ~5 s). Captures (hors dépôt) : `Maquettes/gameplan/05_deplacements/`.
@@ -392,3 +394,60 @@ et plafonnait à 33 blocs de haut.
 7. L'autre compte, à moins de 12 blocs du porteur : veines aux tempes ; plus loin : rien.
 8. `/sense dojutsu` d'un Hyūga (et `/sense byakugan` du staff) : même bascule que O, plus d'ancienne lecture du chakra.
 9. FPS relevés sans et avec, sur le portable (`REBORN_FPS_DEBUG=hud` n'en tient pas compte : comparer à la main).
+---
+
+## 13. Marche sur les murs : essai technique (lot 5, étape C0, 24/11)
+
+> Codé le 24/11, **non publié** (`reborn-hud` 0.4.207, ShinobiAbilities). Ce n'est **pas** la fonctionnalité : c'est un
+> essai, éteint par défaut, qui sert à prouver l'approche sur le vrai serveur avant d'écrire les murs pour de bon.
+> Demande du 08/11 : « la hitbox doit suivre le joueur sur le mur, il doit bien voir, et ça doit vraiment bien marcher ».
+> Étude et cadrage (hors dépôt) : `Maquettes/gameplan/17_lot5_mobilite/_etude_murs_saut_v2.md`, `CADRAGE.md` §5.3.
+> Protocole et commande : [`../technique/PLUGINS_REFERENCE.md`](../technique/PLUGINS_REFERENCE.md) §5.1 ter ; mod :
+> [`../technique/MOD_HUD.md`](../technique/MOD_HUD.md) §1 septies.
+
+### 13.1 Ce que l'essai fait
+
+- **Éteint pour tout le monde.** Un membre du staff tape `/murtest on` : lui seul peut alors s'accrocher. Aucun joueur ne
+  peut l'activer, et sans permis ni le mod ni le serveur ne font quoi que ce soit.
+- **S'accrocher** : pousser trois ticks contre un mur plat de blocs pleins. Le serveur valide, puis le corps bascule en
+  0,3 s : **pieds sur la paroi, corps à 90°, tête vers l'air**.
+- **Marcher** : Z Q S D relatifs à la caméra, 3,2 blocs/s, 5,6 avec la touche de sprint. On s'arrête pile au bord du mur
+  et sous un obstacle ; en descendant à moins d'un bloc du sol, on se relève tout seul.
+- **Lâcher** : Espace, ou la touche de course de chakra (X). Le serveur lâche de lui-même s'il n'y a plus de mur, au KO,
+  à la mort, à une téléportation, si l'état du joueur refuse la mobilité (étourdi, douleur, mode staff).
+- **Boîte de collision** : couchée avec le corps (1,75 × 0,6 × 0,6) chez tous les joueurs qui ont le mod. Le serveur, lui,
+  tient un cube de 0,6 au milieu du corps (pose de nage fixée, gravité nulle).
+- **Caméra** : pas de roulis ; épaule côté air, recul de 5 blocs, un seul glissement à l'accroche ; la 1re personne passe
+  en épaule le temps du mur. Dos au mur, notre corps s'efface de notre écran pour dégager la vue.
+- **Hors essai** : ni chakra, ni déblocage, ni HUD, ni coin (rentrant ou sortant), ni sommet, ni plafond.
+
+### 13.2 Ce que l'essai doit prouver (les 8 essais de l'étude §5)
+
+| N° | Essai | Réussi si |
+|---|---|---|
+| 1 | 60 s immobile puis 60 s de marche, sans filet | 0 expulsion, 0 paquet refusé, 0 correction |
+| 2 | Le même avec 150 à 250 ms de latence | pas d'expulsion, corrections rares |
+| 3 | Bords, pied du mur, obstacle au-dessus | arrêt net, aucun passage à travers un bloc |
+| 4 | Second compte, F3 + B | la boîte blanche recouvre le corps couché |
+| 5 | 30 clics par zone (crâne, torse, pieds) | au moins 27 comptés sur 30, aucun à 0,5 bloc à côté |
+| 6 | Une flèche et trois techniques sur le marcheur | elles touchent le corps là où on le voit |
+| 7 | Six cadrages (accroche, monter, descendre, de côté, le long, dos au mur) | on voit où l'on va |
+| 8 | Nom et bulle, KO sur le mur, FPS | nom au-dessus de la tête, KO propre, pas de chute de FPS |
+
+**Les essais 1, 4 et 5 décident** : s'ils passent, les murs s'écrivent sur cette approche (étape C1). Si le 1 ou le 5
+échoue, on revient à une pose penchée, à présenter au propriétaire. L'essai 6 est à son appréciation.
+
+### 13.3 Ce qui est vérifié, ce qui ne l'est pas
+
+- **Banc `REBORN_MUR_SPIKE=1`** (monde solo, serveur simulé au format du canal) : boîte couchée sur les quatre faces et
+  qui contient le cube du serveur, pose tenue, distance à la paroi, vitesses mesurées (3,200 et 5,600 blocs/s), arrêts au
+  bord et sous un obstacle, sorties, formats des messages, rien d'envoyé sans permis, abandon après une seconde sans
+  réponse, écho d'un lâcher précédent pendant une nouvelle demande, sortie avec la touche d'avance tenue. Neuf captures.
+- **Tests du plugin** (`MurReglesTest`, 21) : lecture des messages, faces, contrôle de paroi, « un paquet refusé compte une
+  fois », lignes du bilan.
+- **Jamais vérifié** : tout ce qui demande le vrai serveur. Le solo saute les contrôles de déplacement et son serveur
+  garde un corps debout : il ne prouve ni l'essai 1 ni l'essai 2. Les deux moitiés n'ont jamais dialogué pour de vrai.
+- **Limites connues** : `allow-flight` du serveur à lire avant l'essai 1 (à `true`, « 0 expulsion » ne prouve rien) ;
+  court flottement possible à la sortie avec de la latence ; hors champ, nom et bulle sont placés comme pour un corps
+  debout ; l'ombre au sol n'est pas retirée ; les modpacks qui cachent les entités d'après leur boîte (EntityCulling)
+  n'ont pas été vus avec un corps couché.

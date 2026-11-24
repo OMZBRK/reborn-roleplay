@@ -150,6 +150,7 @@ Résolution commune : `character/PlayerIds` (`online(sender, arg)` = le joueur q
 | `/trainingground` | `parkour`, `entrainement` | tous / staff | `shinobiabilities.use` | Parcours qui débloquent la mobilité |
 | `/mobility` | `mob`, `voie` | staff | `shinobiabilities.staff` | `path <perso> <none\|one\|two>` |
 | `/trail` | `piste` | staff | `shinobiabilities.staff` | Pistes de déplacement |
+| `/murtest` | — | staff | `shinobiabilities.staff` | Essai technique de la marche sur les murs (§5.1 ter) : `on`, `off`, `filet on\|off`, `bilan`, `raz` |
 
 ### 2.3 Autres plugins
 
@@ -1927,6 +1928,73 @@ distance de rendu effective, et l'écrit sous le filet (« Portée bornée : N b
 arrête le corps plus tôt, jamais plus loin. À 96 blocs on reste sous la distance de suivi des entités (meubles Nexo, 96 sur
 le banc local). **Non vérifié sur le dev** :
 `view-distance`, `simulation-distance`, `prevent-moving-into-unloaded-chunks`, plafond de chargement de chunks.
+
+### 5.1 ter Marche sur les murs, essai technique : `/murtest` et canal `reborn:mur` (lot 5, étape C0, 24/11)
+
+Code : `ShinobiAbilities/…/mobility/MurTest` (commande, canal, tenue au mur, retraits, mesures) et `MurRegles` (règles
+pures, testées : `MurReglesTest`, 21 tests, les premiers du module ; JUnit 5.10.2 et surefire 3.2.5 ajoutés au `pom.xml`).
+Fiche : [`../gameplay/DEPLACEMENTS.md`](../gameplay/DEPLACEMENTS.md) §13. Mod : [`MOD_HUD.md`](./MOD_HUD.md) §1 septies.
+**Essai, pas fonctionnalité** : aucune clé de `config.yml`, ni chakra, ni déblocage, rien dans ShinobiCore ni ShinobiCombat.
+
+**Inerte éteint.** Tant qu'aucun membre du staff n'a tapé `/murtest on`, le module n'a ni écouteur ni tâche : seuls la
+commande et le canal sont déclarés, et un message d'un joueur sans permis est jeté à la première ligne. Les écouteurs sont
+posés au premier permis et retirés au dernier ; la tâche (1 tick) et l'écouteur des voisins ne vivent que tant qu'un
+joueur est au mur. Les deux gardes (`MobilityListener.coreSessionActive`, `MobilityPathTwoModule.enBond`) lisent
+`MurTest.auMur(p)` : un entier statique tant que personne n'est au mur.
+
+**Commande `/murtest`** (permission `shinobiabilities.staff`, défaut op ; joueur en jeu seulement, pour soi) :
+
+| Sous-commande | Effet |
+|---|---|
+| `on` / `off` | Permis pour soi (refusé si le client n'écoute pas `reborn:mur`). `off` : lâcher immédiat, le filet tombe avec |
+| `filet on\|off` | Au mur, un refus `MOVED_WRONGLY` est accepté ; jamais `CLIPPED_INTO_BLOCK`. Éteint par défaut, demande le permis |
+| `bilan` | Les compteurs du testeur, une phrase et un chiffre par ligne |
+| `raz` | Remise à zéro (au mur : le compte du mod court depuis l'accroche, le message le dit) |
+
+Journal `STAFF` : `MURTEST_ON`, `MURTEST_OFF`, `MURTEST_FILET_ON`, `MURTEST_FILET_OFF`. Console : « [murtest] <pseudo> lâché
+par le serveur : <raison> ». Permis et filet tombent à la déconnexion ; les compteurs restent en mémoire jusqu'à `raz` ou
+au redémarrage (une expulsion se lit après s'être reconnecté).
+
+**Canal `reborn:mur`** (JSON UTF-8 brut, `v` = 1, champs inconnus ignorés ; 256 octets et 20 messages par seconde au plus) :
+
+| Sens | Message | Effet |
+|---|---|---|
+| S → C | `{"v":1,"t":"permis","on":true}` | Le joueur peut s'accrocher. `false` : interdit, et il lâche tout de suite |
+| S → C | `{"v":1,"t":"etat","e":<entityId>,"f":"N\|S\|E\|W\|-"}` | L'entité marche sur un mur de face `f` (sens de la normale ; `E` : le mur est à l'ouest). `-` : elle n'y est plus. Au joueur (sa confirmation), à `getTrackedBy()`, à qui se met à le voir (1 tick après `PlayerTrackEntityEvent`) et à qui annonce le canal après coup (`PlayerRegisterChannelEvent`, connexion en pleine marche) |
+| S → C | `{"v":1,"t":"refus","m":"…"}` | Accroche refusée : le mod reste ou revient debout |
+| C → S | `{"v":1,"a":"accroche","f":"E"}` | Demande d'accroche. Déjà au mur : vaut changement de face |
+| C → S | `{"v":1,"a":"face","f":"N"}` | Changement de face (le mod de l'essai ne l'émet pas : coin rentrant = arrêt) |
+| C → S | `{"v":1,"a":"lache","c":3}` | Le joueur lâche ; `c` = corrections de position vues par le mod pendant la marche (additionné, borné à 100 000) |
+
+Ordre : le mod envoie `accroche` et **attend** (1 s) ; le serveur vérifie, pose la pose et la gravité, **puis** envoie
+`etat` ; le mod lance sa bascule à la réception. Un `etat` que le mod n'attend plus est rendu par un `lache` `c` = 0. À
+tout retrait le serveur envoie `etat` `-` au joueur et aux voisins, y compris en écho du `lache` du mod.
+
+**Accroche validée si** : permis ; survie ou aventure ; vivant, pas KO ; ni monture, ni planeur, ni sommeil ; aucune
+autre pose fixée (`/ramper`, corps tenu) ; aucun autre déplacement sur le corps (`reborn_bond`, parcours, piste, grappin,
+tyrolienne) ; `MOBILITE` accordée par `EtatService` (le mode staff la refuse) ; un bloc à **face pleine** à 1,3 au plus
+derrière le joueur, à `y + 0,3` ou `y + 0,9`.
+
+**Au mur** : `setPose(SWIMMING, true)`, modificateur transitoire `GRAVITY` −1 (`shinobiabilities:mur_gravite`),
+`setFallDistance(0)`, `resetFlyingTicks()`, vol coupé, à chaque tick ; métadonnée `reborn_mur`. Toutes les 5 ticks : face
+pleine à 1,5 derrière le joueur à `y + 0,3` (pendant les 40 premiers ticks, `y + 0,9` vaut aussi : la bascule du mod n'est
+vue qu'un aller-retour plus tard), `MOBILITE`, corps libre ; sinon le serveur lâche. **Retraits** : déconnexion, mort, KO
+(à `KoEnterEvent`, avant la pose du KO), monde, téléportation (sauf cause `UNKNOWN`, celle des replacements internes),
+personnage, mode de jeu, état, `/murtest off`, arrêt du plugin.
+
+**Bilan** (lecture des essais) : essai 1 = « Expulsions », « Paquets de déplacement refusés au mur » et « Corrections de
+position vues par le mod » à 0 ; essai 2 = « Corrections par minute de mur » ; essai 5 = `raz`, 30 clics sur une zone, lire
+« Coups au corps à corps comptés » et « part sur 30 clics » (27 = 90 %), avec « Clics reçus hors du mur » à 0 ; essai 6 =
+« Projectiles qui ont touché » et « Dégâts subis ». Un paquet refusé compte une fois même avec deux raisons (Paper tire
+`CLIPPED_INTO_BLOCK` après un `MOVED_WRONGLY` refusé, même tick, même position). Les corrections n'arrivent qu'au lâcher :
+le bilan lu au mur le dit (« marche en cours non comptée »). « Pose de nage reposée » et « Ticks avec le vol autorisé »
+doivent rester à 0.
+
+**Limites** : le testeur doit être hors `/modestaff`, en survie ou aventure ; murs de blocs à face pleine seulement (ni
+dalle, ni barrière, ni meuble sans collision) ; arrêt du plugin sans arrêt du serveur : le mod n'est pas prévenu ; les coups
+comptés sont les clics d'attaque acceptés par le serveur (`PrePlayerAttackEntityEvent`), pas les dégâts ; le combo de
+ShinobiCombat étourdit au 4e coup, ce qui fait lâcher le mur (essai 5 : frapper avec un objet neutre en main) ; rien n'a
+tourné sur un serveur avant la publication.
 
 ### 5.2 `ShinobiAbilities/config.yml` — sections
 

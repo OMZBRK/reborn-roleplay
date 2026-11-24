@@ -126,6 +126,10 @@ public final class MobilityListener implements Listener {
         // le cercle d'arrivée dit vrai seulement si rien d'autre ne touche la vitesse (ni double saut, ni saut mural,
         // ni escalade, ni onde au sol, ni pilotage en l'air).
         if (p.hasMetadata("reborn_bond")) return true;
+        // Marche sur les murs (essai du lot 5, MurTest) : le mod tient le corps sur la paroi, en l'air contre un mur.
+        // Sans ce retrait le saut mural armerait le vol (un joueur à qui le vol est permis n'est jamais expulsé pour
+        // flottement : l'essai ne prouverait rien) et Accroupi lancerait l'escalade ou l'onde au sol.
+        if (MurTest.auMur(p)) return true;
         // A trail ride owns the body too: the ride task drives velocity every
         // tick, so the whole mobility engine (air-control steering AND the
         // space/flight-tap handler) must stand down — otherwise space fights the
