@@ -25,6 +25,18 @@ repositories {
     maven { url = 'https://repo.plasmoverse.com/releases' }   // PlasmoVoice
 }
 
+// Le 25/11, Mojang a republié la fiche 26.2 avec un lwjgl-freetype patché (3.4.1-mojang-2.15.0.3),
+// publié seulement sur libraries.minecraft.net. Loom 1.15 force org.lwjgl sur Maven Central : on compile
+// contre la 3.4.1 publique (même API). Le jeu lancé par le launcher garde la version Mojang.
+configurations.configureEach {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == 'org.lwjgl' && details.requested.version?.contains('-mojang-')) {
+            details.useVersion(details.requested.version.substring(0, details.requested.version.indexOf('-mojang-')))
+            details.because('build Mojang absent de Maven Central')
+        }
+    }
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
