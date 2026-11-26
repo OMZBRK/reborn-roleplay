@@ -44,7 +44,9 @@ public final class RebornCamera {
     private double up = preset.up;
 
     /** Orientation de la caméra en orbite (découplée du regard du joueur).
-     *  La souris fait tourner {@code camYaw}/{@code camPitch}, PAS le perso. */
+     *  La souris fait tourner {@code camYaw}/{@code camPitch}, PAS le perso.
+     *  Au mur (marche sur les murs), ces deux angles se lisent dans le repère de la paroi : {@code mur/MurCamera}
+     *  compose l'orientation réelle, et {@code MurCamera.lacet} / {@code tangage} donnent la visée dans le monde. */
     private double camYaw = 0.0;
     private double camPitch = 0.0;
 
@@ -133,8 +135,10 @@ public final class RebornCamera {
     }
 
     /**
-     * Décale l'orbite de quelques degrés, sans la remplacer : la souris garde la main. Sert au cadrage de paroi de la
-     * marche sur les murs ({@code mur/MurCamera} : un seul glissement, réparti sur les images de l'accroche).
+     * Décale l'orbite de quelques degrés, sans la remplacer : la souris garde la main. Sert à la caméra de paroi de la
+     * marche sur les murs ({@code mur/MurCamera#changerFace}) : au mur, l'orbite ({@link #camYaw}, {@link #camPitch})
+     * est <b>relative à la paroi</b> (lacet autour de la normale, tangage ± 89°), et un changement de face reporte sur
+     * elle le quart de tour qui sépare les deux faces pour que le cap soit conservé.
      */
     public void decaler(double lacet, double tangage) {
         this.camYaw = net.minecraft.util.Mth.wrapDegrees(this.camYaw + lacet);
@@ -226,7 +230,8 @@ public final class RebornCamera {
             case SHOULDER -> {
                 if (mc.options.getCameraType() != CameraType.THIRD_PERSON_BACK) {
                     mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
-                    initOrientation(mc.player.getYRot(), mc.player.getXRot());
+                    // au mur, l'orbite est relative à la paroi : la remettre avec les angles du monde la ferait sauter
+                    if (!fr.reborn.hud.mur.MurCamera.actif) initOrientation(mc.player.getYRot(), mc.player.getXRot());
                 }
             }
             case FIRST -> {

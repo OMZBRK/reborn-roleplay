@@ -798,6 +798,8 @@ public final class RebornHudClient implements ClientModInitializer {
         // membre du staff n'a pas fait /murtest on pour lui-même ; banc REBORN_MUR_SPIKE=1.
         fr.reborn.hud.mur.MurClient.init();
         fr.reborn.hud.audit.MurSpike.init();
+        fr.reborn.hud.audit.SteleCordeDebug.init();  // banc des maquettes v2 stèle et corde (REBORN_STELE_CORDE=1, dev)
+        fr.reborn.hud.corde.CordeClient.init();      // corde de ligotage dessinée par le mod (prototype client, liste vide en prod)
         // Narration du staff (lot 2, étape 2d, canal reborn:narration, ShinobiCore Narrations) : type S2C enregistré (le
         // serveur sait que le joueur a le mod, sinon repli tchat), message passé au texte au centre ; oubli à la connexion.
         fr.reborn.hud.recit.NarrationClient.init();

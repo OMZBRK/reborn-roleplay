@@ -76,6 +76,8 @@ public final class RebornPrefs {
     public int camPreset = 0;           // index CameraPreset
     public boolean camImpact = false;   // dip caméra à l'atterrissage (off par défaut)
     public boolean camVanilla = false;  // true = caméra Minecraft vanilla (F5), false = Reborn
+    /** Caméra sur les murs (marche sur les murs) : faux = « Suit la paroi » (la paroi devient le sol, défaut), vrai = « Droite ». */
+    public boolean camMurDroite = false;
 
     // ────────────────── Animations de mouvement (GTA-RP) ──────
     public int walkStyle = 0;           // index du style de marche choisi
@@ -232,6 +234,7 @@ public final class RebornPrefs {
         this.camPreset = other.camPreset;
         this.camImpact = other.camImpact;
         this.camVanilla = other.camVanilla;
+        this.camMurDroite = other.camMurDroite;
         this.walkStyle = other.walkStyle;
         this.tablistHold = other.tablistHold;
         this.nametagStyle = other.nametagStyle;

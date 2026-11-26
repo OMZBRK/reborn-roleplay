@@ -33,6 +33,7 @@
     "LivingEntityMurAccessor",
     "AvatarRenderStateMurMixin",
     "AvatarRendererMurMixin",
+    "PlayerModelCordeMixin",
     "ClientPacketListenerMurMixin",
     "MouseInteractionMixin",
     "KeyboardInteractionMixin",

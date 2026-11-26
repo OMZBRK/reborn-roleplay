@@ -11,13 +11,16 @@ import net.minecraft.resources.Identifier;
 import java.util.function.Consumer;
 
 /**
- * Canal {@code reborn:mur} côté mod (marche sur les murs, lot 5, essai C0 ; ShinobiAbilities {@code mobility/MurTest}) :
- * JSON UTF-8 brut dans les deux sens, champ {@code v} = {@value #VERSION}, champs inconnus ignorés.
+ * Canal {@code reborn:mur} côté mod (marche sur les murs, lot 5, essai C0 puis étape C1a ; ShinobiAbilities
+ * {@code mobility/MurTest}) : JSON UTF-8 brut dans les deux sens, champ {@code v} = {@value #VERSION}, champs inconnus
+ * ignorés.
  * <ul>
- *   <li>S → C : {@code permis} (on), {@code etat} (e = identifiant d'entité, f = face ou « - »), {@code refus} (m), passés à
- *       {@link MurClient} sur le fil client ;</li>
- *   <li>C → S : {@code accroche} (f), {@code lache} (c = corrections de position reçues pendant la marche). Le changement de
- *       face ({@code face}) du protocole n'est pas émis : l'essai s'arrête au coin rentrant.</li>
+ *   <li>S → C : {@code permis} (on), {@code etat} (e = identifiant d'entité, f = face ou « - », n = numéro de la demande
+ *       à laquelle il répond, seulement dans l'exemplaire du joueur lui-même), {@code refus} (m, a = action refusée,
+ *       n), passés à {@link MurClient} sur le fil client ;</li>
+ *   <li>C → S : {@code accroche} (f, n), {@code face} (f, n : changement de face à un coin ; l'ancienne face annule),
+ *       {@code lache} (c = corrections de position reçues pendant la marche). {@code n} est un numéro croissant par
+ *       session, tenu par {@link MurClient}.</li>
  * </ul>
  * Sans plugin (canal jamais annoncé par le serveur), rien n'est reçu ni envoyé : la marche sur les murs reste éteinte.
  */
@@ -54,9 +57,18 @@ public final class MurCanal {
         return debugServeur != null || ClientPlayNetworking.canSend(TYPE);
     }
 
-    static void accroche(MurFace face) {
+    static void accroche(MurFace face, int n) {
         JsonObject o = base("accroche");
         o.addProperty("f", face.code);
+        o.addProperty("n", n);
+        envoyer(o);
+    }
+
+    /** Changement de face à un coin ; renvoyer l'ancienne face annule la demande précédente. */
+    static void face(MurFace face, int n) {
+        JsonObject o = base("face");
+        o.addProperty("f", face.code);
+        o.addProperty("n", n);
         envoyer(o);
     }
 

@@ -78,6 +78,15 @@ public class CameraTab extends SectionedTab {
                 pctOf(cam.turnSpeed(), TURN_MIN, TURN_MAX), 0, 100, "%",
                 v -> { cam.setTurnSpeed(fromPct(v, TURN_MIN, TURN_MAX)); cam.saveToPrefs(); }));
 
+        // Marche sur les murs (lot 5, étape C1a) : réglage de confort, lu à chaque image par mur/MurCamera
+        choix("Caméra sur les murs", "Suit la paroi : le mur devient le sol. Droite : la vue ne penche pas.",
+            new SegmentedControl.Option[] {
+                new SegmentedControl.Option("suit", "Suit la paroi"),
+                new SegmentedControl.Option("droite", "Droite"),
+            },
+            RebornPrefs.INSTANCE.camMurDroite ? "droite" : "suit",
+            v -> { RebornPrefs.INSTANCE.camMurDroite = "droite".equals(v); RebornPrefs.INSTANCE.save(); });
+
         section("Démarche");
 
         action("Style de marche", "Animation jouée quand tu marches.", "Choisir", () -> {

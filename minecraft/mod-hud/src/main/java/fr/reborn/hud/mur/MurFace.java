@@ -1,7 +1,7 @@
 package fr.reborn.hud.mur;
 
 /**
- * Face d'une paroi verticale (marche sur les murs, lot 5, essai C0) : la direction de sa <b>normale</b> {@code n}, cardinale
+ * Face d'une paroi verticale (marche sur les murs, lot 5, essai C0 puis étape C1a) : la direction de sa <b>normale</b> {@code n}, cardinale
  * et horizontale, qui pointe du mur vers l'air. {@code E} : le mur est à l'ouest du joueur, son corps part vers l'est.
  * Lettres du canal {@code reborn:mur} ({@code N}, {@code S}, {@code E}, {@code W}).
  *
@@ -43,6 +43,20 @@ public enum MurFace {
             case "W" -> W;
             default -> null;
         };
+    }
+
+    /** La face de cette normale (une composante à ±1, l'autre à 0) ; {@code null} sinon. */
+    public static MurFace deNormale(int nx, int nz) {
+        if (nx == 0 && nz == -1) return N;
+        if (nx == 0 && nz == 1) return S;
+        if (nx == 1 && nz == 0) return E;
+        if (nx == -1 && nz == 0) return W;
+        return null;
+    }
+
+    /** Cette face est-elle une voisine de l'autre (normales perpendiculaires) : celle vers laquelle on tourne à un coin ? */
+    public boolean voisine(MurFace autre) {
+        return autre != null && (nx != 0) != (autre.nx != 0);
     }
 
     /** Coordonnée d'un point sur l'axe de la normale. */

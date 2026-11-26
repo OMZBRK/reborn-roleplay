@@ -60,12 +60,12 @@ public abstract class KeyboardInputMixin {
 
         float cyaw = (float) cam.camYaw();
 
-        // Marche sur les murs (lot 5, essai C0) : le déplacement est joué par MurClient (touches lues à part), le
-        // regard reste celui de la caméra, course de chakra comprise : le serveur voit la vraie visée.
+        // Marche sur les murs (lot 5, étape C1a) : le déplacement est joué par MurClient (direction lue par
+        // MurEntrees). Au mur l'orbite est relative à la paroi : le regard de l'entité (envoyé au serveur, vu des
+        // autres) est la visée réelle de la caméra dans le monde, roulis compris. Visée libre (ALT) : regard gelé,
+        // comme au sol.
         if (fr.reborn.hud.mur.MurClient.corpsPris) {
-            player.setYRot(cyaw);
-            player.setXRot((float) cam.camPitch());
-            player.setYHeadRot(cyaw);
+            if (!cam.freeLook()) fr.reborn.hud.mur.MurCamera.regarder(player);
             return;
         }
 

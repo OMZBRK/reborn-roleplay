@@ -505,52 +505,145 @@ ne fait rien.
   défaut (5 essais en une minute), pas de déplacement de la dalle d'une porte existante, « Valider la dalle » reste
   éteint face à un ShinobiCore d'avant le 16/11 (pas de réponse à `porte_verifier`).
 
-## 1 septies. Marche sur les murs, essai technique (lot 5, étape C0, 0.4.207, 24/11)
+## 1 septies. Marche sur les murs, essai technique (lot 5, étape C0, 0.4.207, 24/11 ; étape C1a, 0.4.208, 26/11)
 
 Essai éteint par défaut : sans le permis du serveur (`/murtest on`, staff), rien n'est lu au clavier ni envoyé, et les
-mixins ne font qu'une lecture de booléen. Fiche : [`../gameplay/DEPLACEMENTS.md`](../gameplay/DEPLACEMENTS.md) §13 ;
-serveur et canal : [`PLUGINS_REFERENCE.md`](./PLUGINS_REFERENCE.md) §5.1 ter.
+mixins ne font qu'une lecture de booléen. C0 est publié et validé en jeu (24/11) ; C1a apporte la caméra de paroi, les
+touches continues et les quatre passages (coin rentrant, coin sortant, sommet, pied). Fiche :
+[`../gameplay/DEPLACEMENTS.md`](../gameplay/DEPLACEMENTS.md) §13 ; serveur et canal :
+[`PLUGINS_REFERENCE.md`](./PLUGINS_REFERENCE.md) §5.1 ter. **Ordre de déploiement** : ShinobiAbilities C1a et redémarrage
+du serveur d'abord ; face au plugin C0, le mod 0.4.208 lâche le joueur à chaque coin.
 
-- **`mur/MurFace`** : N, S, E, W = la normale du mur vers l'air. **`mur/MurCanal`** : canal `reborn:mur` (reçoit `permis`,
-  `etat`, `refus` ; envoie `accroche` et `lache` ; `face` n'est pas émis).
+- **`mur/MurFace`** : N, S, E, W = la normale du mur vers l'air ; `deNormale`, `voisine`. **`mur/MurCanal`** : canal
+  `reborn:mur` (reçoit `permis`, `etat` avec `n`, `refus` avec `a` et `n` ; envoie `accroche` et `face` avec `n`, et
+  `lache`).
 - **`mur/MurClient`** : état par identifiant d'entité, permis, machine du joueur local `REPOS → ATTENTE → BASCULE` (6 ticks)
-  `→ MARCHE → SORTIE` (3 ticks), compteur des corrections. Drapeaux lus par les mixins : `MurClient.actif` (au moins un
-  état connu) et `MurClient.corpsPris` (notre corps est au mur).
-  - **Accroche** : permis, 3 ticks de poussée (direction voulue à moins de 60° de la paroi) contre un mur plat et plein,
-    mur plein sous tout le corps à l'arrivée → `accroche`, attente d'une seconde. La bascule ne part qu'à la réception de
+  `→ MARCHE ⇄ VIRAGE → SORTIE` (voulue 3 ticks, sommet 6, pied 4 à 6), compteur des corrections. Drapeaux lus par les
+  mixins : `MurClient.actif` (au moins un état connu) et `MurClient.corpsPris` (notre corps est au mur).
+  - **Accroche** : permis, 3 ticks de poussée (direction voulue à moins de 60° de la paroi) contre un mur plat dont la
+    face tournée vers soi est pleine (la règle du serveur, `MurTransitions.facePleine` ; C0 exigeait un bloc entier), mur
+    plein sous tout le corps à l'arrivée → `accroche`, attente d'une seconde. La bascule ne part qu'à la réception de
     notre propre `etat`. Après un abandon, un refus ou une sortie, il faut **relâcher les touches de déplacement** avant
     une nouvelle demande.
-  - **Marche** : relative à la caméra (avant = le regard projeté sur le mur, crans de 25° et 15°, base figée tant qu'une
-    touche est tenue), 3,2 et 5,6 blocs/s, `P` tenu à 0,9 de la paroi ; arrêt pile au bord (mur plein sous tout le corps)
-    et sous tout obstacle ; sortie automatique à moins d'un bloc du sol en descendant.
+  - **Marche** : direction lue par `mur/MurEntrees` (plus bas), 3,2 et 5,6 blocs/s, `P` tenu à 0,9 de la paroi ; arrêt
+    pile au bord (mur plein sous tout le corps) et sous tout obstacle.
+  - **Passages** (C1a) : on pousse 2 ticks (`TICKS_LIMITE`) contre une limite, dans la direction voulue (part vers la
+    limite d'au moins 0,5). Les contrôles de coin ne tournent que pendant cette poussée.
+    - **Coin rentrant** : l'avance est arrêtée par la face pleine d'un mur perpendiculaire, à 0,35 au plus. Virage de 4
+      ticks en ligne droite, de `coin + 0,9 nA + 0,3 nB` à `coin + 0,3 nA + 0,9 nB`.
+    - **Coin sortant** : la marche est rognée par la fin du mur et `MurTransitions.coinSortant` trouve le coin (même
+      fonction que `MurRegles` côté serveur : même arête, même arrivée). Arc de rayon 1,2 de `arête − 0,3 d + 0,9 nA` à
+      `arête + 0,9 d − 0,3 nA`, centré en `arête − 0,3 nA − 0,3 d`, en 10 ticks à la marche et 7 en course (borné de 6 à 10).
+    - Au 1er tick de poussée, le mod juge le coin et envoie `face` B avec `n` = k. Le virage (`VIRAGE`) part quand la
+      poussée a tenu 2 ticks et que l'`etat` portant k est arrivé ; le coin est relu au départ. Pendant le virage, la boîte
+      est le cube de 0,6 sur des points lus libres ; à l'arrivée il faut la boîte couchée libre sur B et du mur plein sous
+      tout le corps, sinon le passage n'est pas tenté. Le cap est gardé : (u, v) se lit pareil sur la nouvelle face.
+    - Refus avec `a` = `face` (« Trop de demandes. » compris) : on reste au bord, au mur, sans nouvelle demande tant
+      qu'on pousse la même limite. Touche relâchée, autre limite, coin relu qui ne tient plus ou 1 s sans accord : le mod
+      renvoie `face` A avec `n` = k + 1 ; un accord arrivé ensuite (k) est ignoré.
+    - **Sommet** : la montée est rognée 2 ticks et un corps debout tient sur tout le chemin, toit sous les pieds (sinon,
+      auvent : on reste au bord, rien n'est envoyé). Montée de 0,6 en 2 ticks, avance de 1,2 en 4 ticks, jusqu'à 0,3
+      derrière l'arête, debout, face au toit. `lache` part au **début** de la sortie (l'écho « - » est ignoré), avec
+      `MurCamera.lacher`.
+    - **Pied** : sol à moins d'un bloc sous la boîte en descendant (cherché jusqu'à 1,2 sous `P`). `P` garde 0,9 du mur
+      et descend sur le sol en 4 à 6 ticks, le corps finit dos au mur, `lache` à la fin.
+    - Sorties animées : le cap debout visé est rangé dans `Etat.debout` et rendu par `MurRendu.avant` ; le `yBodyRot` du
+      jeu n'est pas touché pendant la sortie et n'est posé qu'une fois, à la fin (correctif de relecture : le corps tournait
+      de 180° à chaque tick au pied).
   - **Sorties** : Espace (nouvel appui) ou la touche de course de chakra → 3 ticks vers une place debout, puis
-    `lache {c}`. Lâcher immédiat : `etat` `-`, permis retiré, refus, mort, spectateur, vol, monture, eau, bond parti, à
-    terre, mobilité refusée (`EtatClient` « mob »), changement de monde, écart de plus de 0,05 à la paroi.
-  - Un `etat` `-` reçu hors du mur n'est que l'écho d'un `lache` : il n'annule pas une demande en attente. Un `etat` de
-    soi inattendu est toujours rendu par `lache` `c` = 0 (le serveur nous tient au mur).
+    `lache {c}`. Lâcher immédiat : `etat` `-`, permis retiré, refus d'accroche, mort, spectateur, vol, monture, eau, bond
+    parti, à terre, mobilité refusée (`EtatClient` « mob »), changement de monde, écart de plus de 0,05 à la paroi. Au
+    lâcher immédiat, le lacet rendu rejoint la face par le plus court chemin (il se cumule d'un coin à l'autre).
+  - **Numéros** : chaque demande porte un `n` croissant. Un `etat` de soi qui porte un autre `n` que la dernière demande
+    est un accusé en retard, ignoré ; un `etat` sans `n` est le serveur qui parle de lui-même. Un `etat` `-` reçu hors du
+    mur n'est que l'écho d'un `lache`. Un `etat` de soi inattendu est rendu par `lache` `c` = 0.
   - L'état d'un voisin tombe dès que son entité disparaît (le serveur le renvoie à qui la revoit au mur) ; un état arrivé
-    avant son entité est gardé 10 s.
-  - Une ligne au tchat local à chaque fin de marche : « Mur : <durée> s, <n> correction(s) de position (<raison>) ».
+    avant son entité est gardé 10 s. Un changement de face d'un voisin est joué comme un virage : lacet rendu à 20° par
+    tick au plus (`LACET_PAS`), cube pendant le virage.
+  - Une ligne au tchat local à chaque fin de marche : « Mur : <durée> s, <n> correction(s) de position (<raison>) »
+    (`lâché`, `sommet`, `pied du mur`, ou la raison du lâcher).
+- **`mur/MurTransitions`** (C1a) : géométrie pure des passages, mêmes formules que `MurRegles` (`facePleine`,
+  `blocsDerriere`, `areteSortante`, `departSortant`, `arriveeSortant`, `coinSortant`, hauteurs cube 0,3 et torse 0,9),
+  plus le coin rentrant, l'arc du coin sortant (`pointSortant`, `ticksSortant`) et le chemin du sommet (`pasSommet`).
+- **`mur/MurEntrees`** (C1a) : la direction voulue sur la paroi. `lire(mc, f)` rend vrai si une direction est voulue et
+  remplit `u` (le long de la tangente de `f`), `v` (vers le haut) et `course`. En « Suit la paroi » : avant = visée du
+  repère visé projetée sur la paroi et normalisée, droite = avant × n ; aucun cran, aucune base figée ; si la visée longe
+  n, le dernier « avant » valable est gardé. En « Droite », ou sans caméra d'épaule : touches fixes (Z monte, S descend,
+  Q et D à gauche et à droite de l'écran, zone morte de 0,2 sur le changement de côté). Le repère (u, v) passe tel quel
+  d'une face à sa voisine : c'est ce qui garde le cap aux coins.
 - **Boîte** : `mixin/EntityMurMixin` (`ModifyReturnValue` sur `Entity.makeBoundingBox(Vec3)`, garde = un booléen statique,
   filtre joueur + `level().isClientSide()` : le serveur intégré partage les classes). De `P − 0,85 n` à `P + 0,9 n`, ± 0,3,
-  haute de 0,6, chez soi et chez les autres.
+  haute de 0,6, chez soi et chez les autres ; le cube du serveur pendant un virage (`Etat.cube`).
 - **Corps** : `mixin/PlayerMurMixin` (`updatePlayerPose` et `travel` à `HEAD`, joueur local : pose de nage tenue,
   déplacement sur le plan du mur, avant le vol créatif et `SautVolMixin`) ; `mixin/LivingEntityMurAccessor` (`swimAmount` à
   zéro) ; `mixin/ClientPacketListenerMurMixin` (`handleMovePlayer` : compte les corrections).
-- **Rendu** : `mur/MurRendu` + `MurRenderState`, `mixin/AvatarRenderStateMurMixin`, `mixin/AvatarRendererMurMixin`
-  (`extractRenderState` `TAIL`, `setupRotations` `HEAD` et `TAIL`) : corps entier tourné autour de son centre, nage, bras de
-  nage et accroupi retirés, tête dans l'axe. `animation/MovementAnimations` : au mur, marche ou course, jamais de saut.
-- **Caméra** : `mur/MurCamera` + `mixin/CameraThirdPersonMixin`, `camera/RebornCamera.decaler` : foyer `P + 0,4 n + 0,5 haut`,
-  recul 5 (3 à 120° d'écart au mur, 2 au-delà de 135°), épaule côté air, un glissement de 350 ms à l'accroche, notre corps
-  effacé chez nous au-delà de 120° (seulement sur une image que la caméra d'épaule vient de cadrer : pas en mode photo).
-  1re personne et caméra de Minecraft passent en épaule le temps du mur puis sont rendues ; l'essayage du tailleur et le
-  test de la Feuille gardent la main sur la caméra.
-- **Entrées** : `mixin/KeyboardInputMixin` (au mur le regard suit la caméra), `combat/MobilityInput` et `CombatInput` (dash,
-  double saut et saut chargé coupés), `allure/Allure` (X lâche le mur au lieu de lancer la course).
-- **Limites** : murs plats de blocs pleins ; ni coin, ni sommet, ni plafond ; l'attribut `SCALE` n'entre pas dans la boîte ;
-  ombre non retirée ; hors champ, l'ancre de tête (nom, bulle) place la tête comme pour un corps debout ; le recul d'un
-  coup reçu est annulé tant que le corps est au mur (c'est au serveur de lâcher) ; sans les canaux RP (caméra d'épaule
-  éteinte), pas de cadrage de paroi.
+- **Rendu** : `mur/MurRendu` + `MurRenderState`, `mixin/AvatarRenderStateMurMixin` (face, bascule, cap, lacet de paroi,
+  cap debout), `mixin/AvatarRendererMurMixin` (`extractRenderState` `TAIL`, `setupRotations` `HEAD` et `TAIL`) : corps
+  entier tourné autour de son centre, nage, bras de nage et accroupi retirés. Lacet de paroi interpolé (20° par tick au
+  plus) pendant un virage, chez soi et chez les voisins. **Tête** (C1a, `MurRendu.tete`) : elle suit le regard dans le
+  repère du corps couché, bornée à ± 80° de côté et ± 75° en hauteur ; un regard vers l'arrière la ramène dans l'axe.
+  `animation/MovementAnimations` : au mur, marche ou course, jamais de saut.
+- **Caméra** (C1a) : `mur/MurCamera` + `mixin/CameraThirdPersonMixin`. **Repère de surface** : au mur, la caméra d'épaule vit
+  dans un repère dont le haut est la normale n, roulis compris (« la paroi devient le sol »). L'orbite de `RebornCamera`
+  (`camYaw`, `camPitch` ± 89°) y est relative à la paroi ; l'orientation vaut repère × R(lacet, tangage). Elle est écrite
+  en entier dans `Camera` (rotation, `forwards`, `up`, `left`, matrices) au point de la caméra d'épaule, juste après
+  `alignWithEntity`.
+  - Le repère rejoint le repère visé par interpolation sphérique lissée (4,5 par seconde), plafonnée à 100° par seconde,
+    pas d'image d'au plus 0,05 s. Mesuré au banc : 85° en 1,01 s à l'accroche, retour au monde en 1,36 s gel de 0,4 s
+    compris. Le retour ne se coupe d'un coup que si 3 mises à jour de la caméra passent sans image de paroi (mode photo,
+    autre vue, écran de caméra).
+  - Pivot : `P + 0,72 n + 0,3 haut`, soit 1,62 de la paroi, à mi-hauteur du cube ; décalage lissé (5 par seconde, 3 blocs/s
+    au plus). Distance, épaule et hauteur sont celles du joueur ; anti-obstacle de l'épaule. Supprimés depuis C0 : le recul
+    imposé et variable, l'épaule côté air, le glissement d'accroche, le corps effacé.
+  - Coins : `MurCamera.changerFace(B)`, une fois, au départ du virage (accord reçu). Le quart de tour passe sur l'orbite
+    (`RebornCamera.decaler`), l'image ne bouge pas à l'appel, puis le lissage tourne la caméra avec le corps : c'est ce qui
+    l'empêche de finir dans le bâtiment au coin sortant. En « Droite », rotation autour de la verticale, sans roulis.
+  - Secousses de fin de mise à jour (séisme du staff, KO, faim) : `CameraThirdPersonMixin` relit leur écart en fin de
+    `setRotation` comme un petit décalage local de l'orientation de paroi ; le roulis est gardé.
+  - Regard envoyé au serveur : lacet et tangage tirés de la visée réelle dans le monde (`MurCamera.regarder`, depuis
+    `mixin/KeyboardInputMixin` ; visée libre Alt = regard gelé). Visée verticale : le lacet garde sa dernière valeur.
+  - F5 au mur reste sans effet : la caméra repasse en épaule sans réécrire l'orbite avec les angles du monde
+    (`RebornCamera.tickView` n'appelle plus `initOrientation` au mur ; correctif de relecture, la vue sautait de 90°).
+  - 1re personne et caméra de Minecraft passent en épaule le temps du mur puis sont rendues ; l'essayage du tailleur et le
+    test de la Feuille gardent la main sur la caméra.
+- **Réglage « Caméra sur les murs »** (C1a, Paramètres › Interface › Caméra, `menu/settings/CameraTab`) : « Suit la paroi » (défaut) ou
+  « Droite » (vue d'aplomb, touches fixes, épaule fixe). Préférence `RebornPrefs.camMurDroite`, lue à chaque image ; un
+  changement en plein mur passe en fondu.
+- **Entrées** : `mixin/KeyboardInputMixin` (au mur, le déplacement est joué par `MurClient`, le regard suit la visée de
+  paroi), `combat/MobilityInput` et `CombatInput` (dash, double saut et saut chargé coupés), `allure/Allure` (X lâche le
+  mur au lieu de lancer la course).
+- **Limites** : plafonds absents ; les voisins voient le corps tourner un peu avant le marcheur (le serveur annonce la
+  face dès l'accord ; un coin annulé leur montre un aller-retour) ; dans le creux d'un coin rentrant, et au pied du mur en
+  visant le haut, l'anti-obstacle colle la caméra au corps ; un nom sur deux lignes (nom et « NPC » d'un mannequin) se
+  chevauche sous le roulis, le jeu empilant ses lignes le long du haut du monde ; au pied, le roulis ne se défait qu'une
+  fois debout (environ 1 s) ; sous 20 images/s le roulis ralentit ; caméra « Droite » aux coins non couverte par le banc ;
+  l'attribut `SCALE` n'entre pas dans la boîte ; ombre non retirée ; hors champ, l'ancre de tête (`TeteAncre`, sans branche
+  « mur ») place nom et bulle comme pour un corps debout ; le recul d'un coup reçu est annulé tant que le corps est au mur
+  (c'est au serveur de lâcher) ; sans les canaux RP (caméra d'épaule éteinte), pas de repère de paroi et touches fixes.
+  Tout reste réservé au staff par `/murtest on`. Jamais essayé contre le vrai plugin C1a : seul le serveur simulé du
+  banc a répondu.
+
+## 1 octies. Corde dessinée par le mod (prototype, inerte, 0.4.208, 26/11)
+
+Prototype client de la corde de ligotage (la maquette en armure du 25/11 a été rejetée). **Inerte en jeu** : aucun canal,
+aucune commande, aucune variable ; seule la liste des ligotés déclenche quelque chose, et seul le banc la remplit
+(`REBORN_STELE_CORDE=1|corde`, §5). Quand elle est vide, la couche et la pose s'arrêtent sur un entier lu.
+
+- **`corde/CordeLigotes`** : 16 places (identifiant d'entité, variante `HAUT` ou `COMPLET`). Vidée à la déconnexion
+  (`ClientPlayConnectionEvents.DISCONNECT`, `corde/CordeClient`) et à la fin du banc.
+- **`corde/CordeLayer`** : couche posée sur tous les `AvatarRenderer` (joueurs, soi en 3e personne, mannequins). Vraies
+  boîtes de 1,5 px de haut et 1 px d'épaisseur, à 0,22 px de la peau (la couche extérieure du skin passe dessous). Chaque
+  tour du torse est l'enveloppe convexe du torse et des deux bras coupés à la même hauteur : une bande continue. Bretelles
+  devant, croix et noeud plat dans le dos ; en « complet », tours aux genoux et aux chevilles reliés par un brin. Les
+  membres déjà posés sont relus à chaque image. Texture `textures/entity/corde/corde.png`. Aucune allocation par image
+  (tableaux fixes, réserve tournante de 32 géométries passées à `submitCustomGeometry`).
+- **`corde/CordePose`** + **`mixin/PlayerModelCordeMixin`** (`PlayerModel.setupAnim` `TAIL`, priorité 2500) : bras à 20° en
+  arrière et 6° vers le corps, mains dans le dos ; jambes droites et serrées en « complet » seulement (en « haut », la
+  marche reste libre). La priorité 2500 passe après le crochet de PlayerAnimationLib (2001, au `RETURN` de `setupAnim`),
+  qui réécrirait sinon les bras d'un ligoté (démarches, emotes, méditation).
+- **Limites** : noeud cubique et sombre ; mains qui ne se rejoignent pas, pas de tour aux poignets ; pose posée d'un coup,
+  sans fondu ; accroupi, nage, monture et sommeil non traités ; objet tenu et vue à la 1re personne du ligoté non traités.
+  La vraie mécanique demandera un état « ligoté » autoritaire dans ShinobiCore et un canal S → C qui remplira la liste.
 
 ## 2. Touches
 
@@ -720,7 +813,8 @@ JAVA_HOME=/c/Users/omarb/dev-cache/jdk-25.0.4.1+1 REBORN_FEATURE_PREVIEW=1 \
 | `REBORN_LOT5_DEBUG=byak` (`=byak_vite` : les décors seulement ; `=byak_fps` : coût du filtre seul, forêt du banc sans personne, quatre alternances sans / avec, et la saccade des 1,5 s qui suivent chaque bascule (feuilles pleines : image la plus longue, médiane, images lentes, excès cumulé) ; `=byak_entites` : de vraies bêtes sans IA (villageois, zombie du désert, cochon) derrière le mur du champ, vues au travers (`byak_entites_mur`), puis à découvert de près et à ~20 blocs (villageois, zombie du désert, vache, mouton : `byak_entites_proche`), difficulté facile le temps du banc, objets au sol retirés et nuage de mort dissipé avant chaque capture ; `=byak_vues` + `REBORN_BYAK_VUES="nom:x,y,z,lacet,tangage[,heure];…"`, jamais noté dans le dépôt : vues d'un vrai monde, une copie de Konoha par exemple ; hauteur `sol` : posé sur le vrai sol, feuillages exclus ; en vol à chaque vue, 240 images d'attente et sans fondu d'apparition des chunks le temps du banc (option rendue à la fin) ; bêtes à moins de 16 blocs et fin du brouillard notées au journal ; lancer avec `--username BancReborn` pour garder le même skin ; la copie de Konoha est le monde `Konoha`) | **Byakugan** (lot 5, étape B, 09/11, `audit/Lot5ByakDebug`) : plateau à nous dans le ciel près de l'origine (le relief du monde de dev ne fait ni ombre ni trou) — champ, rue façon Konoha (chaussée de pierre, maisons de bois et d'enduit, toits sombres, lanternes, passants, une personne dans une maison), forêt (vrais arbres placés), mur avec deux personnes derrière ; grotte fermée sous terre ; serveur ShinobiCore simulé au format exact de `reborn:dojutsu` (règles, réponses), touche O par le vrai `ByakuganClient.basculer()`. Vérifie : règles reçues, touche O par défaut, ancien canal ignoré, sans droit rien n'est envoyé, deux personnes cachées sur deux, fondu image par image à horloge figée (90 % à 0,35 s, sortie linéaire finie à 0,27 s), concentration puis Byakugan (un seul filtre, la concentration reprend le sien), KO = coupure nette et fin envoyée ; profondeur vue par le filtre (`debugProfondeur`, bandes de 8 blocs) et capture des boucles d'encre ; encre : traits seuls (`debugTraits`, blanc sur noir : les fins de volume seulement depuis le 8e tour, plus de pli ni de grille) au champ, à la rue, en forêt, la nuit, en grotte et sur chaque vue `byak_vues`, puis après deux pas d'un quart de bloc (`_traits_p1`, `_traits_p2` : tenue du trait en marchant, mesurée hors du jeu contre la parallaxe attendue), particules sur le sol (`byak_particules`, sans écho), feuilles pleines pendant la vision seulement et option « Feuilles découpées » du joueur inchangée (forêt, puis coupure au KO) ; images par seconde sans et avec le filtre, même vue, alternées → `run/screenshots/byak_*.png` (sans / avec / `_traits` / `_prof` : distance brute sur 24 bits, pour régler le filtre hors du jeu avec `_sans` ; forêt aussi en 1366 × 768) ; chaque étape attend 3 images rendues (couche HUD du banc : fenêtre en arrière-plan, une capture sur les ticks seuls reprenait l'image d'avant), bilans `[byak] OK / ECHEC`, puis ferme le jeu |
 | `REBORN_LOT6_DEBUG=mudra` (lancer avec `--quickPlaySingleplayer "New World" --width 1920 --height 1080 --username BancReborn`) | **Barre de mudras** (14/11, `audit/Lot6MudraDebug`) : serveur ShinobiCore simulé au format de `reborn:mudra` (règles, ouverture libre et guidée, fin, refus), touche par le vrai `MudraClient.basculer()`, signes par le vrai `MudraClient.signe`, horloge du mod figée et avancée à la main. Vérifie : touche U par défaut, douze touches de la rangée des chiffres, rien sans règles, version étrangère ignorée, une seule demande, rangée prise puis rendue, signe envoyé avec la bonne session, écart de 120 ms, fin d'une autre session ignorée, séance de mémoire sans signe mis en avant, compte qui avance, mauvais signe envoyé quand même, suite d'un ancien serveur encore mise en avant, refus, fermeture de secours, second appui, extinction par le serveur → `run/screenshots/mudra_*.png` (entrée, barre, signe, temps, fin, guide, guide_2, rate, refus, pose de face, 768), bilans `[mudra] OK / ECHEC`, puis ferme le jeu |
 | `REBORN_LOT6_DEBUG=portes` (mêmes arguments de lancement) | **Outil Portes du Poste de garde** (16/11, `audit/Lot6PortesDebug` + `staff/GardePortesDebug`) : serveur simulé côté client au format de PLUGINS_REFERENCE §4 terdecies.7 (données des maquettes, grades Helper / Modo / Admin, réponses `porte_verif` retenues à la demande), horloge des vérifications figée, mur de 3 × 2 bâti puis retiré, clics sur les vraies zones du volet. 92 vérifications : format de chaque message envoyé, sélecteur (dalle d'un bloc, 250 ms d'écart, réponse périmée ignorée, refus sur place et refus du serveur), « Sceller la porte » éteint sans nom ou sous 2 signes, un seul envoi pour deux Ctrl + Entrée, fiche ouverte sur `dernier`, sous-éditeurs, confirmation du retrait et de l'extinction, Helper (suite jamais affichée même si le serveur l'envoyait, actions éteintes, rien d'envoyé), 1366 × 768 → `run/screenshots/portes_*.png` (liste, selecteur, selecteur_refus, nouvelle, fiche, fiche_helper, retirer, 768, outils, nom, leve, suite), bilans `[portes] OK / ECHEC`, puis ferme le jeu. Le journal ne cite les messages que par action et id (jamais une suite) |
-| `REBORN_MUR_SPIKE=1` (lancer avec `--quickPlaySingleplayer "New World" --width 1920 --height 1080 --username BancReborn`) | **Essai de la marche sur les murs** (24/11, `audit/MurSpike`) : serveur simulé côté client au format du canal `reborn:mur`, mur de briques de 9 × 12, mannequin comme autre joueur. Vérifie « [mur] OK / ECHEC » : rien sans permis, formats, abandon après 1 s, réponse tardive rendue, refus, écho d'un lâcher pendant une demande, boîte de 1,75 × 0,6 × 0,6 sur les quatre faces, pose tenue, `P` à 0,9 de la paroi, 3,2 et 5,6 blocs/s, arrêts au bord et sous un obstacle, sorties (Espace, touche de course, avance tenue, pied du mur, permis retiré). « [mur] FIN (n échec(s)) ». Captures `mur_accroche`, `mur_monter`, `mur_descendre`, `mur_cote`, `mur_long`, `mur_dos`, `mur_boites`, `mur_second_boites`, `mur_second`. Le banc rend la souris et repose les touches à chaque tick : ne pas jouer pendant qu'il tourne. Le solo ne prouve pas les refus de déplacement du serveur |
+| `REBORN_MUR_SPIKE=1` (`=cam` : série caméra seule ; `=coins` : passages seuls ; lancer avec `--quickPlaySingleplayer "New World" --width 1920 --height 1080 --username BancReborn`) | **Marche sur les murs** (24/11, étape C1a le 26/11, `audit/MurSpike`) : serveur simulé côté client au format du canal `reborn:mur` (il répond aussi à `face` : accord avec `n`, refus avec `a`, silence), mur de briques de 9 × 12 avec laine tous les 4 blocs, arbre, mannequin comme autre joueur, cloison de pierre perpendiculaire à la face nord (coin rentrant puis coin sortant à son bout), tronc de 1 × 1, auvent au-dessus du toit de la face nord (il ne couvre que le toit : le serveur intégré garde un corps debout), sommet libre de la face sud. Vérifie « [mur] OK / ECHEC » : les contrôles de C0 (rien sans permis, formats, abandon après 1 s, réponse tardive rendue, refus, écho d'un lâcher pendant une demande, boîte de 1,75 × 0,6 × 0,6 sur les quatre faces, pose tenue, `P` à 0,9 de la paroi, 3,2 et 5,6 blocs/s, arrêts au bord et sous un obstacle, sorties) ; la caméra (haut = normale, roulis plafonné à 100°/s mesuré à chaque image sur l'horloge réelle, quart de tour en environ 1 s, retour sans saut après un gel de 0,4 s, cadrage du joueur rendu, pivot à 1,62, séisme au mur, « Suit » et « Droite », aucun cran, 1re personne rendue) ; les passages (coin rentrant, cap gardé, coin sortant, deux coins enchaînés, tour du tronc en 4 messages, refus de face toujours au mur, annulation, abandon, auvent, sommet, pied aussi en visant le haut du mur, cap rendu des sorties sans recul, lâcher après le tour du tronc sans torsion, virage d'un voisin à 20° par tick). « [mur] FIN (n échec(s)) » : 146 OK le 26/11. Captures `mur_accroche`, `mur_monter`, `mur_descendre`, `mur_cote`, `mur_long`, `mur_dos`, `mur_boites`, `mur_second_boites`, `mur_second`, `mur_cam_roulis_1` à `_8`, `mur_cam_<suit\|droite>_<monter\|longer\|descendre>`, `mur_coin_rentrant_1` à `_3`, `mur_coin_sortant_1` à `_3` (jeu à 4 ticks/s), `mur_sommet`, `mur_pied`, `mur_pied_haut`. Le réglage « Caméra sur les murs » est changé en mémoire seulement, puis rendu. Le banc rend la souris et repose les touches à chaque tick : ne pas jouer pendant qu'il tourne. Le solo ne prouve ni les refus de déplacement du serveur ni le vrai plugin |
+| `REBORN_STELE_CORDE=1` (`=uchiha` : la stèle du propriétaire seule ; `=corde` : la corde du mod seule ; mêmes arguments de lancement) | **Stèle et corde** (25/11, corde du mod le 26/11, `audit/SteleCordeDebug`, monde solo seulement : hors solo le tick ne fait rien). Active le pack de dev `run/resourcepacks/reborn_stele_corde_dev`, pose les entités, les retire et rend le monde à la fin. `=1` : tout, dans cet ordre : la stèle v2 (`v2_stele_*`), la stèle du propriétaire, la corde v2 en armure (`v2_corde_*`), la corde du mod. `=uchiha` : `reborn:stele_uchiha` à la taille 1, la même grossie 1,5 fois par l'`item_display`, la v2 (`reborn:stele_uchiha_v2`) à côté, un mannequin d'échelle et une règle au sol (`v2_user_stele_face`, `_trois_quarts`, `_dos`, `_pres`, `_comparaison`, `_nuit`). `=corde` : quatre mannequins (haut seul, complet, complet aux bras fins, v2 en armure pour comparer), une marche simulée (téléportation pas à pas, démarche entretenue côté client), puis le joueur local ligoté vu en 3e personne ; liste des ligotés vidée à la fin (`v3_corde_*`, 19 captures) |
 | `REBORN_LOT4_DEBUG=1` | Lot 4 « Concentration », étape A (07/11, `audit/Lot4Debug`) : mannequin « autre joueur » décalé à droite, horloge du fondu figée (`ModeConcentration.horloge`) ; de jour en 1920×1080 puis 1366×768 : avant, entrée à 0 et 125 ms, concentré (six rappels), curseur sur le mannequin (contour), clic (menu de l'entité), menu d'un joueur, sortie à 75 ms, après ; de nuit : avant, concentré, survol ; blocages vérifiés au journal (`[lot4] OK / ECHEC`) : Malaxage du chakra (refus, capture, puis sortie), coup donné (sortie, refus 5 s), tchat (le mode reste), écran (sortie), Échap par le vrai chemin du clavier, touche Concentration tenue puis relâchée → `run/screenshots/lot4_*.png`, puis ferme le jeu |
 | `REBORN_MOCKUPS` | Maquettes de scènes |
 
