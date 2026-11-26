@@ -8,6 +8,8 @@ import com.reborn.shinobiabilities.mobility.MurRegles.Demande;
 import com.reborn.shinobiabilities.mobility.MurRegles.Face;
 import com.reborn.shinobiabilities.mobility.MurRegles.LecteurBlocs;
 import com.reborn.shinobiabilities.mobility.MurRegles.Raison;
+import com.reborn.shinobiabilities.mobility.MurRegles.Tenue;
+import com.reborn.shinobiabilities.mobility.MurRegles.Virage;
 import com.reborn.shinobicore.api.EtatService;
 import com.reborn.shinobicore.api.JournalService;
 import com.reborn.shinobicore.api.etat.Capacite;
@@ -68,9 +70,10 @@ import java.util.UUID;
 import java.util.logging.Level;
 
 /**
- * <b>Essai technique de la marche sur les murs</b> (lot 5 « Mobilité », étape C0, Game Plan n° 17). Ce n'est pas la
- * fonctionnalité : c'est de quoi prouver l'approche retenue (pieds sur la paroi, corps à 90°, boîte du corps couchée chez
- * tous les clients, cube de 0,6 côté serveur) sur le vrai serveur, à deux comptes, avant d'écrire les murs pour de bon.
+ * <b>Essai technique de la marche sur les murs</b> (lot 5 « Mobilité », étapes C0 et C1a, Game Plan n° 17). Ce n'est
+ * pas la fonctionnalité : c'est de quoi prouver l'approche retenue (pieds sur la paroi, corps à 90°, boîte du corps
+ * couchée chez tous les clients, cube de 0,6 côté serveur) sur le vrai serveur, à deux comptes, avant d'écrire les murs
+ * pour de bon. L'étape C1a ajoute le passage de mur en mur : le serveur valide les changements de face aux coins.
  *
  * <h2>Inerte tant qu'il est éteint</h2>
  * Rien ne se passe tant qu'un membre du staff n'a pas tapé {@code /murtest on} pour lui-même, et aucun joueur ne peut
@@ -95,11 +98,16 @@ import java.util.logging.Level;
  *   <tr><th>Sens</th><th>Message</th><th>Effet</th></tr>
  *   <tr><td>S → C</td><td>{@code {"v":1,"t":"permis","on":true}}</td><td>le joueur peut s'accrocher ; {@code false} :
  *       interdit, il lâche</td></tr>
- *   <tr><td>S → C</td><td>{@code {"v":1,"t":"etat","e":4182,"f":"E"}}</td><td>l'entité marche sur un mur de cette face ;
- *       {@code "-"} : elle n'y est plus. Au joueur (sa confirmation), à ceux qui le voient, et à qui se met à le voir</td></tr>
- *   <tr><td>S → C</td><td>{@code {"v":1,"t":"refus","m":"…"}}</td><td>accroche ou changement de face refusé</td></tr>
- *   <tr><td>C → S</td><td>{@code {"v":1,"a":"accroche","f":"E"}}</td><td>demande d'accroche</td></tr>
- *   <tr><td>C → S</td><td>{@code {"v":1,"a":"face","f":"N"}}</td><td>changement de face (coin rentrant)</td></tr>
+ *   <tr><td>S → C</td><td>{@code {"v":1,"t":"etat","e":4182,"f":"E","n":12}}</td><td>l'entité marche sur un mur de cette
+ *       face ; {@code "-"} : elle n'y est plus. Au joueur (sa confirmation), à ceux qui le voient, et à qui se met à le
+ *       voir. {@code n} : le numéro de la demande qui a produit cet état, dans l'exemplaire du joueur lui-même
+ *       seulement ; absent chez les voisins et quand le serveur parle de lui-même</td></tr>
+ *   <tr><td>S → C</td><td>{@code {"v":1,"t":"refus","m":"…","a":"face","n":13}}</td><td>demande refusée ; {@code a} :
+ *       l'action refusée ({@code accroche} ou {@code face}), {@code n} : son numéro</td></tr>
+ *   <tr><td>C → S</td><td>{@code {"v":1,"a":"accroche","f":"E","n":12}}</td><td>demande d'accroche ; {@code n} : numéro
+ *       de demande, facultatif</td></tr>
+ *   <tr><td>C → S</td><td>{@code {"v":1,"a":"face","f":"N","n":13}}</td><td>changement de face à un coin, vers une face
+ *       voisine ; redemander la face que l'on vient de quitter annule</td></tr>
  *   <tr><td>C → S</td><td>{@code {"v":1,"a":"lache","c":3}}</td><td>le joueur lâche ; {@code c} : corrections de position
  *       que le mod a reçues pendant la marche</td></tr>
  * </table>
@@ -110,6 +118,15 @@ import java.util.logging.Level;
  * interdit ; métadonnée {@value #META_MUR} qui fait se retirer {@link MobilityListener} et
  * {@link MobilityPathTwoModule}. Toutes les {@value MurRegles#PERIODE_CONTROLE} ticks le serveur relit qu'un bloc plein
  * est derrière le joueur et que son état permet la mobilité : sinon il lâche.
+ *
+ * <h2>Coins</h2>
+ * Un changement de face est accepté vers une face voisine (jamais la face opposée) dans deux cas : <b>coin rentrant</b>,
+ * le mur de la nouvelle face est déjà derrière le joueur (même contrôle que la marche) ; <b>coin sortant</b>, le mur
+ * s'arrête devant lui et la face voisine du bloc d'angle est pleine ({@link MurRegles#coinSortant}). Un changement
+ * refusé <b>ne fait pas tomber</b> : le joueur reçoit {@code refus} avec {@code a} = {@code face} et reste sur sa face.
+ * Demander la face que l'on tient déjà n'est qu'un accusé de réception. Pendant les {@value MurRegles#TICKS_VIRAGE}
+ * ticks qui suivent un changement accepté (la fenêtre de virage), le contrôle de paroi accepte le mur de l'ancienne
+ * face, celui de la nouvelle, ou le bloc d'angle ({@link MurRegles#murEnVirage}) ; ensuite la nouvelle face seule.
  *
  * <h2>Retrait</h2>
  * Déconnexion, mort, KO, changement de monde, téléportation, changement de personnage, changement de mode de jeu, arrêt
@@ -149,12 +166,15 @@ public final class MurTest implements Listener, CommandExecutor, TabCompleter, P
     private BukkitTask tache;
 
     private static final class Marche {
-        Face face;
+        /** La face tenue et la fenêtre de virage : ce que le contrôle de paroi doit trouver derrière le joueur. */
+        final Tenue tenue;
         int ticks;
         /** L'écart de position que le filet vient d'accepter, pour le compter une fois le sort de l'événement connu. */
         PlayerFailMoveEvent filetPose;
 
-        Marche(Face face) { this.face = face; }
+        Marche(Face face) { this.tenue = new Tenue(face); }
+
+        Face face() { return tenue.face(); }
     }
 
     /** Qui a mis fin à la marche. */
@@ -318,7 +338,7 @@ public final class MurTest implements Listener, CommandExecutor, TabCompleter, P
         if (c == null) c = new Compteurs();
         Marche m = marches.get(id);
         p.sendMessage(Component.text("Essai du mur, bilan de " + p.getName(), NamedTextColor.GOLD));
-        for (String ligne : c.lignes(permis.contains(id), filets.contains(id), m == null ? null : m.face,
+        for (String ligne : c.lignes(permis.contains(id), filets.contains(id), m == null ? null : m.face(),
                 System.currentTimeMillis())) {
             int coupe = ligne.indexOf(" : ");
             p.sendMessage(coupe < 0
@@ -379,11 +399,24 @@ public final class MurTest implements Listener, CommandExecutor, TabCompleter, P
         // sans permis, seul compte le « lache » qui suit un lâcher du serveur (il porte les corrections du mod)
         if (!aPermis && (c == null || !c.attendCompte)) return;
         if (!p.isOnline()) return;
-        if (!cadences.computeIfAbsent(id, k -> new Cadence(CADENCE_MAX, 1000L)).passe(System.currentTimeMillis())) return;
         Demande d = MurRegles.lire(octets);
         if (d == null) return;
-        if (d.action() == Action.LACHE) lacheDuMod(p, d.corrections());
-        else if (aPermis) demander(p, d.action(), d.face());
+        Marche m = marches.get(id);
+        if (MurRegles.soumisACadence(d, m == null ? null : m.face(), m == null ? null : m.tenue.faceAvant())
+                && !cadences.computeIfAbsent(id, k -> new Cadence(CADENCE_MAX, 1000L)).passe(System.currentTimeMillis())) {
+            // une face nouvelle hors budget : le mod reste au bord au lieu d'attendre une seconde sa réponse
+            if (d.action() == Action.FACE && aPermis) envoyer(p, MurRegles.refus("Trop de demandes.", Action.FACE, d.n()));
+            return;
+        }
+        switch (d.action()) {
+            case LACHE -> lacheDuMod(p, d.corrections());
+            case ACCROCHE -> {
+                if (aPermis) demander(p, d.face(), d.n());
+            }
+            case FACE -> {
+                if (aPermis) changerDeFace(p, d.face(), d.n());
+            }
+        }
     }
 
     private void lacheDuMod(Player p, int corrections) {
@@ -398,26 +431,65 @@ public final class MurTest implements Listener, CommandExecutor, TabCompleter, P
         }
     }
 
-    /** Accroche, ou changement de face pour un joueur déjà au mur. Un refus au mur le fait redescendre (le mod aussi). */
-    private void demander(Player p, Action action, Face face) {
+    /**
+     * Accroche ({@code n} : le numéro de la demande, null s'il n'y en a pas). Un joueur déjà au mur qui redemande une
+     * accroche est jugé comme à l'étape C0 : même contrôle que la marche, et un refus le fait redescendre (le mod aussi).
+     */
+    private void demander(Player p, Face face, Integer n) {
         UUID id = p.getUniqueId();
         Compteurs c = compteurs(id);
         Marche m = marches.get(id);
-        String refus = m == null && action == Action.FACE ? "Tu n'es pas au mur." : refusEtat(p, m != null);
+        String refus = refusEtat(p, m != null);
         if (refus == null && !paroi(p, face, m != null, m != null && m.ticks <= TICKS_BASCULE)) refus = "Pas de mur plein derrière toi.";
         if (refus != null) {
             c.accrochesRefusees++;
             c.dernierRefus = refus;
-            envoyer(p, MurRegles.refus(refus));
+            envoyer(p, MurRegles.refus(refus, Action.ACCROCHE, n));
             lacher(p, Fin.SERVEUR, refus);
             return;
         }
         if (m != null) {
-            m.face = face;
-            diffuser(p, face);
+            m.tenue.poser(face);
+            diffuser(p, face, n);
             return;
         }
-        accrocher(p, face, c);
+        accrocher(p, face, c, n);
+    }
+
+    /**
+     * Changement de face à un coin, jugé par {@link MurRegles#jugerFace} : accepté vers une face voisine si le mur
+     * s'arrête devant le joueur sur un bloc d'angle dont cette face est pleine (coin sortant) ou si le mur de cette
+     * face est déjà derrière lui (coin rentrant). Un refus <b>ne fait pas tomber</b> : le joueur reste sur sa face, le
+     * mod reste au bord. Si quelque chose interdit vraiment le mur (KO, monture, état), c'est la tenue du tick qui
+     * lâche, avec sa raison. Redemander la face quittée après un accord est un changement comme un autre : le mur de
+     * cette face est encore derrière le joueur, le serveur y revient.
+     */
+    private void changerDeFace(Player p, Face face, Integer n) {
+        UUID id = p.getUniqueId();
+        Compteurs c = compteurs(id);
+        Marche m = marches.get(id);
+        if (m != null && m.face() == face) {
+            // la face demandée est déjà la sienne : le joueur annule un virage que le serveur avait refusé
+            envoyer(p, MurRegles.etat(p.getEntityId(), face, n));
+            return;
+        }
+        String refus = m == null ? "Tu n'es pas au mur." : refusEtat(p, true);
+        Virage virage = null;
+        if (refus == null) {
+            Location l = p.getLocation();
+            virage = MurRegles.jugerFace(lecteur(l.getWorld()), l.getX(), l.getY(), l.getZ(), m.face(), face,
+                    m.ticks <= TICKS_BASCULE);
+            refus = virage.jugement().refus;
+        }
+        if (refus != null) {
+            c.facesRefusees++;
+            c.dernierRefusFace = refus;
+            envoyer(p, MurRegles.refus(refus, Action.FACE, n));
+            return;
+        }
+        c.faces++;
+        m.tenue.tourner(face, virage.arete(), m.ticks);
+        diffuser(p, face, n);
     }
 
     /* ================================================================ validation */
@@ -485,10 +557,19 @@ public final class MurTest implements Listener, CommandExecutor, TabCompleter, P
         Location l = p.getLocation();
         LecteurBlocs blocs = lecteur(l.getWorld());
         double x = l.getX(), y = l.getY(), z = l.getZ();
-        if (auMur && !bascule) return MurRegles.murDerriere(blocs, x, y + MurRegles.HAUTEUR_CUBE, z, face, MurRegles.PORTEE_MARCHE);
-        double portee = auMur ? MurRegles.PORTEE_MARCHE : MurRegles.PORTEE_ACCROCHE;
-        return MurRegles.murDerriere(blocs, x, y + MurRegles.HAUTEUR_CUBE, z, face, portee)
-                || MurRegles.murDerriere(blocs, x, y + MurRegles.HAUTEUR_TORSE, z, face, portee);
+        if (auMur) return MurRegles.murDeMarche(blocs, x, y, z, face, bascule);
+        return MurRegles.murDerriere(blocs, x, y + MurRegles.HAUTEUR_CUBE, z, face, MurRegles.PORTEE_ACCROCHE)
+                || MurRegles.murDerriere(blocs, x, y + MurRegles.HAUTEUR_TORSE, z, face, MurRegles.PORTEE_ACCROCHE);
+    }
+
+    /**
+     * Le contrôle de paroi de la marche, toutes les {@value MurRegles#PERIODE_CONTROLE} ticks ({@link Tenue#tient}).
+     * Pendant la fenêtre de virage qui suit un changement de face accepté : le mur de l'ancienne face, celui de la
+     * nouvelle, ou le bloc d'angle. Hors de la fenêtre : la face courante seule.
+     */
+    private boolean tientLaParoi(Player p, Marche m) {
+        Location l = p.getLocation();
+        return m.tenue.tient(lecteur(l.getWorld()), l.getX(), l.getY(), l.getZ(), m.ticks, m.ticks <= TICKS_BASCULE);
     }
 
     /** Formes de collision du monde, sans jamais charger un chunk. */
@@ -506,7 +587,7 @@ public final class MurTest implements Listener, CommandExecutor, TabCompleter, P
 
     /* ================================================================ au mur */
 
-    private void accrocher(Player p, Face face, Compteurs c) {
+    private void accrocher(Player p, Face face, Compteurs c, Integer n) {
         UUID id = p.getUniqueId();
         // ce qui tenait encore le corps dans la Voie du Chakra s'efface : agrippement, onde au sol, dash
         if (mobility.climb().isClinging(p)) mobility.climb().clear(p);
@@ -524,13 +605,13 @@ public final class MurTest implements Listener, CommandExecutor, TabCompleter, P
             tenir(p, null);
         } catch (RuntimeException e) {
             plugin.getLogger().log(Level.WARNING, "[murtest] accroche de " + p.getName() + " impossible", e);
-            envoyer(p, MurRegles.refus("Erreur du serveur."));
+            envoyer(p, MurRegles.refus("Erreur du serveur.", Action.ACCROCHE, n));
             lacher(p, Fin.SERVEUR, "Erreur du serveur.");
             return;
         }
         debutSuivi();
         // la pose et la gravité sont posées : le mod peut lancer sa bascule, les voisins coucher la boîte
-        diffuser(p, face);
+        diffuser(p, face, n);
     }
 
     /**
@@ -570,7 +651,7 @@ public final class MurTest implements Listener, CommandExecutor, TabCompleter, P
             String fin = refusCorps(p);
             if (fin == null && m.ticks % MurRegles.PERIODE_CONTROLE == 0) {
                 fin = refusSysteme(p);
-                if (fin == null && !paroi(p, m.face, true, m.ticks <= TICKS_BASCULE)) fin = "Plus de mur plein derrière toi.";
+                if (fin == null && !tientLaParoi(p, m)) fin = "Plus de mur plein derrière toi.";
             }
             if (fin != null) {
                 lacher(p, Fin.SERVEUR, fin);
@@ -612,7 +693,7 @@ public final class MurTest implements Listener, CommandExecutor, TabCompleter, P
             // sans cela toute la mobilité du joueur resterait coupée jusqu'à sa déconnexion
             p.removeMetadata(META_MUR, plugin);
         }
-        diffuser(p, null);
+        diffuser(p, null, null);
         if (marches.isEmpty()) finSuivi();
     }
 
@@ -632,11 +713,17 @@ public final class MurTest implements Listener, CommandExecutor, TabCompleter, P
 
     /* ================================================================ envoi */
 
-    /** L'état du joueur, à lui-même (sa confirmation) et à tous ceux qui le voient. {@code face} null : il n'y est plus. */
-    private void diffuser(Player p, Face face) {
+    /**
+     * L'état du joueur, à lui-même (sa confirmation) et à tous ceux qui le voient. {@code face} null : il n'y est plus.
+     * {@code n} : le numéro de la demande qui a produit cet état, recopié dans l'exemplaire du joueur seulement (null :
+     * le serveur parle de lui-même). Les voisins ne le reçoivent jamais : pour eux, un nouvel état est un virage à jouer.
+     */
+    private void diffuser(Player p, Face face, Integer n) {
+        envoyer(p, MurRegles.etat(p.getEntityId(), face, n));
+        Collection<Player> voisins = p.getTrackedBy();
+        if (voisins.isEmpty()) return;
         byte[] message = MurRegles.etat(p.getEntityId(), face);
-        envoyer(p, message);
-        for (Player voisin : p.getTrackedBy()) envoyer(voisin, message);
+        for (Player voisin : voisins) envoyer(voisin, message);
     }
 
     private void envoyer(Player p, byte[] message) {
@@ -665,7 +752,7 @@ public final class MurTest implements Listener, CommandExecutor, TabCompleter, P
             Player voisin = e.getPlayer();
             plugin.getServer().getScheduler().runTask(plugin, () -> {
                 Marche m = marches.get(cible.getUniqueId());
-                if (m != null && cible.isOnline()) envoyer(voisin, MurRegles.etat(cible.getEntityId(), m.face));
+                if (m != null && cible.isOnline()) envoyer(voisin, MurRegles.etat(cible.getEntityId(), m.face()));
             });
         }
 
@@ -680,7 +767,7 @@ public final class MurTest implements Listener, CommandExecutor, TabCompleter, P
             for (Map.Entry<UUID, Marche> m : marches.entrySet()) {
                 Player cible = Bukkit.getPlayer(m.getKey());
                 if (cible == null || cible.equals(voisin) || !cible.getTrackedBy().contains(voisin)) continue;
-                envoyer(voisin, MurRegles.etat(cible.getEntityId(), m.getValue().face));
+                envoyer(voisin, MurRegles.etat(cible.getEntityId(), m.getValue().face()));
             }
         }
     }

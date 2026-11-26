@@ -16,16 +16,24 @@ import java.util.Map;
 import java.util.TreeSet;
 
 /**
- * Règles pures de l'essai de la marche sur les murs (lot 5, étape C0, {@link MurTest}) : aucune classe du serveur, tout
- * se teste sans lui ({@code MurReglesTest}).
+ * Règles pures de l'essai de la marche sur les murs (lot 5, étapes C0 et C1a, {@link MurTest}) : aucune classe du
+ * serveur, tout se teste sans lui ({@code MurReglesTest}).
  *
  * <ul>
  *   <li><b>Protocole</b> {@value #CANAL} (JSON UTF-8 brut, champ {@code v} = {@value #VERSION}, champs inconnus
  *       ignorés) : lecture des demandes du mod ({@link #lire}), écriture des trois messages du serveur
- *       ({@link #permis}, {@link #etat}, {@link #refus}) ;</li>
+ *       ({@link #permis}, {@link #etat}, {@link #refus}). Une demande peut porter un numéro {@code n}, recopié dans
+ *       la réponse faite au joueur ; un refus nomme l'action refusée (champ {@code a}) ;</li>
  *   <li><b>Faces</b> ({@link Face}) : la normale {@code n} de la paroi, cardinale, qui pointe du mur vers l'air ;</li>
  *   <li><b>Contrôle de paroi</b> ({@link #murDerriere}) : un bloc dont la face tournée vers le joueur est pleine se
  *       trouve à portée derrière lui, dans la direction {@code −n} ;</li>
+ *   <li><b>Coin sortant</b> ({@link #areteSortante}, {@link #arriveeSortant}, {@link #coinSortant}) : le mur A
+ *       s'arrête, le joueur tourne l'angle et passe sur la face B du même bloc d'angle. Le coin rentrant, lui, est
+ *       jugé par le contrôle de paroi (le mur B est déjà derrière le joueur) ;</li>
+ *   <li><b>Changement de face</b> ({@link #jugerFace}) : la réponse du serveur à une demande {@code face}, coin
+ *       rentrant, coin sortant ou refus ;</li>
+ *   <li><b>Fenêtre de virage</b> ({@link #murEnVirage}, {@link Tenue}) : pendant un virage, le mur peut être celui de
+ *       la face quittée, celui de la nouvelle, ou le bloc d'angle ;</li>
  *   <li><b>Paquets refusés</b> ({@link CompteurRefus}) : un paquet de déplacement refusé compte une fois, même quand
  *       le serveur lui donne deux raisons ;</li>
  *   <li><b>Bilan</b> ({@link Compteurs}) : les chiffres de l'essai, écrits pour quelqu'un qui n'est pas développeur.</li>
@@ -46,6 +54,19 @@ public final class MurRegles {
     public static final double HAUTEUR_CUBE = 0.3;
     /** Hauteur du torse d'un joueur debout : là où le cube se trouve une fois la bascule finie. */
     public static final double HAUTEUR_TORSE = 0.9;
+    /** Au mur, {@code P} (bas-centre du cube du serveur) se tient à cette distance de la surface. */
+    public static final double DISTANCE_PAROI = 0.9;
+    /** Demi-largeur du cube du serveur (0,6 de côté). */
+    public static final double DEMI_CUBE = 0.3;
+    /** Coin sortant : la fin du mur est cherchée à cette distance au plus devant {@code P}, dans le sens de marche. */
+    public static final double PORTEE_ARETE = 1.5;
+    /** Fenêtre de virage : le bloc d'angle compte comme mur tant qu'il est à cette distance au plus de {@code P}. */
+    public static final double PORTEE_ANGLE = 1.5;
+    /**
+     * Durée de la fenêtre de virage après un changement de face accepté (ticks) : l'accord met un trajet à arriver au
+     * mod, qui joue alors son virage (4 à 10 ticks) ; le serveur ne le voit qu'un trajet plus tard.
+     */
+    public static final int TICKS_VIRAGE = 30;
     /** Le serveur relit la paroi et l'état du joueur à cette période (ticks). */
     public static final int PERIODE_CONTROLE = 5;
     /** Un paquet refusé juste après le lâcher (le cube redevient debout) est encore compté au mur (ticks). */
@@ -87,17 +108,39 @@ public final class MurRegles {
                 default -> null;
             };
         }
+
+        /**
+         * Les deux faces voisines, celles vers lesquelles on tourne à un coin (normales perpendiculaires). Ni cette
+         * face, ni la face opposée.
+         */
+        public List<Face> voisines() {
+            return nx != 0 ? List.of(N, S) : List.of(E, W);
+        }
+
+        /** Cette face est-elle une voisine de l'autre (perpendiculaire) ? */
+        public boolean voisine(Face autre) {
+            return autre != null && (nx != 0) != (autre.nx != 0);
+        }
     }
 
     /* ================================================================ protocole, C → S */
 
-    public enum Action { ACCROCHE, FACE, LACHE }
+    public enum Action {
+        ACCROCHE("accroche"), FACE("face"), LACHE("lache");
+
+        /** Le mot du protocole : champ {@code a} d'une demande, et d'un refus. */
+        public final String code;
+
+        Action(String code) { this.code = code; }
+    }
 
     /**
      * Une demande du mod. {@code face} : pour {@link Action#ACCROCHE} et {@link Action#FACE} ; {@code corrections} :
-     * pour {@link Action#LACHE}, le nombre de corrections de position que le mod a reçues pendant la marche.
+     * pour {@link Action#LACHE}, le nombre de corrections de position que le mod a reçues pendant la marche ;
+     * {@code n} : le numéro que le mod a donné à sa demande (champ facultatif, null s'il manque ou n'est pas un
+     * entier), à recopier tel quel dans la réponse.
      */
-    public record Demande(Action action, Face face, int corrections) {}
+    public record Demande(Action action, Face face, int corrections, Integer n) {}
 
     /** Lit un message du mod ; null s'il est trop long, mal formé, d'une autre version ou sans face valable. */
     public static Demande lire(byte[] octets) {
@@ -115,11 +158,12 @@ public final class MurRegles {
             if (!entier(o, "v") || o.get("v").getAsInt() != VERSION) return null;
             String a = texte(o, "a");
             if (a == null) return null;
+            Integer n = entier(o, "n") ? o.get("n").getAsInt() : null;
             return switch (a) {
-                case "accroche" -> avecFace(Action.ACCROCHE, o);
-                case "face" -> avecFace(Action.FACE, o);
+                case "accroche" -> avecFace(Action.ACCROCHE, o, n);
+                case "face" -> avecFace(Action.FACE, o, n);
                 case "lache" -> new Demande(Action.LACHE, null,
-                        entier(o, "c") ? Math.max(0, Math.min(CORRECTIONS_MAX, o.get("c").getAsInt())) : 0);
+                        entier(o, "c") ? Math.max(0, Math.min(CORRECTIONS_MAX, o.get("c").getAsInt())) : 0, n);
                 default -> null;
             };
         } catch (RuntimeException e) {
@@ -127,9 +171,9 @@ public final class MurRegles {
         }
     }
 
-    private static Demande avecFace(Action action, JsonObject o) {
+    private static Demande avecFace(Action action, JsonObject o, Integer n) {
         Face f = Face.de(texte(o, "f"));
-        return f == null ? null : new Demande(action, f, 0);
+        return f == null ? null : new Demande(action, f, 0, n);
     }
 
     private static boolean entier(JsonObject o, String champ) {
@@ -155,16 +199,37 @@ public final class MurRegles {
 
     /** {@code {"v":1,"t":"etat","e":4182,"f":"E"}} : l'entité marche sur un mur de cette face ; null : elle n'y est plus. */
     public static byte[] etat(int entite, Face face) {
+        return etat(entite, face, null);
+    }
+
+    /**
+     * {@code {"v":1,"t":"etat","e":4182,"f":"N","n":13}} : l'exemplaire du joueur lui-même, quand cet état répond à
+     * sa demande numéro {@code n}. {@code n} null : même message que {@link #etat(int, Face)} (le serveur parle de
+     * lui-même, ou à un voisin).
+     */
+    public static byte[] etat(int entite, Face face, Integer n) {
         JsonObject o = base("etat");
         o.addProperty("e", entite);
         o.addProperty("f", face == null ? SANS_FACE : face.name());
+        if (n != null) o.addProperty("n", n);
         return octets(o);
     }
 
-    /** {@code {"v":1,"t":"refus","m":"…"}} : accroche ou changement de face refusé. */
+    /** {@code {"v":1,"t":"refus","m":"…"}} : refus sans action nommée, la forme de l'étape C0. */
     public static byte[] refus(String message) {
+        return refus(message, null, null);
+    }
+
+    /**
+     * {@code {"v":1,"t":"refus","m":"…","a":"face","n":13}} : {@code a} est l'action refusée ({@code accroche} : le
+     * joueur n'est pas ou n'est plus au mur ; {@code face} : il reste sur sa face), {@code n} le numéro de la demande.
+     * Les deux sont omis s'ils sont null.
+     */
+    public static byte[] refus(String message, Action action, Integer n) {
         JsonObject o = base("refus");
         o.addProperty("m", message == null ? "" : message);
+        if (action != null) o.addProperty("a", action.code);
+        if (n != null) o.addProperty("n", n);
         return octets(o);
     }
 
@@ -203,6 +268,17 @@ public final class MurRegles {
             if (facePleine(blocs.boites(b[0], y, b[1]), face)) return true;
         }
         return false;
+    }
+
+    /**
+     * Le contrôle de paroi d'un joueur déjà au mur, {@code P} en {@code (px, py, pz)} ({@code py} : la hauteur de
+     * {@code P} elle-même) : un mur plein de cette face à {@link #PORTEE_MARCHE} au plus derrière lui, lu à la hauteur
+     * du cube. {@code bascule} : la bascule du mod peut ne pas être encore arrivée au serveur, la hauteur du torse est
+     * acceptée aussi.
+     */
+    public static boolean murDeMarche(LecteurBlocs blocs, double px, double py, double pz, Face face, boolean bascule) {
+        return murDerriere(blocs, px, py + HAUTEUR_CUBE, pz, face, PORTEE_MARCHE)
+                || (bascule && murDerriere(blocs, px, py + HAUTEUR_TORSE, pz, face, PORTEE_MARCHE));
     }
 
     /**
@@ -274,6 +350,237 @@ public final class MurRegles {
     }
 
     private static double borne(double d) { return d < 0 ? 0 : d > 1 ? 1 : d; }
+
+    /* ================================================================ coin sortant */
+
+    /**
+     * L'arête verticale où le mur de la face A s'arrête : {@code (x, z)} est son point dans le plan horizontal (sur
+     * la surface de A, à la fin du mur dans le sens de marche) ; {@code (blocX, blocZ)} la colonne du <b>bloc
+     * d'angle</b>, le dernier bloc du mur, dont la face B fait le coin.
+     */
+    public record Arete(double x, double z, int blocX, int blocZ) {}
+
+    /**
+     * Cherche la fin du mur de la face {@code a} devant le joueur. On part de {@code (px, py, pz)} ({@code py} : la
+     * hauteur lue, comme pour {@link #murDerriere}) : le mur est la première colonne à face pleine derrière le point,
+     * à {@link #PORTEE_MARCHE} au plus ; on avance ensuite colonne par colonne dans le sens de marche {@code d} (une
+     * face voisine de {@code a} : sa normale est la direction) tant que le bloc suivant, à la même profondeur, a sa
+     * face {@code a} pleine. L'arête est le bord du dernier bloc plein.
+     *
+     * @return l'arête, ou null : {@code d} n'est pas voisine de {@code a}, pas de mur plein derrière le point, ou le
+     *         mur continue au-delà de {@link #PORTEE_ARETE} devant lui
+     */
+    public static Arete areteSortante(LecteurBlocs blocs, double px, double py, double pz, Face a, Face d) {
+        if (a == null || !a.voisine(d)) return null;
+        int y = (int) Math.floor(py);
+        int[] mur = null;
+        for (int[] b : blocsDerriere(px, pz, a, PORTEE_MARCHE)) {
+            if (facePleine(blocs.boites(b[0], y, b[1]), a)) {
+                mur = b;
+                break;
+            }
+        }
+        if (mur == null) return null;
+        boolean aSurX = a.nx != 0;
+        // le long de la normale de A : la profondeur du mur ; le long de d : la colonne où se tient le point
+        int profondeur = aSurX ? mur[0] : mur[1];
+        int c = aSurX ? mur[1] : mur[0];
+        double t = aSurX ? pz : px;
+        int sens = d.nx + d.nz;
+        while (true) {
+            double bord = sens > 0 ? c + 1 : c;
+            if ((bord - t) * sens > PORTEE_ARETE + EPS) return null;
+            int suivant = c + sens;
+            Collection<double[]> boites = aSurX ? blocs.boites(profondeur, y, suivant) : blocs.boites(suivant, y, profondeur);
+            if (!facePleine(boites, a)) {
+                double surface = a.nx + a.nz > 0 ? profondeur + 1 : profondeur;
+                return aSurX ? new Arete(surface, bord, profondeur, c) : new Arete(bord, surface, c, profondeur);
+            }
+            c = suivant;
+        }
+    }
+
+    /**
+     * Le point d'où part le virage d'un coin sortant : {@code arête − 0,3 d + 0,9 nA}. Le bord meneur du cube est à
+     * l'arête, {@code P} à {@link #DISTANCE_PAROI} de la face A. Rend {@code {x, z}} ; la hauteur ne change pas.
+     */
+    public static double[] departSortant(Arete arete, Face a, Face d) {
+        return new double[] {
+                arete.x() - DEMI_CUBE * d.nx + DISTANCE_PAROI * a.nx,
+                arete.z() - DEMI_CUBE * d.nz + DISTANCE_PAROI * a.nz};
+    }
+
+    /**
+     * Le point où finit le virage d'un coin sortant : {@code arête + 0,9 d − 0,3 nA}. {@code P} est à
+     * {@link #DISTANCE_PAROI} de la face B (dont la normale est {@code d}), le bord arrière du cube à l'arête. Rend
+     * {@code {x, z}} ; la hauteur ne change pas.
+     */
+    public static double[] arriveeSortant(Arete arete, Face a, Face d) {
+        return new double[] {
+                arete.x() + DISTANCE_PAROI * d.nx - DEMI_CUBE * a.nx,
+                arete.z() + DISTANCE_PAROI * d.nz - DEMI_CUBE * a.nz};
+    }
+
+    /**
+     * Le coin sortant de la face {@code a} vers la face {@code b}, pour un joueur dont {@code P} est en
+     * {@code (px, py, pz)} ({@code py} : la hauteur de {@code P} elle-même). Il faut l'arête ({@link #areteSortante},
+     * sens de marche = normale de {@code b}) et, depuis l'arrivée prédite ({@link #arriveeSortant}), un mur plein de
+     * face {@code b} derrière le joueur : la face B du bloc d'angle. Les deux sont lus à la hauteur du cube, puis à
+     * celle du torse si elle tombe dans un autre rang de blocs.
+     *
+     * @return l'arête du coin, ou null s'il n'y a pas de coin sortant valable
+     */
+    public static Arete coinSortant(LecteurBlocs blocs, double px, double py, double pz, Face a, Face b) {
+        if (a == null || !a.voisine(b)) return null;
+        for (double hauteur : hauteurs(py)) {
+            Arete arete = areteSortante(blocs, px, hauteur, pz, a, b);
+            if (arete == null) continue;
+            double[] arrivee = arriveeSortant(arete, a, b);
+            if (murDerriere(blocs, arrivee[0], hauteur, arrivee[1], b, PORTEE_MARCHE)) return arete;
+        }
+        return null;
+    }
+
+    /** Un coin sortant valable existe-t-il de la face {@code a} vers la face {@code b} ? Voir {@link #coinSortant}. */
+    public static boolean coinSortantValide(LecteurBlocs blocs, double px, double py, double pz, Face a, Face b) {
+        return coinSortant(blocs, px, py, pz, a, b) != null;
+    }
+
+    /** Les hauteurs à lire pour un {@code P} à cette hauteur : le cube, puis le torse s'il est dans un autre rang. */
+    private static double[] hauteurs(double py) {
+        double cube = py + HAUTEUR_CUBE, torse = py + HAUTEUR_TORSE;
+        return Math.floor(cube) == Math.floor(torse) ? new double[] {cube} : new double[] {cube, torse};
+    }
+
+    /* ================================================================ changement de face */
+
+    /** Ce que le serveur décide d'une demande de changement de face ({@link #jugerFace}). */
+    public enum Jugement {
+        /** La face demandée est déjà celle du joueur : simple accusé de réception (il annule un virage refusé). */
+        MEME_FACE(null),
+        /** Le mur s'arrête devant le joueur et la face voisine du bloc d'angle est pleine. */
+        COIN_SORTANT(null),
+        /** Le mur de la nouvelle face est déjà derrière le joueur. */
+        COIN_RENTRANT(null),
+        /** La face demandée est la face opposée : on ne passe d'un mur à l'autre que par un angle. */
+        PAS_VOISINE("Cette face n'est pas voisine."),
+        /** Ni mur de la nouvelle face derrière le joueur, ni angle à tourner devant lui. */
+        PAS_DE_MUR("Pas de mur plein derrière cet angle.");
+
+        /** Le texte du refus envoyé au joueur ; null quand la demande est acceptée. */
+        public final String refus;
+
+        Jugement(String refus) { this.refus = refus; }
+
+        public boolean accepte() { return refus == null; }
+    }
+
+    /** Le jugement d'une demande de changement de face et, pour un coin sortant, son arête (null sinon). */
+    public record Virage(Jugement jugement, Arete arete) {}
+
+    /**
+     * Juge la demande {@code face} d'un joueur au mur sur la face {@code courante}, {@code P} en {@code (px, py, pz)}
+     * ({@code py} : la hauteur de {@code P} elle-même). Dans l'ordre : la face qu'il tient déjà n'est qu'un accusé ; la
+     * face demandée doit être voisine ; <b>coin sortant</b> si {@link #coinSortant} trouve l'angle ; <b>coin
+     * rentrant</b> si le mur de la face demandée est déjà derrière lui ({@link #murDeMarche}, {@code bascule} compris) ;
+     * sinon refus. Un coin qui est les deux à la fois (ruelle étroite) est rendu sortant : son bloc d'angle est gardé
+     * pour la fenêtre de virage.
+     */
+    public static Virage jugerFace(LecteurBlocs blocs, double px, double py, double pz,
+                                   Face courante, Face demandee, boolean bascule) {
+        if (courante != null && courante == demandee) return new Virage(Jugement.MEME_FACE, null);
+        if (courante == null || !courante.voisine(demandee)) return new Virage(Jugement.PAS_VOISINE, null);
+        Arete arete = coinSortant(blocs, px, py, pz, courante, demandee);
+        if (arete != null) return new Virage(Jugement.COIN_SORTANT, arete);
+        if (murDeMarche(blocs, px, py, pz, demandee, bascule)) return new Virage(Jugement.COIN_RENTRANT, null);
+        return new Virage(Jugement.PAS_DE_MUR, null);
+    }
+
+    /* ================================================================ fenêtre de virage */
+
+    /**
+     * Le contrôle de paroi pendant la fenêtre de virage ({@link #TICKS_VIRAGE}) : le joueur vient de changer de face
+     * et le serveur ne sait pas où en est son virage. Vrai si un mur plein est derrière lui selon la nouvelle face ou
+     * l'ancienne ({@link #murDerriere}, portée {@link #PORTEE_MARCHE}), ou si le bloc d'angle du coin sortant
+     * ({@code angle} : sa colonne {@code {x, z}}, null s'il n'y en a pas) est à {@link #PORTEE_ANGLE} au plus de
+     * {@code P} dans le plan horizontal et garde l'une des deux faces pleine. Tout est lu à la hauteur du cube, puis à
+     * celle du torse. {@code py} : la hauteur de {@code P}.
+     */
+    public static boolean murEnVirage(LecteurBlocs blocs, double px, double py, double pz,
+                                      Face ancienne, Face nouvelle, int[] angle) {
+        double[] hauteurs = hauteurs(py);
+        for (double hauteur : hauteurs) {
+            if (murDerriere(blocs, px, hauteur, pz, nouvelle, PORTEE_MARCHE)) return true;
+        }
+        if (ancienne != null) {
+            for (double hauteur : hauteurs) {
+                if (murDerriere(blocs, px, hauteur, pz, ancienne, PORTEE_MARCHE)) return true;
+            }
+        }
+        if (angle == null || angle.length < 2 || distanceColonne(px, pz, angle[0], angle[1]) > PORTEE_ANGLE + EPS) return false;
+        for (double hauteur : hauteurs) {
+            Collection<double[]> boites = blocs.boites(angle[0], (int) Math.floor(hauteur), angle[1]);
+            if (facePleine(boites, nouvelle) || (ancienne != null && facePleine(boites, ancienne))) return true;
+        }
+        return false;
+    }
+
+    /** Distance horizontale d'un point à la colonne de blocs {@code (bx, bz)} ; 0 s'il est dedans. */
+    public static double distanceColonne(double px, double pz, int bx, int bz) {
+        double dx = Math.max(0, Math.max(bx - px, px - (bx + 1)));
+        double dz = Math.max(0, Math.max(bz - pz, pz - (bz + 1)));
+        return Math.hypot(dx, dz);
+    }
+
+    /**
+     * La face que tient un marcheur et sa fenêtre de virage : ce que le contrôle de paroi doit trouver derrière lui à
+     * un tick donné de sa marche. Hors de la fenêtre, le mur de sa face ({@link #murDeMarche}) ; pendant les
+     * {@link #TICKS_VIRAGE} ticks qui suivent un changement de face accepté, {@link #murEnVirage}.
+     */
+    public static final class Tenue {
+        private Face face;
+        /** La face quittée au dernier changement de face ; null tant qu'il n'y en a pas eu. */
+        private Face faceAvant;
+        /** Dernier tick de la marche couvert par la fenêtre de virage ; −1 : aucune fenêtre ouverte. */
+        private int finVirage = -1;
+        /** Colonne {@code {x, z}} du bloc d'angle du dernier coin sortant ; null pour un coin rentrant. */
+        private int[] angle;
+
+        public Tenue(Face face) { this.face = face; }
+
+        public Face face() { return face; }
+
+        /** La face quittée au dernier changement de face ; null s'il n'y en a pas eu. */
+        public Face faceAvant() { return faceAvant; }
+
+        /** Une accroche redemandée au mur : cette face seule, plus de fenêtre de virage. */
+        public void poser(Face face) {
+            this.face = face;
+            faceAvant = null;
+            finVirage = -1;
+            angle = null;
+        }
+
+        /**
+         * Un changement de face accepté au tick {@code tick} de la marche : la fenêtre de virage s'ouvre.
+         * {@code arete} : celle du coin sortant, null pour un coin rentrant.
+         */
+        public void tourner(Face nouvelle, Arete arete, int tick) {
+            faceAvant = face;
+            face = nouvelle;
+            finVirage = tick + TICKS_VIRAGE;
+            angle = arete == null ? null : new int[] {arete.blocX(), arete.blocZ()};
+        }
+
+        /** La fenêtre de virage est-elle ouverte à ce tick de la marche ? */
+        public boolean enVirage(int tick) { return tick <= finVirage; }
+
+        /** Le contrôle de paroi à ce tick : {@code P} en {@code (px, py, pz)}, {@code bascule} comme {@link #murDeMarche}. */
+        public boolean tient(LecteurBlocs blocs, double px, double py, double pz, int tick, boolean bascule) {
+            if (!enVirage(tick)) return murDeMarche(blocs, px, py, pz, face, bascule);
+            return murEnVirage(blocs, px, py, pz, faceAvant, face, angle);
+        }
+    }
 
     /* ================================================================ paquets refusés */
 
@@ -349,7 +656,10 @@ public final class MurRegles {
 
     /* ================================================================ cadence des messages */
 
-    /** Au plus {@code max} messages par fenêtre glissante : au-delà, le message n'est pas lu. */
+    /**
+     * Au plus {@code max} messages par fenêtre glissante : au-delà, le message est sans effet. Seuls y passent ceux que
+     * {@link #soumisACadence} désigne.
+     */
     public static final class Cadence {
         private final int max;
         private final long fenetreMs;
@@ -368,6 +678,18 @@ public final class MurRegles {
         }
     }
 
+    /**
+     * Cette demande passe-t-elle par la {@link Cadence} ? Seules y passent celles qui peuvent créer un état : une
+     * accroche, ou une face nouvelle. Un {@code lache} ne fait que rendre le corps, et un retour à la face courante ou à
+     * la face quittée ({@code avant}) annule un virage : les jeter laisserait le serveur et le mod en désaccord, rien ne
+     * les recale ensuite. {@code courante} : la face tenue par le serveur, null si le joueur n'est pas au mur.
+     */
+    public static boolean soumisACadence(Demande d, Face courante, Face avant) {
+        if (d.action() == Action.LACHE) return false;
+        if (d.action() == Action.FACE && courante != null && (d.face() == courante || d.face() == avant)) return false;
+        return true;
+    }
+
     /* ================================================================ bilan */
 
     /**
@@ -376,8 +698,12 @@ public final class MurRegles {
      */
     public static final class Compteurs {
         public int accroches, accrochesRefusees;
-        /** Dernière raison d'un refus d'accroche ou de changement de face. */
+        /** Dernière raison d'un refus d'accroche. */
         public String dernierRefus;
+        /** Changements de face (coins) acceptés et refusés ; un refus laisse le joueur sur sa face. */
+        public int faces, facesRefusees;
+        /** Dernière raison d'un refus de changement de face. */
+        public String dernierRefusFace;
         /** Lâchers décidés par le serveur (plus de mur, état refusé, KO, téléportation…), et la dernière raison. */
         public int lachersServeur;
         public String dernierLacher;
@@ -447,6 +773,9 @@ public final class MurRegles {
             l.add("Accroches acceptées : " + accroches);
             l.add("Accroches refusées : " + accrochesRefusees);
             if (dernierRefus != null) l.add("Dernier refus : " + dernierRefus);
+            l.add("Changements de face acceptés : " + faces);
+            l.add("Changements de face refusés : " + facesRefusees);
+            if (dernierRefusFace != null) l.add("Dernier refus de face : " + dernierRefusFace);
             l.add("Temps passé au mur : " + duree(temps));
             l.add("Expulsions du serveur pendant le mur : " + expulsions);
             if (derniereExpulsion != null) l.add("Dernière expulsion : " + derniereExpulsion);

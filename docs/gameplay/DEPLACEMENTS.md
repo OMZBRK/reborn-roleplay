@@ -5,8 +5,9 @@
 > **Saut chargé** (lot 5, étape A, 09/11) : §11, codé, **non publié** (`reborn-hud` 0.4.202, ShinobiCombat, ShinobiAbilities).
 > **Byakugan** (lot 5, étape B, 09/11) : §12, codé, **non publié** (`reborn-hud` 0.4.202, ShinobiCore). Ce n'est pas un
 > déplacement, mais il appartient au même lot « Mobilité ».
-> **Marche sur les murs, essai technique** (lot 5, étape C0, 24/11) : §13, codé, **non publié** (`reborn-hud` 0.4.207,
-> ShinobiAbilities). Éteint par défaut, réservé au staff (`/murtest`).
+> **Marche sur les murs, essai technique** (lot 5) : §13. Étape C0 publiée le 24/11 (`reborn-hud` 0.4.207,
+> ShinobiAbilities) et validée en jeu ; étape C1a (caméra de paroi, passage de mur en mur) le 26/11 (`reborn-hud`
+> 0.4.208, ShinobiAbilities). Éteint par défaut, réservé au staff (`/murtest`).
 > Elle décrit **ce qui est codé**. Décision : GAMEPLAN §7 et [`../pilotage/DECISIONS.md`](../pilotage/DECISIONS.md)
 > (14/10). Référence : RedLine *Player movements* (marche par défaut, jogging sur Shift maintenu, sprint sur double
 > Shift avec une barre qui n'apparaît qu'en sprint, ~5 s). Captures (hors dépôt) : `Maquettes/gameplan/05_deplacements/`.
@@ -396,32 +397,64 @@ et plafonnait à 33 blocs de haut.
 9. FPS relevés sans et avec, sur le portable (`REBORN_FPS_DEBUG=hud` n'en tient pas compte : comparer à la main).
 ---
 
-## 13. Marche sur les murs : essai technique (lot 5, étape C0, 24/11)
+## 13. Marche sur les murs : essai technique (lot 5, étape C0, 24/11 ; étape C1a, 26/11)
 
-> Codé le 24/11, **non publié** (`reborn-hud` 0.4.207, ShinobiAbilities). Ce n'est **pas** la fonctionnalité : c'est un
-> essai, éteint par défaut, qui sert à prouver l'approche sur le vrai serveur avant d'écrire les murs pour de bon.
+> **Essai C0** : publié le 24/11 (`reborn-hud` 0.4.207, ShinobiAbilities) et **validé en jeu** le même jour (« J'ai fait les
+> trucs et ça marche bien ») : le corps à 90° avec sa boîte couchée tient sur le vrai serveur, l'approche est retenue.
+> **Étape C1a** (26/11, `reborn-hud` 0.4.208, ShinobiAbilities) : les deux demandes du 24/11, une meilleure caméra et le
+> passage de mur en mur. Caméra « suit la paroi » choisie le 25/11. Déploiement dans un ordre précis : §13.4.
+> Ce n'est toujours **pas** la fonctionnalité : l'accès reste `/murtest on`, réservé au staff, pour soi.
 > Demande du 08/11 : « la hitbox doit suivre le joueur sur le mur, il doit bien voir, et ça doit vraiment bien marcher ».
 > Étude et cadrage (hors dépôt) : `Maquettes/gameplan/17_lot5_mobilite/_etude_murs_saut_v2.md`, `CADRAGE.md` §5.3.
 > Protocole et commande : [`../technique/PLUGINS_REFERENCE.md`](../technique/PLUGINS_REFERENCE.md) §5.1 ter ; mod :
-> [`../technique/MOD_HUD.md`](../technique/MOD_HUD.md) §1 septies.
+> [`../technique/MOD_HUD.md`](../technique/MOD_HUD.md) §1 septies. Décisions : [`../pilotage/DECISIONS.md`](../pilotage/DECISIONS.md)
+> (24/11 et 25/11).
 
 ### 13.1 Ce que l'essai fait
 
 - **Éteint pour tout le monde.** Un membre du staff tape `/murtest on` : lui seul peut alors s'accrocher. Aucun joueur ne
-  peut l'activer, et sans permis ni le mod ni le serveur ne font quoi que ce soit.
-- **S'accrocher** : pousser trois ticks contre un mur plat de blocs pleins. Le serveur valide, puis le corps bascule en
-  0,3 s : **pieds sur la paroi, corps à 90°, tête vers l'air**.
-- **Marcher** : Z Q S D relatifs à la caméra, 3,2 blocs/s, 5,6 avec la touche de sprint. On s'arrête pile au bord du mur
-  et sous un obstacle ; en descendant à moins d'un bloc du sol, on se relève tout seul.
+  peut l'activer, et sans permis ni le mod ni le serveur ne font quoi que ce soit. C1a ne change rien pour un joueur sans
+  permis.
+- **S'accrocher** : pousser trois ticks contre un mur dont la face tournée vers soi est pleine (la règle du serveur, que
+  le mod suit aussi depuis C1a ; en C0 il exigeait un bloc entier). Le serveur valide, puis le corps bascule en 0,3 s :
+  **pieds sur la paroi, corps à 90°, tête vers l'air**.
+- **Marcher** (C1a) : Z Q S D comme au sol, dans le repère de la paroi. Avant = la visée de la caméra projetée sur le mur.
+  Plus de crans ni de base figée : 10° de souris donnent 10° de cap. 3,2 blocs/s, 5,6 avec la touche de sprint. On
+  s'arrête pile au bord du mur et sous un obstacle.
+- **Passer de mur en mur** (C1a) : on pousse 2 ticks contre une limite, dans la direction voulue ; la limite choisit le
+  passage. Le cap est gardé : aller à droite reste aller à droite, monter reste monter.
+
+  | Passage | Quand | Ce qu'on voit | Durée |
+  |---|---|---|---|
+  | **Coin rentrant** | un mur perpendiculaire barre la marche | le corps passe sur ce mur | 4 ticks |
+  | **Coin sortant** | le mur s'arrête, l'autre face du bloc d'angle est pleine | le corps tourne l'angle sur un arc de 1,2 | 10 ticks à la marche, 7 en course |
+  | **Sommet** | la montée bute sur la fin du mur, un corps debout tient sur le toit | on monte de 0,6 puis on avance de 1,2 : debout, face au toit, 0,3 derrière l'arête | 6 ticks |
+  | **Pied** | le sol est à moins d'un bloc sous le corps en descendant | on se pose au sol à 0,9 du mur, dos au mur | 4 à 6 ticks |
+
+  Le serveur valide chaque coin. Un coin refusé **ne fait plus tomber** : on reste au bord, au mur, et il faut repousser.
+  Sans réponse en une seconde, ou touche relâchée avant le départ, le coin est abandonné. Sous un auvent, le sommet n'est
+  pas tenté : on reste au bord.
 - **Lâcher** : Espace, ou la touche de course de chakra (X). Le serveur lâche de lui-même s'il n'y a plus de mur, au KO,
   à la mort, à une téléportation, si l'état du joueur refuse la mobilité (étourdi, douleur, mode staff).
-- **Boîte de collision** : couchée avec le corps (1,75 × 0,6 × 0,6) chez tous les joueurs qui ont le mod. Le serveur, lui,
-  tient un cube de 0,6 au milieu du corps (pose de nage fixée, gravité nulle).
-- **Caméra** : pas de roulis ; épaule côté air, recul de 5 blocs, un seul glissement à l'accroche ; la 1re personne passe
-  en épaule le temps du mur. Dos au mur, notre corps s'efface de notre écran pour dégager la vue.
-- **Hors essai** : ni chakra, ni déblocage, ni HUD, ni coin (rentrant ou sortant), ni sommet, ni plafond.
+- **Boîte de collision** : couchée avec le corps (1,75 × 0,6 × 0,6) chez tous les joueurs qui ont le mod. Pendant un
+  virage, c'est le cube de 0,6. Le serveur, lui, tient un cube de 0,6 au milieu du corps (pose de nage fixée, gravité
+  nulle).
+- **Caméra** (C1a) : **la paroi devient le sol**. Le haut de l'écran suit la normale du mur (roulis compris) ; la souris
+  tourne et incline la vue comme au sol. Entrée, sortie et coins tournent la vue en douceur, à 100° par seconde au plus :
+  un quart de tour dure environ une seconde. Distance, épaule et hauteur sont celles de la caméra d'épaule du joueur. Plus
+  de recul imposé, d'épaule côté air ni de corps effacé. La 1re personne passe en épaule le temps du mur, puis revient.
+- **Réglage** « Caméra sur les murs » (Paramètres › Interface › Caméra) : « Suit la paroi » (défaut) ou « Droite ». « Droite » garde
+  la vue d'aplomb, corps couché en travers de l'écran, avec des touches fixes : Z monte, S descend, Q et D vont à gauche
+  et à droite de l'écran.
+- **Tête** : elle suit le regard, bornée à 80° de côté et 75° en hauteur. Les autres joueurs voient le corps tourner aux
+  coins, à 20° par tick au plus.
+- **Hors essai** : ni chakra, ni déblocage, ni HUD, ni plafond, ni bond d'un mur vers un autre mur visé. L'étape C1b, après
+  l'avis du propriétaire sur la caméra, apportera le déblocage par la mobilité, le chakra, la course exigée, la chute sur
+  coup reçu, le contrôle de vitesse du serveur, les sons, le cercle de pas, la pose d'attente et le HUD.
 
-### 13.2 Ce que l'essai doit prouver (les 8 essais de l'étude §5)
+### 13.2 Ce que l'essai doit prouver
+
+**C0, les 8 essais de l'étude §5** (validés en jeu le 24/11 : l'approche est retenue) :
 
 | N° | Essai | Réussi si |
 |---|---|---|
@@ -434,20 +467,63 @@ et plafonnait à 33 blocs de haut.
 | 7 | Six cadrages (accroche, monter, descendre, de côté, le long, dos au mur) | on voit où l'on va |
 | 8 | Nom et bulle, KO sur le mur, FPS | nom au-dessus de la tête, KO propre, pas de chute de FPS |
 
-**Les essais 1, 4 et 5 décident** : s'ils passent, les murs s'écrivent sur cette approche (étape C1). Si le 1 ou le 5
-échoue, on revient à une pose penchée, à présenter au propriétaire. L'essai 6 est à son appréciation.
+**C1a** : on sait toujours où va Z ; les coins, le sommet et le pied passent sans chute ; le second compte voit le corps
+tourner aux angles avec la boîte sur le corps ; après deux minutes de coins, `/murtest bilan` lit 0 expulsion et 0 paquet
+refusé. La recette est au §13.5.
 
 ### 13.3 Ce qui est vérifié, ce qui ne l'est pas
 
-- **Banc `REBORN_MUR_SPIKE=1`** (monde solo, serveur simulé au format du canal) : boîte couchée sur les quatre faces et
-  qui contient le cube du serveur, pose tenue, distance à la paroi, vitesses mesurées (3,200 et 5,600 blocs/s), arrêts au
-  bord et sous un obstacle, sorties, formats des messages, rien d'envoyé sans permis, abandon après une seconde sans
-  réponse, écho d'un lâcher précédent pendant une nouvelle demande, sortie avec la touche d'avance tenue. Neuf captures.
-- **Tests du plugin** (`MurReglesTest`, 21) : lecture des messages, faces, contrôle de paroi, « un paquet refusé compte une
-  fois », lignes du bilan.
-- **Jamais vérifié** : tout ce qui demande le vrai serveur. Le solo saute les contrôles de déplacement et son serveur
-  garde un corps debout : il ne prouve ni l'essai 1 ni l'essai 2. Les deux moitiés n'ont jamais dialogué pour de vrai.
-- **Limites connues** : `allow-flight` du serveur à lire avant l'essai 1 (à `true`, « 0 expulsion » ne prouve rien) ;
-  court flottement possible à la sortie avec de la latence ; hors champ, nom et bulle sont placés comme pour un corps
-  debout ; l'ombre au sol n'est pas retirée ; les modpacks qui cachent les entités d'après leur boîte (EntityCulling)
-  n'ont pas été vus avec un corps couché.
+- **Banc `REBORN_MUR_SPIKE=1`** (monde solo, serveur simulé au format du canal). Contrôles de C0 : boîte couchée sur les
+  quatre faces et qui contient le cube du serveur, pose tenue, distance à la paroi, vitesses (3,200 et 5,600 blocs/s),
+  arrêts au bord et sous un obstacle, sorties, formats des messages, rien d'envoyé sans permis, abandon après une seconde
+  sans réponse, écho d'un lâcher précédent. Ajouts de C1a :
+  - caméra : haut de l'écran = normale du mur, 85° atteints en 1,01 s, au plus 100,4° par seconde, retour au monde en
+    1,36 s sans saut (gel de 0,4 s compris), cadrage du joueur rendu, séisme au mur sans perte du roulis, « Droite » sans
+    roulis avec ses touches fixes, 1re personne rendue ;
+  - passages : `P` à 0,9000 de la nouvelle paroi après chaque coin, cap gardé, deux coins enchaînés, tour complet d'un
+    tronc de 1 × 1 en 4 messages, refus de face (toujours au mur), annulation, abandon, sommet (sur le toit, face au toit),
+    auvent (arrêt), pied (au sol à 0,900, dos au mur, aussi en visant le haut du mur), un seul `lache` par sortie ;
+  - virage vu d'un voisin : 20° par tick au plus, cube pendant le virage.
+
+  Deux passes de suite à « FIN (0 échec(s)) », 146 contrôles. 32 captures (`mur_cam_*`, `mur_coin_*`, `mur_sommet`,
+  `mur_pied`, `mur_pied_haut`, et les 9 de C0).
+- **Tests du plugin** (`MurReglesTest`, 45, contre 21 en C0) : lecture des messages et des numéros, faces voisines, arête
+  du coin sortant, coin rentrant et sortant sur les 4 faces, coordonnées négatives, tronc de 1 × 1, mur d'un bloc
+  d'épaisseur, absence de bloc d'angle, fenêtre de virage, tri de la cadence, lignes du bilan.
+- **Jamais vérifié** : C1a contre le vrai serveur. Le banc ne parle qu'à un serveur simulé, et le solo garde un corps
+  debout. Ni les coins avec de la latence, ni le sommet face au contrôle de déplacement de Paper, ni le virage vu d'un
+  second compte n'ont tourné pour de vrai.
+- **Limites connues** :
+  - les autres joueurs voient le corps tourner un peu **avant** que le marcheur bouge (le serveur annonce la nouvelle
+    face dès l'accord) ; un coin annulé après l'accord leur montre un aller-retour du corps ;
+  - dans le creux d'un coin rentrant, la caméra est collée au corps le temps du virage (anti-obstacle de l'épaule) ;
+    au pied du mur en visant le haut, elle bute sur le sol jusqu'au premier bloc de montée ;
+  - un nom sur deux lignes (nom et « NPC » d'un mannequin) se chevauche sous le roulis ; un nom d'une ligne reste lisible ;
+  - au pied, le roulis ne se défait qu'une fois debout : environ une seconde de vue encore penchée ;
+  - coins enchaînés avec beaucoup de latence : le serveur peut juger depuis une position en retard et refuser ; on reste
+    au bord, il faut repousser ;
+  - au sommet, le serveur rend la gravité dès le début de la sortie : surveiller « Paquets de déplacement refusés au mur »
+    dans `/murtest bilan` ;
+  - plafonds absents ; la caméra « Droite » aux coins n'est pas couverte par le banc ;
+  - comme en C0 : hors champ, nom et bulle sont placés comme pour un corps debout ; l'ombre au sol n'est pas retirée ;
+    les modpacks qui cachent les entités d'après leur boîte (EntityCulling) n'ont pas été vus avec un corps couché.
+- **Tout reste réservé au staff** par `/murtest on`.
+
+### 13.4 Déploiement
+
+**ShinobiAbilities d'abord**, puis redémarrage du serveur (par le propriétaire), **avant** d'essayer le mod 0.4.208. Un mod
+C1a face au plugin C0 lâche le joueur à chaque coin. Au coin rentrant, le plugin C0 accepte la face mais renvoie un `etat`
+sans numéro : le mod n'y voit pas d'accord et lâche (« face imprévue »). Au coin sortant, le plugin C0 refuse sans `a` et
+lâche. On prendrait ces chutes pour un défaut de C1a. Le plugin C1a face au mod 0.4.207 ne gêne pas : ce mod n'émet pas
+`face` et ignore les champs nouveaux.
+
+### 13.5 Recette en jeu (C1a)
+
+1. `/murtest on`, s'accrocher à un mur. Monter, longer, descendre : Z va toujours là où l'on regarde sur la paroi.
+2. Angle rentrant d'une ruelle, angle sortant d'une maison, pilier de 1 × 1 : on tourne sans tomber.
+3. Monter jusqu'au toit : on se retrouve debout sur le toit. Sous un auvent : arrêt au bord.
+4. Descendre jusqu'au sol : on se pose debout, dos au mur.
+5. Paramètres › Interface › Caméra › « Caméra sur les murs » = « Droite » : vue d'aplomb, Z monte, D va à droite de l'écran.
+6. Second compte : le corps tourne aux angles, F3 + B montre la boîte sur le corps.
+7. Après deux minutes de coins, `/murtest bilan` : 0 expulsion, 0 paquet refusé. Lire aussi « Changements de face
+   refusés » et « Dernier refus de face ».

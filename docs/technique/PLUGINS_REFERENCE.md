@@ -1929,12 +1929,16 @@ arrête le corps plus tôt, jamais plus loin. À 96 blocs on reste sous la dista
 le banc local). **Non vérifié sur le dev** :
 `view-distance`, `simulation-distance`, `prevent-moving-into-unloaded-chunks`, plafond de chargement de chunks.
 
-### 5.1 ter Marche sur les murs, essai technique : `/murtest` et canal `reborn:mur` (lot 5, étape C0, 24/11)
+### 5.1 ter Marche sur les murs, essai technique : `/murtest` et canal `reborn:mur` (lot 5, étape C0, 24/11 ; étape C1a, 26/11)
 
 Code : `ShinobiAbilities/…/mobility/MurTest` (commande, canal, tenue au mur, retraits, mesures) et `MurRegles` (règles
-pures, testées : `MurReglesTest`, 21 tests, les premiers du module ; JUnit 5.10.2 et surefire 3.2.5 ajoutés au `pom.xml`).
+pures, testées : `MurReglesTest`, 45 tests, 21 en C0 ; JUnit 5.10.2 et surefire 3.2.5 dans le `pom.xml`).
 Fiche : [`../gameplay/DEPLACEMENTS.md`](../gameplay/DEPLACEMENTS.md) §13. Mod : [`MOD_HUD.md`](./MOD_HUD.md) §1 septies.
 **Essai, pas fonctionnalité** : aucune clé de `config.yml`, ni chakra, ni déblocage, rien dans ShinobiCore ni ShinobiCombat.
+C1a (changements de face aux coins) ne touche ni `plugin.yml`, ni `/murtest`, ni la configuration.
+
+**Déploiement C1a** : ShinobiAbilities d'abord et redémarrage du serveur, **avant** le mod 0.4.208. Face au plugin C0, ce
+mod lâche le joueur à chaque coin (un `etat` sans `n` n'est pas un accord pour lui).
 
 **Inerte éteint.** Tant qu'aucun membre du staff n'a tapé `/murtest on`, le module n'a ni écouteur ni tâche : seuls la
 commande et le canal sont déclarés, et un message d'un joueur sans permis est jeté à la première ligne. Les écouteurs sont
@@ -1955,46 +1959,87 @@ Journal `STAFF` : `MURTEST_ON`, `MURTEST_OFF`, `MURTEST_FILET_ON`, `MURTEST_FILE
 par le serveur : <raison> ». Permis et filet tombent à la déconnexion ; les compteurs restent en mémoire jusqu'à `raz` ou
 au redémarrage (une expulsion se lit après s'être reconnecté).
 
-**Canal `reborn:mur`** (JSON UTF-8 brut, `v` = 1, champs inconnus ignorés ; 256 octets et 20 messages par seconde au plus) :
+**Canal `reborn:mur`** (JSON UTF-8 brut, toujours `v` = 1, champs inconnus ignorés des deux côtés ; 256 octets au plus ;
+cadence plus bas) :
 
 | Sens | Message | Effet |
 |---|---|---|
 | S → C | `{"v":1,"t":"permis","on":true}` | Le joueur peut s'accrocher. `false` : interdit, et il lâche tout de suite |
-| S → C | `{"v":1,"t":"etat","e":<entityId>,"f":"N\|S\|E\|W\|-"}` | L'entité marche sur un mur de face `f` (sens de la normale ; `E` : le mur est à l'ouest). `-` : elle n'y est plus. Au joueur (sa confirmation), à `getTrackedBy()`, à qui se met à le voir (1 tick après `PlayerTrackEntityEvent`) et à qui annonce le canal après coup (`PlayerRegisterChannelEvent`, connexion en pleine marche) |
-| S → C | `{"v":1,"t":"refus","m":"…"}` | Accroche refusée : le mod reste ou revient debout |
-| C → S | `{"v":1,"a":"accroche","f":"E"}` | Demande d'accroche. Déjà au mur : vaut changement de face |
-| C → S | `{"v":1,"a":"face","f":"N"}` | Changement de face (le mod de l'essai ne l'émet pas : coin rentrant = arrêt) |
-| C → S | `{"v":1,"a":"lache","c":3}` | Le joueur lâche ; `c` = corrections de position vues par le mod pendant la marche (additionné, borné à 100 000) |
+| S → C | `{"v":1,"t":"etat","e":<entityId>,"f":"N\|S\|E\|W\|-","n":13}` | L'entité marche sur un mur de face `f` (sens de la normale ; `E` : le mur est à l'ouest). `-` : elle n'y est plus. Au joueur (sa confirmation), à `getTrackedBy()`, à qui se met à le voir (1 tick après `PlayerTrackEntityEvent`) et à qui annonce le canal après coup (`PlayerRegisterChannelEvent`, connexion en pleine marche). `n` (C1a) : recopié de la demande qui a produit cet état, **dans l'exemplaire du joueur seulement** ; absent chez les voisins, au lâcher décidé par le serveur et à l'envoi aux nouveaux suiveurs |
+| S → C | `{"v":1,"t":"refus","m":"…","a":"face","n":13}` | Demande refusée. `a` (C1a) : l'action refusée, `accroche` ou `face` ; `n` recopié. Accroche refusée : le mod reste ou revient debout. Face refusée : le joueur **reste au mur**, sur sa face |
+| C → S | `{"v":1,"a":"accroche","f":"E","n":12}` | Demande d'accroche. Déjà au mur : jugée comme en C0 (un refus fait lâcher). `n` : numéro de demande, entier croissant par session, facultatif |
+| C → S | `{"v":1,"a":"face","f":"N","n":13}` | Changement de face à un coin, **émis depuis C1a**. Redemander la face courante ou la face quittée annule un virage |
+| C → S | `{"v":1,"a":"lache","c":3}` | Le joueur lâche ; `c` = corrections de position vues par le mod pendant la marche (additionné, borné à 100 000). Un `n` serait lu, le mod n'en met pas |
 
-Ordre : le mod envoie `accroche` et **attend** (1 s) ; le serveur vérifie, pose la pose et la gravité, **puis** envoie
-`etat` ; le mod lance sa bascule à la réception. Un `etat` que le mod n'attend plus est rendu par un `lache` `c` = 0. À
-tout retrait le serveur envoie `etat` `-` au joueur et aux voisins, y compris en écho du `lache` du mod.
+Ordre d'une accroche : le mod envoie `accroche` et **attend** (1 s) ; le serveur vérifie, pose la pose et la gravité,
+**puis** envoie `etat` ; le mod lance sa bascule à la réception. Un `etat` que le mod n'attend plus est rendu par un `lache`
+`c` = 0. À tout retrait le serveur envoie `etat` `-` au joueur et aux voisins, y compris en écho du `lache` du mod.
+
+Ordre d'un coin (C1a) : au 1er tick de poussée contre une limite, le mod envoie `face` ; le virage part quand la poussée a
+tenu 2 ticks **et** que l'`etat` portant le même `n` est arrivé. Touche relâchée, autre limite ou 1 s sans accord : le mod
+renvoie `face` avec l'ancienne face et `n` + 1 ; un accord arrivé ensuite est ignoré. Côté mod, un `etat` de soi dont le
+`n` n'est pas celui de la dernière demande est un accusé en retard ; un `etat` **sans** `n` est le serveur qui parle de
+lui-même. Sortie par le sommet : `lache` au **début** de la sortie animée (le serveur rend pose et gravité), écho `-`
+ignoré ; par le pied : `lache` à la fin, comme en C0.
 
 **Accroche validée si** : permis ; survie ou aventure ; vivant, pas KO ; ni monture, ni planeur, ni sommeil ; aucune
 autre pose fixée (`/ramper`, corps tenu) ; aucun autre déplacement sur le corps (`reborn_bond`, parcours, piste, grappin,
 tyrolienne) ; `MOBILITE` accordée par `EtatService` (le mode staff la refuse) ; un bloc à **face pleine** à 1,3 au plus
 derrière le joueur, à `y + 0,3` ou `y + 0,9`.
 
+**Changement de face jugé** (`MurRegles.jugerFace`, dans cet ordre) :
+1. Face demandée = face courante : simple accusé (`etat` avec `n` au joueur seul), rien n'est compté.
+2. Joueur pas au mur : refus « Tu n'es pas au mur. ». État qui refuse le mur (KO, monture, mobilité…) : refus avec sa
+   raison, sans lâcher (la tenue du tick suivant lâche, avec sa raison).
+3. Face non voisine (l'opposée) : refus « Cette face n'est pas voisine. ».
+4. **Coin sortant** (`coinSortant`) : le mur de la face courante A s'arrête à 1,5 au plus devant `P` dans le sens de
+   marche `d` (`areteSortante` : première colonne à face A pleine derrière `P`, portée 1,5, puis colonne par colonne le
+   long de `d` tant que la face A est pleine ; arête = bord du dernier bloc plein, le bloc d'angle). La face B de ce bloc
+   doit être pleine vue depuis l'arrivée prédite `arête + 0,9 d − 0,3 nA` (même hauteur que l'arête). Arc : quart de
+   cercle de rayon 1,2 centré en `arête − 0,3 nA − 0,3 d`. Un coin à la fois sortant et rentrant est classé sortant.
+5. **Coin rentrant** : la règle de C0, le mur de la face demandée est déjà derrière le joueur, à 1,5 au plus (à hauteur
+   du torse aussi pendant les 40 ticks de bascule).
+6. Sinon : refus « Pas de mur plein derrière cet angle. ».
+
+Hauteurs lues : le cube (`P.y + 0,3`), puis le torse (`P.y + 0,9`) s'il est sur un autre rang de blocs. Un refus de face
+**ne fait plus tomber** : `refus` avec `a` = `face` et `n`, aucun appel au lâcher. Une annulation après un accord déjà
+parti (retour à la face quittée) est un changement comme un autre : jugée (en pratique un coin rentrant), comptée et
+diffusée aux voisins.
+
 **Au mur** : `setPose(SWIMMING, true)`, modificateur transitoire `GRAVITY` −1 (`shinobiabilities:mur_gravite`),
 `setFallDistance(0)`, `resetFlyingTicks()`, vol coupé, à chaque tick ; métadonnée `reborn_mur`. Toutes les 5 ticks : face
 pleine à 1,5 derrière le joueur à `y + 0,3` (pendant les 40 premiers ticks, `y + 0,9` vaut aussi : la bascule du mod n'est
-vue qu'un aller-retour plus tard), `MOBILITE`, corps libre ; sinon le serveur lâche. **Retraits** : déconnexion, mort, KO
-(à `KoEnterEvent`, avant la pose du KO), monde, téléportation (sauf cause `UNKNOWN`, celle des replacements internes),
-personnage, mode de jeu, état, `/murtest off`, arrêt du plugin.
+vue qu'un aller-retour plus tard), `MOBILITE`, corps libre ; sinon le serveur lâche. **Fenêtre de virage** (C1a, classe
+`Tenue`) : pendant 30 ticks après un changement de face accepté, ce contrôle accepte le mur de l'ancienne face ou celui de
+la nouvelle (cube ou torse, portée 1,5), ou le bloc d'angle s'il est à 1,5 au plus de `P` (à l'horizontale) et garde une
+de ces deux faces pleine. Ensuite, la nouvelle face seule. Une accroche redemandée referme la fenêtre. **Retraits** :
+déconnexion, mort, KO (à `KoEnterEvent`, avant la pose du KO), monde, téléportation (sauf cause `UNKNOWN`, celle des
+replacements internes), personnage, mode de jeu, état, `/murtest off`, arrêt du plugin.
+
+**Cadence** (C1a) : 20 messages par seconde glissante et par joueur, comptés sur les seules demandes qui peuvent créer un
+état, une accroche ou une face nouvelle (`MurRegles.soumisACadence`). Un `lache` et une annulation (retour à la face
+courante ou à la face quittée, `Tenue.faceAvant()`) passent toujours : les jeter laisserait serveur et mod en désaccord.
+Une face nouvelle hors budget reçoit `refus` « Trop de demandes. » avec `a` = `face` et `n` (le mod reste au bord au lieu
+d'attendre une seconde), sans être comptée dans le bilan ; une accroche hors budget est jetée sans réponse.
 
 **Bilan** (lecture des essais) : essai 1 = « Expulsions », « Paquets de déplacement refusés au mur » et « Corrections de
 position vues par le mod » à 0 ; essai 2 = « Corrections par minute de mur » ; essai 5 = `raz`, 30 clics sur une zone, lire
 « Coups au corps à corps comptés » et « part sur 30 clics » (27 = 90 %), avec « Clics reçus hors du mur » à 0 ; essai 6 =
-« Projectiles qui ont touché » et « Dégâts subis ». Un paquet refusé compte une fois même avec deux raisons (Paper tire
-`CLIPPED_INTO_BLOCK` après un `MOVED_WRONGLY` refusé, même tick, même position). Les corrections n'arrivent qu'au lâcher :
-le bilan lu au mur le dit (« marche en cours non comptée »). « Pose de nage reposée » et « Ticks avec le vol autorisé »
-doivent rester à 0.
+« Projectiles qui ont touché » et « Dégâts subis ». C1a : « Changements de face acceptés », « Changements de face
+refusés » et « Dernier refus de face » (seulement après un refus). Un paquet refusé compte une fois même avec deux raisons
+(Paper tire `CLIPPED_INTO_BLOCK` après un `MOVED_WRONGLY` refusé, même tick, même position). Les corrections n'arrivent
+qu'au lâcher : le bilan lu au mur le dit (« marche en cours non comptée »). « Pose de nage reposée » et « Ticks avec le vol
+autorisé » doivent rester à 0.
 
 **Limites** : le testeur doit être hors `/modestaff`, en survie ou aventure ; murs de blocs à face pleine seulement (ni
 dalle, ni barrière, ni meuble sans collision) ; arrêt du plugin sans arrêt du serveur : le mod n'est pas prévenu ; les coups
 comptés sont les clics d'attaque acceptés par le serveur (`PrePlayerAttackEntityEvent`), pas les dégâts ; le combo de
-ShinobiCombat étourdit au 4e coup, ce qui fait lâcher le mur (essai 5 : frapper avec un objet neutre en main) ; rien n'a
-tourné sur un serveur avant la publication.
+ShinobiCombat étourdit au 4e coup, ce qui fait lâcher le mur (essai 5 : frapper avec un objet neutre en main). C1a : les
+voisins reçoivent la nouvelle face dès l'accord, avant que le marcheur bouge (un virage annulé leur montre un aller-retour
+du corps) ; avec beaucoup de latence, des coins enchaînés peuvent être jugés depuis une position en retard et refusés (le
+joueur reste au bord) ; au sommet, le serveur rend la gravité pendant que le mod finit sa sortie sur 6 ticks : des paquets
+refusés pour écart de position sont à surveiller dans le bilan (contrôle de vitesse : étape C1b) ; plafonds absents. C1a
+n'a tourné que dans les tests unitaires et contre le serveur simulé du banc du mod, jamais sur un serveur.
 
 ### 5.2 `ShinobiAbilities/config.yml` — sections
 

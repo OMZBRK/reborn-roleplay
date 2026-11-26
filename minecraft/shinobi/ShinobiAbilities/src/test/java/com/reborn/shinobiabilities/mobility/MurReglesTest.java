@@ -1,13 +1,17 @@
 package com.reborn.shinobiabilities.mobility;
 
 import com.reborn.shinobiabilities.mobility.MurRegles.Action;
+import com.reborn.shinobiabilities.mobility.MurRegles.Arete;
 import com.reborn.shinobiabilities.mobility.MurRegles.Cadence;
 import com.reborn.shinobiabilities.mobility.MurRegles.CompteurRefus;
 import com.reborn.shinobiabilities.mobility.MurRegles.Compteurs;
 import com.reborn.shinobiabilities.mobility.MurRegles.Demande;
 import com.reborn.shinobiabilities.mobility.MurRegles.Face;
+import com.reborn.shinobiabilities.mobility.MurRegles.Jugement;
 import com.reborn.shinobiabilities.mobility.MurRegles.LecteurBlocs;
 import com.reborn.shinobiabilities.mobility.MurRegles.Raison;
+import com.reborn.shinobiabilities.mobility.MurRegles.Tenue;
+import com.reborn.shinobiabilities.mobility.MurRegles.Virage;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -24,8 +28,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Règles pures de l'essai de la marche sur les murs (lot 5, étape C0). Les messages sont le contrat avec le mod
- * ({@code reborn-hud}, {@code mur/}) : si une chaîne de ce fichier bouge, le mod doit bouger avec.
+ * Règles pures de l'essai de la marche sur les murs (lot 5, étapes C0 et C1a). Les messages et la géométrie des coins
+ * sont le contrat avec le mod ({@code reborn-hud}, {@code mur/}) : si une chaîne ou une formule de ce fichier bouge,
+ * le mod doit bouger avec.
  */
 class MurReglesTest {
 
@@ -35,7 +40,12 @@ class MurReglesTest {
     /** Escalier dont le dos (la partie haute) est du côté des x qui baissent. */
     private static final List<double[]> ESCALIER_DOS_OUEST = List.of(
             new double[] {0, 0, 0, 1, 0.5, 1}, new double[] {0, 0.5, 0, 0.5, 1, 1});
+    /** Escalier dont le dos est à l'est : sa face est est pleine, ses flancs nord et sud ne le sont pas. */
+    private static final List<double[]> ESCALIER_DOS_EST = List.of(
+            new double[] {0, 0, 0, 1, 0.5, 1}, new double[] {0.5, 0.5, 0, 1, 1, 1});
     private static final List<double[]> BARRIERE = List.of(new double[] {0.375, 0, 0.375, 0.625, 1.5, 0.625});
+    /** Tolérance des comparaisons de coordonnées. */
+    private static final double D = 1.0e-9;
 
     /** Un monde de quelques blocs, clé {@code x,y,z}. */
     private static final class Monde implements LecteurBlocs {
@@ -56,6 +66,63 @@ class MurReglesTest {
 
     private static String texte(byte[] octets) { return new String(octets, StandardCharsets.UTF_8); }
 
+    /* ---------------------------------------------------------------- décors et repères des coins */
+
+    private static int sol(double v) { return (int) Math.floor(v); }
+
+    /** Une pile de blocs pleins en {@code (x, z)}, du rang {@code y0} au rang {@code y1} compris. */
+    private static Monde pile(Monde m, int x, int z, int y0, int y1) {
+        for (int y = y0; y <= y1; y++) m.bloc(x, y, z, CUBE);
+        return m;
+    }
+
+    /** Un mur dont la face est regarde l'est : blocs {@code x}, de {@code z0} à {@code z1} compris, rangs 63 à 66. */
+    private static Monde murEst(int x, int z0, int z1) {
+        Monde m = new Monde();
+        for (int z = z0; z <= z1; z++) pile(m, x, z, 63, 66);
+        return m;
+    }
+
+    /** La coordonnée de la face {@code f} du bloc {@code (bx, bz)}, sur l'axe de sa normale. */
+    private static double surface(int bx, int bz, Face f) {
+        return f.nx != 0 ? (f.nx > 0 ? bx + 1 : bx) : (f.nz > 0 ? bz + 1 : bz);
+    }
+
+    /** L'arête verticale commune aux faces {@code a} et {@code d} du bloc {@code (bx, bz)} : {@code {x, z}}. */
+    private static double[] arete(int bx, int bz, Face a, Face d) {
+        return a.nx != 0
+                ? new double[] {surface(bx, bz, a), surface(bx, bz, d)}
+                : new double[] {surface(bx, bz, d), surface(bx, bz, a)};
+    }
+
+    /** Le point {@code origine + u × normale de f + v × normale de g}. */
+    private static double[] point(double[] origine, Face f, double u, Face g, double v) {
+        return new double[] {origine[0] + u * f.nx + v * g.nx, origine[1] + u * f.nz + v * g.nz};
+    }
+
+    /** La composante de {@code p − origine} le long de la normale de {@code f}. */
+    private static double leLong(double[] p, double[] origine, Face f) {
+        return (p[0] - origine[0]) * f.nx + (p[1] - origine[1]) * f.nz;
+    }
+
+    /**
+     * Un angle rentrant au point {@code (cx, cz)}, rangs {@code y − 1} à {@code y + 1} : le mur de face {@code a},
+     * long de sept blocs (deux derrière le coin, cinq devant), et en travers de la marche le mur de face {@code b},
+     * long de cinq blocs et épais de deux. Les deux faces se rejoignent en creux au coin.
+     */
+    private static Monde angleRentrant(int cx, int cz, Face a, Face b, int y) {
+        Monde m = new Monde();
+        for (int k = -2; k < 5; k++) {
+            pile(m, sol(cx - 0.5 * a.nx + (k + 0.5) * b.nx), sol(cz - 0.5 * a.nz + (k + 0.5) * b.nz), y - 1, y + 1);
+        }
+        for (int k = 0; k < 5; k++) {
+            for (double fond : new double[] {0.5, 1.5}) {
+                pile(m, sol(cx - fond * b.nx + (k + 0.5) * a.nx), sol(cz - fond * b.nz + (k + 0.5) * a.nz), y - 1, y + 1);
+            }
+        }
+        return m;
+    }
+
     /* ================================================================ protocole */
 
     @Test
@@ -72,16 +139,62 @@ class MurReglesTest {
     }
 
     @Test
+    void etatEtRefusPortentLeNumeroDeLaDemande() {
+        // l'exemplaire du joueur : le numéro de sa demande, à la fin
+        assertEquals("{\"v\":1,\"t\":\"etat\",\"e\":4182,\"f\":\"N\",\"n\":13}", texte(MurRegles.etat(4182, Face.N, 13)));
+        assertEquals("{\"v\":1,\"t\":\"etat\",\"e\":4182,\"f\":\"N\",\"n\":0}", texte(MurRegles.etat(4182, Face.N, 0)));
+        // l'exemplaire des voisins, et le serveur qui parle de lui-même : pas de champ n du tout
+        assertEquals(texte(MurRegles.etat(4182, Face.N)), texte(MurRegles.etat(4182, Face.N, null)));
+        assertFalse(texte(MurRegles.etat(4182, null, null)).contains("\"n\""));
+        // un refus nomme l'action refusée, avec le mot du protocole
+        assertEquals("{\"v\":1,\"t\":\"refus\",\"m\":\"Pas de mur plein derrière cet angle.\",\"a\":\"face\",\"n\":13}",
+                texte(MurRegles.refus("Pas de mur plein derrière cet angle.", Action.FACE, 13)));
+        assertEquals("{\"v\":1,\"t\":\"refus\",\"m\":\"Tu es au KO.\",\"a\":\"accroche\",\"n\":12}",
+                texte(MurRegles.refus("Tu es au KO.", Action.ACCROCHE, 12)));
+        // une demande sans numéro : le refus n'en invente pas
+        assertEquals("{\"v\":1,\"t\":\"refus\",\"m\":\"x\",\"a\":\"face\"}", texte(MurRegles.refus("x", Action.FACE, null)));
+        assertEquals("{\"v\":1,\"t\":\"refus\",\"m\":\"x\",\"n\":4}", texte(MurRegles.refus("x", null, 4)));
+        assertEquals(texte(MurRegles.refus("x")), texte(MurRegles.refus("x", null, null)));
+        // les mots des actions sont ceux que le mod envoie
+        assertEquals("accroche", Action.ACCROCHE.code);
+        assertEquals("face", Action.FACE.code);
+        assertEquals("lache", Action.LACHE.code);
+        for (Action a : Action.values()) {
+            String f = a == Action.LACHE ? "" : ",\"f\":\"E\"";
+            assertEquals(a, MurRegles.lire("{\"v\":1,\"a\":\"" + a.code + "\"" + f + "}").action());
+        }
+    }
+
+    @Test
     void demandesDuModLues() {
-        assertEquals(new Demande(Action.ACCROCHE, Face.E, 0), MurRegles.lire("{\"v\":1,\"a\":\"accroche\",\"f\":\"E\"}"));
-        assertEquals(new Demande(Action.FACE, Face.N, 0), MurRegles.lire("{\"v\":1,\"a\":\"face\",\"f\":\"N\"}"));
-        assertEquals(new Demande(Action.LACHE, null, 3), MurRegles.lire("{\"v\":1,\"a\":\"lache\",\"c\":3}"));
+        assertEquals(new Demande(Action.ACCROCHE, Face.E, 0, null), MurRegles.lire("{\"v\":1,\"a\":\"accroche\",\"f\":\"E\"}"));
+        assertEquals(new Demande(Action.FACE, Face.N, 0, null), MurRegles.lire("{\"v\":1,\"a\":\"face\",\"f\":\"N\"}"));
+        assertEquals(new Demande(Action.LACHE, null, 3, null), MurRegles.lire("{\"v\":1,\"a\":\"lache\",\"c\":3}"));
         // l'ordre des champs est libre, les champs inconnus sont ignorés
-        assertEquals(new Demande(Action.ACCROCHE, Face.W, 0),
+        assertEquals(new Demande(Action.ACCROCHE, Face.W, 0, null),
                 MurRegles.lire("{\"f\":\"W\",\"x\":[1,2],\"a\":\"accroche\",\"v\":1,\"pos\":{\"y\":64}}"));
-        assertEquals(new Demande(Action.LACHE, null, 0), MurRegles.lire("{\"v\":1,\"a\":\"lache\"}"));
-        assertEquals(new Demande(Action.ACCROCHE, Face.S, 0),
+        assertEquals(new Demande(Action.LACHE, null, 0, null), MurRegles.lire("{\"v\":1,\"a\":\"lache\"}"));
+        assertEquals(new Demande(Action.ACCROCHE, Face.S, 0, null),
                 MurRegles.lire("{\"v\":1,\"a\":\"accroche\",\"f\":\"S\"}".getBytes(StandardCharsets.UTF_8)));
+    }
+
+    @Test
+    void numeroDeDemandeLu() {
+        assertEquals(new Demande(Action.ACCROCHE, Face.E, 0, 12), MurRegles.lire("{\"v\":1,\"a\":\"accroche\",\"f\":\"E\",\"n\":12}"));
+        assertEquals(new Demande(Action.FACE, Face.N, 0, 13), MurRegles.lire("{\"v\":1,\"a\":\"face\",\"f\":\"N\",\"n\":13}"));
+        assertEquals(new Demande(Action.LACHE, null, 3, 14), MurRegles.lire("{\"v\":1,\"a\":\"lache\",\"c\":3,\"n\":14}"));
+        assertEquals(0, MurRegles.lire("{\"v\":1,\"a\":\"face\",\"f\":\"N\",\"n\":0}").n());
+        assertEquals(-3, MurRegles.lire("{\"n\":-3,\"v\":1,\"a\":\"face\",\"f\":\"N\"}").n());
+        assertEquals(Integer.MAX_VALUE, MurRegles.lire("{\"v\":1,\"a\":\"face\",\"f\":\"N\",\"n\":2147483647}").n());
+        // un numéro qui n'est pas un entier ne fait pas jeter la demande : elle est lue sans numéro
+        for (String n : List.of("\"12\"", "1.5", "1e30", "3000000000", "null", "[12]", "true")) {
+            Demande d = MurRegles.lire("{\"v\":1,\"a\":\"face\",\"f\":\"N\",\"n\":" + n + "}");
+            assertEquals(new Demande(Action.FACE, Face.N, 0, null), d, "n = " + n);
+        }
+        // le numéro lu est recopié tel quel dans la réponse
+        Demande d = MurRegles.lire("{\"v\":1,\"a\":\"face\",\"f\":\"S\",\"n\":77}");
+        assertEquals("{\"v\":1,\"t\":\"etat\",\"e\":5,\"f\":\"S\",\"n\":77}", texte(MurRegles.etat(5, d.face(), d.n())));
+        assertEquals("{\"v\":1,\"t\":\"refus\",\"m\":\"non\",\"a\":\"face\",\"n\":77}", texte(MurRegles.refus("non", d.action(), d.n())));
     }
 
     @Test
@@ -137,6 +250,29 @@ class MurReglesTest {
         assertArrayEquals(new int[] {0, 1}, new int[] {Face.S.nx, Face.S.nz});
         assertArrayEquals(new int[] {0, -1}, new int[] {Face.N.nx, Face.N.nz});
         for (Face f : Face.values()) assertEquals(1, Math.abs(f.nx) + Math.abs(f.nz), "normale cardinale : " + f);
+    }
+
+    @Test
+    void facesVoisines() {
+        assertEquals(List.of(Face.E, Face.W), Face.N.voisines());
+        assertEquals(List.of(Face.E, Face.W), Face.S.voisines());
+        assertEquals(List.of(Face.N, Face.S), Face.E.voisines());
+        assertEquals(List.of(Face.N, Face.S), Face.W.voisines());
+        for (Face a : Face.values()) {
+            assertFalse(a.voisine(a), a + " n'est pas sa propre voisine");
+            assertFalse(a.voisine(null));
+            int voisines = 0;
+            for (Face b : Face.values()) {
+                assertEquals(a.voisines().contains(b), a.voisine(b), a + " et " + b);
+                assertEquals(a.voisine(b), b.voisine(a), "symétrique : " + a + " et " + b);
+                // voisine = normale perpendiculaire ; la face opposée (normale inverse) ne l'est pas
+                assertEquals(a.nx * b.nx + a.nz * b.nz == 0, a.voisine(b), a + " et " + b);
+                if (a.voisine(b)) voisines++;
+            }
+            assertEquals(2, voisines, "deux voisines pour " + a);
+        }
+        assertFalse(Face.N.voisine(Face.S));
+        assertFalse(Face.E.voisine(Face.W));
     }
 
     /* ================================================================ contrôle de paroi */
@@ -271,6 +407,524 @@ class MurReglesTest {
         assertFalse(MurRegles.facePleine(List.of(new double[] {0, 0, 0}), Face.E));
     }
 
+    @Test
+    void murDeMarcheCubePuisTorsePendantLaBascule() {
+        // P en y = 64,3 : le cube se lit au rang 64 (64,6), le torse au rang 65 (65,2)
+        Monde bas = new Monde().bloc(4, 64, 0, CUBE);
+        assertTrue(MurRegles.murDeMarche(bas, 5.9, 64.3, 0.5, Face.E, false));
+        assertTrue(MurRegles.murDeMarche(bas, 5.9, 64.3, 0.5, Face.E, true));
+        Monde haut = new Monde().bloc(4, 65, 0, CUBE);
+        assertFalse(MurRegles.murDeMarche(haut, 5.9, 64.3, 0.5, Face.E, false), "bascule finie : le cube seul");
+        assertTrue(MurRegles.murDeMarche(haut, 5.9, 64.3, 0.5, Face.E, true), "pendant la bascule : le torse aussi");
+        // portée de la marche, pas celle de l'accroche
+        assertTrue(MurRegles.murDeMarche(bas, 6.5, 64.3, 0.5, Face.E, false));
+        assertFalse(MurRegles.murDeMarche(bas, 6.55, 64.3, 0.5, Face.E, true));
+    }
+
+    /* ================================================================ coin sortant : l'arête */
+
+    @Test
+    void areteDUnBlocSeulPourLesHuitCoins() {
+        for (int[] bloc : new int[][] {{0, 0}, {-7, -3}, {12, -40}}) {
+            int bx = bloc[0], bz = bloc[1];
+            Monde m = pile(new Monde(), bx, bz, 69, 72);
+            for (Face a : Face.values()) {
+                for (Face d : a.voisines()) {
+                    String ou = "bloc " + bx + "," + bz + ", face " + a + ", marche vers " + d;
+                    double[] ar = arete(bx, bz, a, d);
+                    Arete attendue = new Arete(ar[0], ar[1], bx, bz);
+                    // au départ du virage (bord meneur du cube à l'arête), puis à l'autre bout de la face du bloc
+                    for (double recul : new double[] {0.3, 0.65, 0.99}) {
+                        double[] p = point(ar, a, 0.9, d, -recul);
+                        assertEquals(attendue, MurRegles.areteSortante(m, p[0], 70.5, p[1], a, d), ou + ", recul " + recul);
+                    }
+                    // plus loin de la paroi (1,5 : la portée de la marche), toujours trouvée ; au-delà, plus de mur
+                    double[] loin = point(ar, a, 1.5, d, -0.3);
+                    assertEquals(attendue, MurRegles.areteSortante(m, loin[0], 70.5, loin[1], a, d), ou);
+                    double[] tropLoin = point(ar, a, 1.55, d, -0.3);
+                    assertNull(MurRegles.areteSortante(m, tropLoin[0], 70.5, tropLoin[1], a, d), ou);
+                    // un rang au-dessus du bloc : rien
+                    double[] p = point(ar, a, 0.9, d, -0.3);
+                    assertNull(MurRegles.areteSortante(m, p[0], 73.2, p[1], a, d), ou);
+                }
+            }
+        }
+    }
+
+    @Test
+    void areteAuBoutDUnMurLong() {
+        // mur en x = 4, de z = 0 à z = 9 : sa face est est en x = 5, ses arêtes en z = 0 et z = 10
+        Monde m = murEst(4, 0, 9);
+        Arete sud = new Arete(5, 10, 4, 9), nord = new Arete(5, 0, 4, 0);
+        assertEquals(sud, MurRegles.areteSortante(m, 5.9, 64.3, 9.7, Face.E, Face.S), "au bord");
+        assertEquals(sud, MurRegles.areteSortante(m, 5.9, 64.3, 9.42, Face.E, Face.S), "un tick de course avant le bord");
+        assertEquals(sud, MurRegles.areteSortante(m, 5.9, 64.3, 8.5, Face.E, Face.S), "1,5 : dernière portée");
+        assertNull(MurRegles.areteSortante(m, 5.9, 64.3, 8.45, Face.E, Face.S), "1,55 : le mur continue trop loin");
+        assertNull(MurRegles.areteSortante(m, 5.9, 64.3, 5.5, Face.E, Face.S), "en plein mur");
+        assertEquals(nord, MurRegles.areteSortante(m, 5.9, 64.3, 0.3, Face.E, Face.N), "au bord nord");
+        assertEquals(nord, MurRegles.areteSortante(m, 5.9, 64.3, 1.5, Face.E, Face.N));
+        assertNull(MurRegles.areteSortante(m, 5.9, 64.3, 1.55, Face.E, Face.N));
+        // le sens de marche doit être une face voisine : ni la face elle-même, ni l'opposée, ni rien
+        assertNull(MurRegles.areteSortante(m, 5.9, 64.3, 9.7, Face.E, Face.E));
+        assertNull(MurRegles.areteSortante(m, 5.9, 64.3, 9.7, Face.E, Face.W));
+        assertNull(MurRegles.areteSortante(m, 5.9, 64.3, 9.7, Face.E, null));
+        assertNull(MurRegles.areteSortante(m, 5.9, 64.3, 9.7, null, Face.S));
+        // pas de mur derrière le point : de l'autre côté du mur, ou passé le bord
+        assertNull(MurRegles.areteSortante(m, 3.1, 64.3, 9.7, Face.E, Face.S));
+        assertNull(MurRegles.areteSortante(m, 5.9, 64.3, 10.2, Face.E, Face.S));
+        assertNull(MurRegles.areteSortante(new Monde(), 5.9, 64.3, 9.7, Face.E, Face.S));
+    }
+
+    @Test
+    void areteLaOuLaFacePleineSArrete() {
+        // le mur continue par un bloc qui n'a pas sa face est pleine : l'arête est là
+        for (List<double[]> forme : List.of(DALLE_BASSE, BARRIERE, ESCALIER_DOS_OUEST)) {
+            Monde m = murEst(4, 0, 3);
+            m.bloc(4, 64, 4, forme);
+            assertEquals(new Arete(5, 4, 4, 3), MurRegles.areteSortante(m, 5.9, 64.3, 3.7, Face.E, Face.S));
+        }
+        // il continue par un bloc à face pleine (deux dalles, dos d'escalier) : pas d'arête à cet endroit
+        Monde dalles = murEst(4, 0, 3);
+        dalles.bloc(4, 64, 4, List.of(DALLE_BASSE.get(0), DALLE_HAUTE.get(0))).bloc(4, 64, 5, ESCALIER_DOS_EST);
+        assertEquals(new Arete(5, 6, 4, 5), MurRegles.areteSortante(dalles, 5.9, 64.3, 4.7, Face.E, Face.S));
+        // un mur en retrait d'un bloc n'est pas à la même profondeur : l'arête est au décrochement
+        Monde retrait = murEst(4, 0, 3);
+        for (int z = 4; z <= 8; z++) pile(retrait, 3, z, 63, 66);
+        assertEquals(new Arete(5, 4, 4, 3), MurRegles.areteSortante(retrait, 5.9, 64.3, 3.7, Face.E, Face.S));
+    }
+
+    @Test
+    void auPlusQuatreBlocsLusPourUneArete() {
+        Monde m = murEst(4, 0, 9);
+        MurRegles.areteSortante(m, 5.9, 64.3, 5.5, Face.E, Face.S);
+        assertTrue(m.lectures <= 4, "en plein mur : " + m.lectures);
+        m.lectures = 0;
+        MurRegles.areteSortante(m, 5.9, 64.3, 9.7, Face.E, Face.S);
+        assertTrue(m.lectures <= 4, "au bord : " + m.lectures);
+        // un coin entier : l'arête et la face du bloc d'angle, aux deux hauteurs au plus
+        m.lectures = 0;
+        MurRegles.coinSortant(m, 5.9, 64.3, 9.7, Face.E, Face.S);
+        assertTrue(m.lectures <= 10, "coin valable : " + m.lectures);
+        m.lectures = 0;
+        MurRegles.coinSortant(m, 5.9, 64.3, 5.5, Face.E, Face.S);
+        assertTrue(m.lectures <= 10, "pas de coin : " + m.lectures);
+    }
+
+    /* ================================================================ coin sortant : départ et arrivée */
+
+    @Test
+    void departEtArriveeDuCoinSortant() {
+        for (int[] bloc : new int[][] {{0, 0}, {-7, -3}}) {
+            int bx = bloc[0], bz = bloc[1];
+            for (Face a : Face.values()) {
+                for (Face d : a.voisines()) {
+                    String ou = "bloc " + bx + "," + bz + ", de " + a + " vers " + d;
+                    double[] ar = arete(bx, bz, a, d);
+                    Arete arete = new Arete(ar[0], ar[1], bx, bz);
+                    double[] dep = MurRegles.departSortant(arete, a, d), arr = MurRegles.arriveeSortant(arete, a, d);
+                    // cahier §2 : de « arête − 0,3 d + 0,9 nA » vers « arête + 0,9 d − 0,3 nA »
+                    assertArrayEquals(point(ar, a, 0.9, d, -0.3), dep, D, ou);
+                    assertArrayEquals(point(ar, a, -0.3, d, 0.9), arr, D, ou);
+                    // départ : P à 0,9 de la face A, le bord meneur du cube (0,3 devant P) à l'arête
+                    assertEquals(MurRegles.DISTANCE_PAROI, leLong(dep, ar, a), D, ou);
+                    assertEquals(0, leLong(dep, ar, d) + MurRegles.DEMI_CUBE, D, ou);
+                    // arrivée : P à 0,9 de la face B (normale d), le bord arrière du cube à l'arête
+                    assertEquals(MurRegles.DISTANCE_PAROI, leLong(arr, ar, d), D, ou);
+                    assertEquals(0, leLong(arr, ar, a) + MurRegles.DEMI_CUBE, D, ou);
+                    // un quart de cercle de rayon 1,2 autour d'un centre à 0,3 dans le bloc d'angle
+                    double[] centre = point(ar, a, -0.3, d, -0.3);
+                    assertEquals(1.2, Math.hypot(dep[0] - centre[0], dep[1] - centre[1]), D, ou);
+                    assertEquals(1.2, Math.hypot(arr[0] - centre[0], arr[1] - centre[1]), D, ou);
+                    assertEquals(1.2 * Math.sqrt(2), Math.hypot(arr[0] - dep[0], arr[1] - dep[1]), D, ou);
+                    assertTrue(centre[0] > bx && centre[0] < bx + 1 && centre[1] > bz && centre[1] < bz + 1, ou);
+                    // depuis l'arrivée, le mur derrière le joueur est le bloc d'angle, et lui seul
+                    List<int[]> derriere = MurRegles.blocsDerriere(arr[0], arr[1], d, MurRegles.PORTEE_MARCHE);
+                    assertEquals(1, derriere.size(), ou);
+                    assertArrayEquals(new int[] {bx, bz}, derriere.get(0), ou);
+                }
+            }
+        }
+    }
+
+    /* ================================================================ coin sortant : validation */
+
+    @Test
+    void coinSortantDUnTroncDeUnSurUn() {
+        for (int[] bloc : new int[][] {{0, 0}, {-7, -3}}) {
+            int bx = bloc[0], bz = bloc[1];
+            Monde m = pile(new Monde(), bx, bz, 69, 72);
+            for (Face a : Face.values()) {
+                for (Face b : Face.values()) {
+                    // depuis le milieu de la face A du tronc, à 0,9 : les deux arêtes sont à 0,5
+                    double px = bx + 0.5 + 1.4 * a.nx, pz = bz + 0.5 + 1.4 * a.nz;
+                    String ou = "tronc " + bx + "," + bz + ", de " + a + " vers " + b;
+                    assertEquals(a.voisine(b), MurRegles.coinSortantValide(m, px, 70.2, pz, a, b), ou);
+                    Arete arete = MurRegles.coinSortant(m, px, 70.2, pz, a, b);
+                    if (!a.voisine(b)) {
+                        assertNull(arete, ou);
+                        continue;
+                    }
+                    double[] ar = arete(bx, bz, a, b);
+                    assertEquals(new Arete(ar[0], ar[1], bx, bz), arete, ou);
+                }
+            }
+            assertFalse(MurRegles.coinSortantValide(m, bx + 1.9, 70.2, bz + 0.5, null, Face.S));
+            assertFalse(MurRegles.coinSortantValide(m, bx + 1.9, 70.2, bz + 0.5, Face.E, null));
+            // un rang au-dessus du tronc (P en 73,0 : cube et torse au rang 73) : plus rien
+            assertFalse(MurRegles.coinSortantValide(m, bx + 1.9, 73.0, bz + 0.5, Face.E, Face.S));
+        }
+    }
+
+    @Test
+    void coinSortantDUnMurDUnBlocDEpaisseur() {
+        // mur d'un bloc d'épaisseur, en x = 10, de z = 0 à z = 5 ; son bout sud est une face d'un seul bloc de large
+        Monde m = new Monde();
+        for (int z = 0; z <= 5; z++) pile(m, 10, z, 63, 66);
+        // de la face est vers le bout sud
+        Arete est = MurRegles.coinSortant(m, 11.9, 64.0, 5.7, Face.E, Face.S);
+        assertEquals(new Arete(11, 6, 10, 5), est);
+        double[] p = MurRegles.arriveeSortant(est, Face.E, Face.S);
+        assertArrayEquals(new double[] {10.7, 6.9}, p, D);
+        assertTrue(MurRegles.murDeMarche(m, p[0], 64.0, p[1], Face.S, false), "au bout du mur, sur sa face sud");
+        // du bout sud vers la face ouest, sans même avancer : l'arête suivante est à 0,7
+        Arete ouest = MurRegles.coinSortant(m, p[0], 64.0, p[1], Face.S, Face.W);
+        assertEquals(new Arete(10, 6, 10, 5), ouest);
+        double[] q = MurRegles.arriveeSortant(ouest, Face.S, Face.W);
+        assertArrayEquals(new double[] {9.1, 5.7}, q, D);
+        assertTrue(MurRegles.murDeMarche(m, q[0], 64.0, q[1], Face.W, false), "passé de l'autre côté du mur");
+        // ou demi-tour : du bout sud on revient sur la face est
+        assertEquals(new Arete(11, 6, 10, 5), MurRegles.coinSortant(m, p[0], 64.0, p[1], Face.S, Face.E));
+        // sur la face ouest, le mur continue vers le nord : pas de coin ; vers le sud, celui d'où l'on vient
+        assertFalse(MurRegles.coinSortantValide(m, q[0], 64.0, q[1], Face.W, Face.N));
+        assertEquals(new Arete(10, 6, 10, 5), MurRegles.coinSortant(m, q[0], 64.0, q[1], Face.W, Face.S));
+        // jamais directement d'une face du mur à la face opposée
+        assertFalse(MurRegles.coinSortantValide(m, 11.9, 64.0, 5.7, Face.E, Face.W));
+    }
+
+    @Test
+    void pasDeCoinSortantSansBlocDAngle() {
+        // rien derrière le joueur
+        assertFalse(MurRegles.coinSortantValide(new Monde(), 5.9, 64.0, 3.7, Face.E, Face.S));
+        // le mur continue : il n'y a pas d'angle à tourner
+        assertFalse(MurRegles.coinSortantValide(murEst(4, 0, 9), 5.9, 64.0, 3.7, Face.E, Face.S));
+        // le mur finit par un bloc dont la face est est pleine mais pas la face sud (escalier, dos à l'est) :
+        // l'arête existe, le bloc d'angle n'offre pas de face où se tenir
+        Monde escalier = new Monde();
+        for (int z = 0; z <= 2; z++) escalier.bloc(4, 64, z, CUBE);
+        escalier.bloc(4, 64, 3, ESCALIER_DOS_EST);
+        assertEquals(new Arete(5, 4, 4, 3), MurRegles.areteSortante(escalier, 5.9, 64.3, 3.7, Face.E, Face.S));
+        assertNull(MurRegles.coinSortant(escalier, 5.9, 64.0, 3.7, Face.E, Face.S));
+        assertFalse(MurRegles.coinSortantValide(escalier, 5.9, 64.0, 3.7, Face.E, Face.S));
+        // le même mur fini par un bloc plein, ou par deux dalles : le coin est valable
+        Monde plein = new Monde();
+        for (int z = 0; z <= 3; z++) plein.bloc(4, 64, z, CUBE);
+        assertTrue(MurRegles.coinSortantValide(plein, 5.9, 64.0, 3.7, Face.E, Face.S));
+        plein.bloc(4, 64, 3, List.of(DALLE_BASSE.get(0), DALLE_HAUTE.get(0)));
+        assertTrue(MurRegles.coinSortantValide(plein, 5.9, 64.0, 3.7, Face.E, Face.S));
+        // un angle trop loin devant (1,55) : le joueur n'y est pas encore
+        assertFalse(MurRegles.coinSortantValide(plein, 5.9, 64.0, 2.45, Face.E, Face.S));
+        assertTrue(MurRegles.coinSortantValide(plein, 5.9, 64.0, 2.5, Face.E, Face.S));
+    }
+
+    @Test
+    void coinSortantLuAuCubePuisAuTorse() {
+        // un mur d'un seul rang, le rang 65
+        Monde m = new Monde();
+        for (int z = 0; z <= 3; z++) m.bloc(4, 65, z, CUBE);
+        // P en 65,1 : cube (65,4) et torse (66,0) ne sont pas au même rang, le cube suffit
+        assertTrue(MurRegles.coinSortantValide(m, 5.9, 65.1, 3.7, Face.E, Face.S));
+        // P en 64,3 : le cube est au rang 64 (rien), le torse au rang 65 (le mur)
+        assertTrue(MurRegles.coinSortantValide(m, 5.9, 64.3, 3.7, Face.E, Face.S));
+        // P en 64,0 : cube et torse au rang 64, rien
+        assertFalse(MurRegles.coinSortantValide(m, 5.9, 64.0, 3.7, Face.E, Face.S));
+        // P en 66,0 : au-dessus du mur
+        assertFalse(MurRegles.coinSortantValide(m, 5.9, 66.0, 3.7, Face.E, Face.S));
+    }
+
+    /* ================================================================ changement de face */
+
+    @Test
+    void faceDejaTenueOuPasVoisine() {
+        Monde m = pile(new Monde(), 0, 0, 69, 72);
+        for (Face a : Face.values()) {
+            double px = 0.5 + 1.4 * a.nx, pz = 0.5 + 1.4 * a.nz;
+            assertEquals(new Virage(Jugement.MEME_FACE, null), MurRegles.jugerFace(m, px, 70.2, pz, a, a, false));
+            for (Face b : Face.values()) {
+                Jugement j = MurRegles.jugerFace(m, px, 70.2, pz, a, b, false).jugement();
+                if (a == b) assertEquals(Jugement.MEME_FACE, j);
+                else if (a.voisine(b)) assertEquals(Jugement.COIN_SORTANT, j, a + " vers " + b);
+                else assertEquals(Jugement.PAS_VOISINE, j, "face opposée : " + a + " vers " + b);
+            }
+        }
+        assertEquals(Jugement.PAS_VOISINE, MurRegles.jugerFace(m, 1.9, 70.2, 0.5, Face.E, null, false).jugement());
+        assertEquals(Jugement.PAS_VOISINE, MurRegles.jugerFace(m, 1.9, 70.2, 0.5, null, Face.E, false).jugement());
+        // accepté ou refusé, et le texte du refus
+        assertTrue(Jugement.MEME_FACE.accepte());
+        assertTrue(Jugement.COIN_SORTANT.accepte());
+        assertTrue(Jugement.COIN_RENTRANT.accepte());
+        assertFalse(Jugement.PAS_VOISINE.accepte());
+        assertFalse(Jugement.PAS_DE_MUR.accepte());
+        for (Jugement j : Jugement.values()) {
+            assertEquals(j.accepte(), j.refus == null, j.name());
+            if (j.refus == null) continue;
+            assertTrue(("Dernier refus de face : " + j.refus).length() <= 64, "ligne du bilan : " + j.refus);
+            assertFalse(j.refus.contains("—"), "pas de tiret cadratin : " + j.refus);
+        }
+    }
+
+    @Test
+    void coinRentrantPourLesHuitAngles() {
+        for (int[] coin : new int[][] {{5, 0}, {-20, -9}}) {
+            for (Face a : Face.values()) {
+                for (Face b : a.voisines()) {
+                    String ou = "coin " + coin[0] + "," + coin[1] + ", de " + a + " vers " + b;
+                    Monde m = angleRentrant(coin[0], coin[1], a, b, 64);
+                    double[] c = {coin[0], coin[1]};
+                    // cahier §2 : de « coin + 0,9 nA + 0,3 nB » vers « coin + 0,3 nA + 0,9 nB »
+                    double[] dep = point(c, a, 0.9, b, 0.3), arr = point(c, a, 0.3, b, 0.9);
+                    assertEquals(new Virage(Jugement.COIN_RENTRANT, null),
+                            MurRegles.jugerFace(m, dep[0], 64.2, dep[1], a, b, false), ou);
+                    assertFalse(MurRegles.coinSortantValide(m, dep[0], 64.2, dep[1], a, b), ou + " : ce n'est pas un coin sortant");
+                    // la demande part au premier tick de poussée, un tick de course avant le coin : acceptée aussi
+                    double[] avant = point(c, a, 0.9, b, 0.58);
+                    assertEquals(Jugement.COIN_RENTRANT, MurRegles.jugerFace(m, avant[0], 64.2, avant[1], a, b, false).jugement(), ou);
+                    // jusqu'à 1,5 du mur B ; au-delà ce n'est plus un coin
+                    double[] loin = point(c, a, 0.9, b, 1.5), tropLoin = point(c, a, 0.9, b, 1.55);
+                    assertEquals(Jugement.COIN_RENTRANT, MurRegles.jugerFace(m, loin[0], 64.2, loin[1], a, b, false).jugement(), ou);
+                    assertEquals(Jugement.PAS_DE_MUR, MurRegles.jugerFace(m, tropLoin[0], 64.2, tropLoin[1], a, b, false).jugement(), ou);
+                    // l'autre voisine de A regarde à travers le mur B, épais de deux blocs : ni angle à tourner à
+                    // portée, ni mur de cette face derrière le joueur. Refusée, et le joueur reste sur A
+                    Face autre = a.voisines().get(0) == b ? a.voisines().get(1) : a.voisines().get(0);
+                    assertEquals(Jugement.PAS_DE_MUR, MurRegles.jugerFace(m, dep[0], 64.2, dep[1], a, autre, false).jugement(), ou);
+                    assertTrue(MurRegles.murDeMarche(m, dep[0], 64.2, dep[1], a, false), ou);
+                    // le virage : quatre ticks en diagonale, la fenêtre tient à chaque tick
+                    Tenue tenue = new Tenue(a);
+                    tenue.tourner(b, null, 100);
+                    for (int k = 0; k <= 4; k++) {
+                        double[] p = point(c, a, 0.9 - 0.15 * k, b, 0.3 + 0.15 * k);
+                        assertTrue(tenue.tient(m, p[0], 64.2, p[1], 100 + k, false), ou + ", tick " + k);
+                    }
+                    // arrivée : P à 0,9 de la nouvelle paroi, et le mur de B seul suffit une fois la fenêtre fermée
+                    assertEquals(0.9, leLong(arr, c, b), D, ou);
+                    assertTrue(tenue.tient(m, arr[0], 64.2, arr[1], 100 + MurRegles.TICKS_VIRAGE + 1, false), ou);
+                    // resté au départ sans jouer le virage : la fenêtre couvre, puis le mur de A seul ne suffit plus
+                    assertTrue(tenue.tient(m, dep[0], 64.2, dep[1], 100 + MurRegles.TICKS_VIRAGE, false), ou);
+                    assertTrue(tenue.tient(m, dep[0], 64.2, dep[1], 100 + MurRegles.TICKS_VIRAGE + 1, false),
+                            ou + " : au départ d'un coin rentrant le mur de B est déjà à 0,3");
+                    double[] reparti = point(c, a, 0.9, b, 2.0);
+                    assertFalse(tenue.tient(m, reparti[0], 64.2, reparti[1], 100 + MurRegles.TICKS_VIRAGE + 1, false),
+                            ou + " : reparti le long de A alors que le serveur le tient sur B");
+                }
+            }
+        }
+    }
+
+    @Test
+    void coinRentrantPendantLaBascule() {
+        // le mur B n'existe qu'au rang 65 ; P en 64,3 : cube au rang 64, torse au rang 65
+        Monde m = new Monde().bloc(5, 65, -1, CUBE);
+        assertEquals(Jugement.PAS_DE_MUR, MurRegles.jugerFace(m, 5.9, 64.3, 0.3, Face.E, Face.S, false).jugement());
+        assertEquals(Jugement.COIN_RENTRANT, MurRegles.jugerFace(m, 5.9, 64.3, 0.3, Face.E, Face.S, true).jugement());
+    }
+
+    @Test
+    void refusDeFaceEnPleinMurEtAnnulation() {
+        Monde m = murEst(4, 0, 9);
+        // en plein mur, aucune face voisine n'est à prendre
+        assertEquals(new Virage(Jugement.PAS_DE_MUR, null), MurRegles.jugerFace(m, 5.9, 64.0, 5.5, Face.E, Face.S, false));
+        assertEquals(new Virage(Jugement.PAS_DE_MUR, null), MurRegles.jugerFace(m, 5.9, 64.0, 5.5, Face.E, Face.N, false));
+        // annulation après un refus : le joueur redemande sa face, simple accusé
+        assertEquals(Jugement.MEME_FACE, MurRegles.jugerFace(m, 5.9, 64.0, 5.5, Face.E, Face.E, false).jugement());
+        // annulation après un accord (coin sortant accepté, virage pas encore parti) : le serveur le tient déjà sur
+        // la face sud, il redemande la face est. Le mur de la face est est encore derrière lui : accepté
+        Virage aller = MurRegles.jugerFace(m, 5.9, 64.0, 9.7, Face.E, Face.S, false);
+        assertEquals(new Virage(Jugement.COIN_SORTANT, new Arete(5, 10, 4, 9)), aller);
+        Tenue tenue = new Tenue(Face.E);
+        tenue.tourner(Face.S, aller.arete(), 200);
+        Virage retour = MurRegles.jugerFace(m, 5.9, 64.0, 9.7, tenue.face(), Face.E, false);
+        assertEquals(new Virage(Jugement.COIN_RENTRANT, null), retour);
+        tenue.tourner(Face.E, retour.arete(), 203);
+        assertEquals(Face.E, tenue.face());
+        assertTrue(tenue.tient(m, 5.9, 64.0, 9.7, 204, false));
+        assertTrue(tenue.tient(m, 5.9, 64.0, 5.5, 203 + MurRegles.TICKS_VIRAGE + 1, false), "il a repris sa marche sur la face est");
+        // même annulation à un coin rentrant
+        Monde angle = angleRentrant(5, 0, Face.E, Face.S, 64);
+        assertEquals(Jugement.COIN_RENTRANT, MurRegles.jugerFace(angle, 5.9, 64.0, 0.3, Face.S, Face.E, false).jugement());
+    }
+
+    @Test
+    void coinALaFoisSortantEtRentrantRenduSortantAvecSonBlocDAngle() {
+        // le mur de face est s'arrête en z = 4 : son bloc d'angle (4, 3) a sa face sud pleine (coin sortant). Un bloc
+        // plein (5, 2) dépasse aussi du mur : sa face sud, en z = 3, est déjà à 0,7 derrière le joueur (coin rentrant)
+        Monde m = murEst(4, 0, 3);
+        pile(m, 5, 2, 63, 66);
+        assertTrue(MurRegles.murDeMarche(m, 5.9, 64.0, 3.7, Face.S, false));
+        Virage v = MurRegles.jugerFace(m, 5.9, 64.0, 3.7, Face.E, Face.S, false);
+        assertEquals(Jugement.COIN_SORTANT, v.jugement());
+        assertEquals(new Arete(5, 4, 4, 3), v.arete());
+    }
+
+    /* ================================================================ fenêtre de virage */
+
+    @Test
+    void fenetreDeVirageLeLongDeLArcDUnCoinSortant() {
+        for (int[] bloc : new int[][] {{0, 0}, {-7, -3}}) {
+            int bx = bloc[0], bz = bloc[1];
+            Monde m = pile(new Monde(), bx, bz, 69, 72);
+            int[] angle = {bx, bz};
+            for (Face a : Face.values()) {
+                for (Face b : a.voisines()) {
+                    String ou = "tronc " + bx + "," + bz + ", de " + a + " vers " + b;
+                    double[] ar = arete(bx, bz, a, b);
+                    int sansAngle = 0;
+                    for (int k = 0; k <= 18; k++) {
+                        double t = Math.toRadians(5 * k);
+                        double[] p = point(ar, a, -0.3 + 1.2 * Math.cos(t), b, -0.3 + 1.2 * Math.sin(t));
+                        assertTrue(MurRegles.murEnVirage(m, p[0], 70.2, p[1], a, b, angle), ou + ", " + 5 * k + "°");
+                        if (!MurRegles.murEnVirage(m, p[0], 70.2, p[1], a, b, null)) sansAngle++;
+                        // au milieu de l'arc le cube passe à 0,25 de l'arête, le bloc d'angle est à moins de 0,8
+                        assertTrue(MurRegles.distanceColonne(p[0], p[1], bx, bz) <= 0.9 + D, ou);
+                    }
+                    assertTrue(sansAngle >= 5, ou + " : sans le bloc d'angle, le milieu de l'arc n'a aucun mur derrière lui");
+                    double[] milieu = point(ar, a, -0.3 + 1.2 * Math.cos(Math.PI / 4), b, -0.3 + 1.2 * Math.sin(Math.PI / 4));
+                    assertFalse(MurRegles.murEnVirage(m, milieu[0], 70.2, milieu[1], a, b, null), ou);
+                    assertFalse(MurRegles.murEnVirage(m, milieu[0], 70.2, milieu[1], a, b, new int[0]), ou);
+                    // le bloc d'angle a disparu (cassé) : plus rien ne tient le joueur au milieu de l'arc
+                    assertFalse(MurRegles.murEnVirage(new Monde(), milieu[0], 70.2, milieu[1], a, b, angle), ou);
+                    // le bloc d'angle ne compte que de près : à 1,5 de lui (0,9 et 1,2 en diagonale) oui, plus loin non
+                    double[] pres = point(ar, a, 0.9, b, 1.2), loin = point(ar, a, 0.9, b, 1.25);
+                    assertEquals(MurRegles.PORTEE_ANGLE, MurRegles.distanceColonne(pres[0], pres[1], bx, bz), D, ou);
+                    assertTrue(MurRegles.murEnVirage(m, pres[0], 70.2, pres[1], a, b, angle), ou);
+                    assertFalse(MurRegles.murEnVirage(m, loin[0], 70.2, loin[1], a, b, angle), ou);
+                    // sans ancienne face (rien à tolérer) : la nouvelle face ou le bloc d'angle
+                    double[] dep = point(ar, a, 0.9, b, -0.3), arr = point(ar, a, -0.3, b, 0.9);
+                    assertFalse(MurRegles.murEnVirage(m, dep[0], 70.2, dep[1], null, b, null), ou);
+                    assertTrue(MurRegles.murEnVirage(m, dep[0], 70.2, dep[1], a, b, null), ou + " : l'ancienne face, au départ");
+                    assertTrue(MurRegles.murEnVirage(m, arr[0], 70.2, arr[1], null, b, null), ou + " : la nouvelle, à l'arrivée");
+                }
+            }
+        }
+    }
+
+    @Test
+    void fenetreDeVirageLueAuCubeEtAuTorse() {
+        // tronc d'un seul rang (65) ; P en 64,3 : cube au rang 64, torse au rang 65
+        Monde m = new Monde().bloc(0, 65, 0, CUBE);
+        int[] angle = {0, 0};
+        assertTrue(MurRegles.murEnVirage(m, 1.9, 64.3, 0.7, Face.E, Face.S, null), "ancienne face, au torse");
+        assertTrue(MurRegles.murEnVirage(m, 0.7, 64.3, 1.9, Face.E, Face.S, null), "nouvelle face, au torse");
+        assertTrue(MurRegles.murEnVirage(m, 1.55, 64.3, 1.55, Face.E, Face.S, angle), "bloc d'angle, au torse");
+        // P en 64,0 : tout se lit au rang 64, où il n'y a rien
+        assertFalse(MurRegles.murEnVirage(m, 1.9, 64.0, 0.7, Face.E, Face.S, angle));
+        assertFalse(MurRegles.murEnVirage(m, 1.55, 64.0, 1.55, Face.E, Face.S, angle));
+        // un bloc d'angle qui n'a plus aucune des deux faces pleine (devenu une barrière) ne tient personne
+        Monde barriere = new Monde().bloc(0, 65, 0, BARRIERE);
+        assertFalse(MurRegles.murEnVirage(barriere, 1.55, 64.3, 1.55, Face.E, Face.S, angle));
+    }
+
+    @Test
+    void distanceAUneColonneDeBlocs() {
+        assertEquals(0, MurRegles.distanceColonne(4.5, -2.5, 4, -3), D, "dedans");
+        assertEquals(0, MurRegles.distanceColonne(4, -3, 4, -3), D, "sur le coin");
+        assertEquals(0.9, MurRegles.distanceColonne(5.9, -2.5, 4, -3), D, "à l'est");
+        assertEquals(0.9, MurRegles.distanceColonne(3.1, -2.5, 4, -3), D, "à l'ouest");
+        assertEquals(1.5, MurRegles.distanceColonne(4.5, -0.5, 4, -3), D, "au sud");
+        assertEquals(1.5, MurRegles.distanceColonne(4.5, -4.5, 4, -3), D, "au nord");
+        assertEquals(5, MurRegles.distanceColonne(8, 2, 4, -3), D, "en diagonale : 3 et 4");
+    }
+
+    @Test
+    void tenueFenetreOuverteTrenteTicks() {
+        Monde m = murEst(4, 0, 9);
+        Tenue tenue = new Tenue(Face.E);
+        assertEquals(Face.E, tenue.face());
+        for (int tick : new int[] {0, 1, 40, 5000}) assertFalse(tenue.enVirage(tick), "aucun virage : tick " + tick);
+        assertTrue(tenue.tient(m, 5.9, 64.0, 5.5, 10, false));
+        assertFalse(tenue.tient(m, 5.9, 64.0, 10.2, 10, false), "passé le bord du mur");
+        // coin sortant accepté au tick 100, au bord sud du mur
+        Virage v = MurRegles.jugerFace(m, 5.9, 64.0, 9.7, Face.E, Face.S, false);
+        tenue.tourner(Face.S, v.arete(), 100);
+        assertEquals(Face.S, tenue.face());
+        assertEquals(30, MurRegles.TICKS_VIRAGE);
+        assertTrue(tenue.enVirage(100));
+        assertTrue(tenue.enVirage(130));
+        assertFalse(tenue.enVirage(131));
+        // un joueur resté au bord sans tourner : couvert pendant la fenêtre, lâché ensuite (nouvelle face seule)
+        assertTrue(tenue.tient(m, 5.9, 64.0, 9.7, 130, false));
+        assertFalse(tenue.tient(m, 5.9, 64.0, 9.7, 131, false));
+        // arrivé sur la face sud : tenu pendant et après
+        double[] arr = MurRegles.arriveeSortant(v.arete(), Face.E, Face.S);
+        assertTrue(tenue.tient(m, arr[0], 64.0, arr[1], 110, false));
+        assertTrue(tenue.tient(m, arr[0], 64.0, arr[1], 131, false));
+        // accroche redemandée : la fenêtre se referme, la face posée seule compte
+        tenue.tourner(Face.E, null, 140);
+        assertTrue(tenue.enVirage(150));
+        tenue.poser(Face.E);
+        assertFalse(tenue.enVirage(150));
+        assertEquals(Face.E, tenue.face());
+        assertFalse(tenue.tient(m, arr[0], 64.0, arr[1], 150, false), "sur la face sud alors que le serveur le tient à l'est");
+        assertTrue(tenue.tient(m, 5.9, 64.0, 9.7, 150, false));
+    }
+
+    /**
+     * Joue des coins sortants enchaînés autour du tronc {@code (bx, bz)} comme le ferait le mod (attente de l'accord au
+     * bord, arc de rayon 1,2, puis 0,4 de marche jusqu'à l'arête suivante) et contrôle la paroi à <b>chaque</b> tick
+     * comme le serveur le fait toutes les {@link MurRegles#PERIODE_CONTROLE} ticks. {@code ordre} : les quatre faces
+     * dans le sens du tour ; {@code latence} : ticks passés au bord avant que le virage parte ; {@code duree} : ticks
+     * de l'arc.
+     */
+    private static void tourDuTronc(int bx, int bz, double py, List<Face> ordre, int coins, int latence, int duree) {
+        Monde m = pile(new Monde(), bx, bz, sol(py) - 1, sol(py) + 2);
+        Tenue tenue = new Tenue(ordre.get(0));
+        int tick = 60;
+        double[] p = point(arete(bx, bz, ordre.get(0), ordre.get(1)), ordre.get(0), 0.9, ordre.get(1), -0.3);
+        for (int i = 0; i < coins; i++) {
+            Face a = ordre.get(i % 4), b = ordre.get((i + 1) % 4), c = ordre.get((i + 2) % 4);
+            String ou = "tronc " + bx + "," + bz + ", coin " + i + ", de " + a + " vers " + b;
+            double[] ar = arete(bx, bz, a, b);
+            assertEquals(a, tenue.face(), ou);
+            Virage v = MurRegles.jugerFace(m, p[0], py, p[1], a, b, false);
+            assertEquals(new Virage(Jugement.COIN_SORTANT, new Arete(ar[0], ar[1], bx, bz)), v, ou);
+            tenue.tourner(b, v.arete(), tick);
+            for (int k = 0; k < latence; k++) assertTrue(tenue.tient(m, p[0], py, p[1], ++tick, false), ou + ", attente " + k);
+            for (int k = 1; k <= duree; k++) {
+                double t = Math.PI / 2 * k / duree;
+                p = point(ar, a, -0.3 + 1.2 * Math.cos(t), b, -0.3 + 1.2 * Math.sin(t));
+                assertTrue(tenue.tient(m, p[0], py, p[1], ++tick, false), ou + ", arc " + k + " sur " + duree);
+            }
+            // l'arc finit à l'arrivée prédite, P à 0,9 de la nouvelle paroi, le mur de B derrière lui
+            assertArrayEquals(MurRegles.arriveeSortant(v.arete(), a, b), p, D, ou);
+            assertEquals(MurRegles.DISTANCE_PAROI, leLong(p, ar, b), D, ou);
+            assertTrue(MurRegles.murDeMarche(m, p[0], py, p[1], b, false), ou + ", arrivée");
+            // 0,4 de marche sur la face B : le départ du coin suivant
+            for (int k = 0; k < 2; k++) {
+                p = new double[] {p[0] + 0.2 * c.nx, p[1] + 0.2 * c.nz};
+                assertTrue(tenue.tient(m, p[0], py, p[1], ++tick, false), ou + ", marche " + k);
+            }
+            assertArrayEquals(point(arete(bx, bz, b, c), b, 0.9, c, -0.3), p, D, ou + ", départ suivant");
+        }
+        // la dernière fenêtre se ferme : la face tenue seule, et le joueur y est
+        tick += MurRegles.TICKS_VIRAGE + 1;
+        assertFalse(tenue.enVirage(tick));
+        assertTrue(tenue.tient(m, p[0], py, p[1], tick, false), "tronc " + bx + "," + bz + " : fenêtre fermée");
+    }
+
+    @Test
+    void tourCompletDuTroncCoinsEnchaines() {
+        List<Face> horaire = List.of(Face.E, Face.S, Face.W, Face.N), inverse = List.of(Face.E, Face.N, Face.W, Face.S);
+        List<Face> depuisLeNord = List.of(Face.N, Face.E, Face.S, Face.W);
+        for (int[] bloc : new int[][] {{0, 0}, {-7, -3}}) {
+            // deux tours complets, virages les plus courts (6 ticks) puis les plus longs (10 ticks), avec ou sans attente
+            tourDuTronc(bloc[0], bloc[1], 70.2, horaire, 8, 0, 6);
+            tourDuTronc(bloc[0], bloc[1], 70.2, horaire, 8, 3, 6);
+            tourDuTronc(bloc[0], bloc[1], 70.2, inverse, 8, 3, 10);
+            tourDuTronc(bloc[0], bloc[1], 70.2, depuisLeNord, 8, 10, 10);
+            // P à cheval sur deux rangs, et P posé pile sur un rang
+            tourDuTronc(bloc[0], bloc[1], 70.75, inverse, 4, 5, 8);
+            tourDuTronc(bloc[0], bloc[1], -12.0, horaire, 4, 5, 8);
+        }
+    }
+
     /* ================================================================ paquets refusés */
 
     @Test
@@ -359,6 +1013,48 @@ class MurReglesTest {
         assertTrue(c.passe(1010));
     }
 
+    @Test
+    void triDeLaCadence() {
+        Demande lache = new Demande(Action.LACHE, null, 2, 7);
+        Demande accroche = new Demande(Action.ACCROCHE, Face.N, 0, 8);
+        // un lache passe toujours, au mur ou non : le jeter laisserait la marche ouverte côté serveur
+        assertFalse(MurRegles.soumisACadence(lache, Face.N, Face.E));
+        assertFalse(MurRegles.soumisACadence(lache, null, null));
+        // une accroche crée un état : elle compte, même redemandée sur la face tenue
+        assertTrue(MurRegles.soumisACadence(accroche, null, null));
+        assertTrue(MurRegles.soumisACadence(accroche, Face.N, null));
+        // au mur N, sans virage passé : N est un accusé, E une face nouvelle
+        assertFalse(MurRegles.soumisACadence(new Demande(Action.FACE, Face.N, 0, 9), Face.N, null));
+        assertTrue(MurRegles.soumisACadence(new Demande(Action.FACE, Face.E, 0, 9), Face.N, null));
+        // au mur N après un virage depuis E : revenir sur E annule le virage, W reste une face nouvelle
+        assertFalse(MurRegles.soumisACadence(new Demande(Action.FACE, Face.E, 0, 10), Face.N, Face.E));
+        assertTrue(MurRegles.soumisACadence(new Demande(Action.FACE, Face.W, 0, 10), Face.N, Face.E));
+        // pas au mur : une face compte (le serveur la refusera)
+        assertTrue(MurRegles.soumisACadence(new Demande(Action.FACE, Face.N, 0, 11), null, null));
+
+        // le chemin du serveur, de bout en bout : une rafale de faces, puis un lache et une annulation hors budget
+        Cadence c = new Cadence(2, 1000);
+        Tenue t = new Tenue(Face.N);
+        int jetees = 0;
+        for (int i = 0; i < 4; i++) {
+            Demande d = MurRegles.lire(("{\"v\":1,\"a\":\"face\",\"f\":\"" + (i % 2 == 0 ? "E" : "W") + "\",\"n\":" + i + "}")
+                    .getBytes(StandardCharsets.UTF_8));
+            assertNotNull(d);
+            if (MurRegles.soumisACadence(d, t.face(), t.faceAvant()) && !c.passe(i)) jetees++;
+        }
+        assertEquals(2, jetees, "deux faces nouvelles au-delà du budget de 2");
+        t.tourner(Face.E, null, 0);
+        Demande retour = MurRegles.lire("{\"v\":1,\"a\":\"face\",\"f\":\"N\",\"n\":5}".getBytes(StandardCharsets.UTF_8));
+        Demande fin = MurRegles.lire("{\"v\":1,\"a\":\"lache\",\"c\":0}".getBytes(StandardCharsets.UTF_8));
+        assertFalse(MurRegles.soumisACadence(retour, t.face(), t.faceAvant()), "l'annulation hors budget est suivie");
+        assertFalse(MurRegles.soumisACadence(fin, t.face(), t.faceAvant()), "le lache hors budget est suivi");
+        assertFalse(c.passe(5), "le budget reste épuisé : seul le tri les a laissés passer");
+
+        // la réponse à une face nouvelle hors budget : un refus qui nomme l'action, pour que le mod reste au bord
+        String refus = new String(MurRegles.refus("Trop de demandes.", Action.FACE, 3), StandardCharsets.UTF_8);
+        assertEquals("{\"v\":1,\"t\":\"refus\",\"m\":\"Trop de demandes.\",\"a\":\"face\",\"n\":3}", refus);
+    }
+
     /* ================================================================ bilan */
 
     @Test
@@ -413,7 +1109,15 @@ class MurReglesTest {
         c.degats = 5;
         c.lachersServeur = 1;
         c.dernierLacher = "Plus de mur plein derrière toi.";
+        c.faces = 6;
+        c.facesRefusees = 2;
+        c.dernierRefusFace = Jugement.PAS_DE_MUR.refus;
         List<String> l = c.lignes(true, false, Face.E, 200_000);
+        assertTrue(l.contains("Changements de face acceptés : 6"), l.toString());
+        assertTrue(l.contains("Changements de face refusés : 2"));
+        assertTrue(l.contains("Dernier refus de face : Pas de mur plein derrière cet angle."));
+        assertTrue(l.indexOf("Changements de face acceptés : 6") > l.indexOf("Dernier refus : Pas de mur plein derrière toi."),
+                "les coins viennent après les accroches");
         assertTrue(l.contains("Permis : allumé"), l.toString());
         assertTrue(l.contains("Filet : éteint"));
         assertTrue(l.contains("Au mur en ce moment : oui, face E"));
@@ -451,6 +1155,8 @@ class MurReglesTest {
         assertTrue(vide.contains("Permis : éteint"));
         assertTrue(vide.contains("Filet : allumé"));
         assertTrue(vide.contains("Au mur en ce moment : non"));
+        assertTrue(vide.contains("Changements de face acceptés : 0"));
+        assertTrue(vide.contains("Changements de face refusés : 0"));
         assertTrue(vide.contains("Corrections par minute de mur : trop tôt pour le dire"));
         assertTrue(vide.stream().noneMatch(s -> s.startsWith("Derni")), "ni refus, ni expulsion, ni lâcher à citer");
         assertTrue(vide.stream().noneMatch(s -> s.contains("marche en cours")), "hors du mur : pas de mention");
